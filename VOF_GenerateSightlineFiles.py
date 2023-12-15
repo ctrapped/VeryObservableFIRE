@@ -1,6 +1,7 @@
 import numpy as np
 import h5py as h5py
 import math
+import time
 
 import scipy
 
@@ -13,6 +14,11 @@ from VOF_OrientGalaxy import CenterOnObserver
 from VOF_OrientGalaxy import OrientGalaxy
 from VOF_GetParticlesInSightline import GetParticlesInSightline
 
+from joblib import Parallel, delayed
+import multiprocessing
+from multiprocessing import Pool
+
+from functools import partial
 
 unit_M = 10**10 * 1.98855 *10**33 #10^10 solar masses / h !!in grams!! #h accounted for in readsnap
 unit_L = 3.086*10**21 #1 kpc / h !!in cm!!
@@ -31,6 +37,18 @@ arcsec2rad = pi / (180*3600)
 ####
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 ####Updated 12/08/2023
+
+def foo(thread_id,Nsightlines_1d,sightlines,gPos,gKernal,beamSize,rmag,max_r):
+    ix=thread_id % Nsightlines_1d #Thread pixel coordinates
+    iy = int(np.floor(thread_id / Nsightlines_1d))
+    print("Generating sightline [",ix,',',iy,']')
+    mask,impact,distance=GetParticlesInSightline(sightlines[ix,iy,:],gPos,gKernal,beamSize,rmag,max_r)
+    #Nsightline = i*Nsightlines_1d+j
+    #saveFile = output+"_allSightlines.hdf5"
+    # SaveSightline(sightlines[i,j,:],mask,impact,distance,pos_observer,vel_observer,saveFile,Nsightline) #Save information for parallel spectra generation
+
+    return mask,impact,distance
+
 
 def GenerateSightlineFiles(snapdir,Nsnapstring,statsDir,observer_position,observer_velocity,outputs,maxima,beamSize = 1*arcsec2rad,Nsightlines=100,sightlines=None,phiObs=0,inclination=0):
     max_r,maxPhi,maxTheta = maxima;
@@ -58,6 +76,7 @@ def GenerateSightlineFiles(snapdir,Nsnapstring,statsDir,observer_position,observ
     defineRotationCurve=False
     
     if observer_velocity is None: defineRotationCurve=True
+    
     if defineRotationCurve:
         #Load the star particles
         sPos,sVel,sMass = LoadData(snapdir,Nsnapstring,1,max_r,pos_center,vel_center);
@@ -88,30 +107,54 @@ def GenerateSightlineFiles(snapdir,Nsnapstring,statsDir,observer_position,observ
         sightlines[:,:,1] = np.sin(indices[0,:,:]*phiRes+phi0)*np.cos(-(indices[1,:,:]*thetaRes-pi/2+theta0))
         sightlines[:,:,2] = np.sin(-(indices[1,:,:]*thetaRes-pi/2+theta0))
 
-      
+    t0=time.time()
     #For each sightline get the particles that overlap with the beam and their offset from the beam. Assumes particles are spheres (they aren't, this can be improved)
+    sightline_indices = range(0,Nsightlines)
+    num_cores = multiprocessing.cpu_count()-1
+    if num_cores>16: num_cores=16
+    print("Working with ",num_cores," cores")
+    
+    
+    #indices = np.argsort(zmag[mask]) #start with the closest particles
+
+   # print(np.shape(mask[0][indices]))
+    #return mask[0][indices],smag[mask][indices],zmag[mask][indices] #smag is impact parameter
+    
+    foo_ = partial(foo,Nsightlines_1d=Nsightlines_1d,sightlines=sightlines,gPos=gPos,gKernal=gKernal,beamSize=beamSize,rmag=rmag,max_r=max_r)
+    x= Parallel(n_jobs=num_cores)(delayed(foo_)(i) for i in sightline_indices)
+    #with Pool(processes=num_cores) as pool:
+    #    x= pool.map(foo_ , sightline_indices)
+    print("Time to run in parallel=",time.time()-t0)
+    #masks=x[:,0]
+    #impacts=x[:,1]
+    #distances=x[:,2]
+    #print("Shape of masks=",np.shape(masks))    
+    saveFile = output+"_allSightlines.hdf5"
+    hf = h5py.File(saveFile,'w') #overwrite if it exists already
+    hf.create_dataset("pos_observer",data=pos_observer)
+    hf.create_dataset("vel_observer",data=vel_observer)
     for i in range(0,Nsightlines_1d):
-        for j in range(0,Nsightlines_1d):
-            print("Generating sightline [",i,',',j,']')
-            mask,impact,distance=GetParticlesInSightline(sightlines[i,j,:],gPos,gKernal,beamSize,rmag,max_r)
+          for j in range(0,Nsightlines_1d):
             Nsightline = i*Nsightlines_1d+j
-            saveFile = output+"_allSightlines.hdf5"
-            SaveSightline(sightlines[i,j,:],mask,impact,distance,pos_observer,vel_observer,saveFile,Nsightline) #Save information for parallel spectra generation
-      
+            mask = x[Nsightline][0]
+            impact = x[Nsightline][1]
+            distance= x[Nsightline][2]
+            SaveSightline(hf,sightlines[i,j,:],mask,impact,distance,pos_observer,vel_observer,Nsightline) #Save information for parallel spectra generation
+    hf.close()
+    
 
-
-def SaveSightline(sightline,mask,impact,distance,pos_observer,vel_observer,saveFile,Nsightline):
+def SaveSightline(hf,sightline,mask,impact,distance,pos_observer,vel_observer,Nsightline):
   #Save all sightlines in their own file, but with group name equivalent to the thread id that will access it
-  hf = h5py.File(saveFile,'a') #read/write if it exists/create otherwise
+  #hf = h5py.File(saveFile,'w') #overwrite if it exists already
   groupName = "sightline"+str(Nsightline)
   hf.create_group(groupName)
   hf[groupName].create_dataset("sightline",data=sightline)
   hf[groupName].create_dataset("mask",data=mask)
   hf[groupName].create_dataset("impact",data=impact)
   hf[groupName].create_dataset("distance",data=distance)
-  hf[groupName].create_dataset("pos_observer",data=pos_observer)
-  hf[groupName].create_dataset("vel_observer",data=vel_observer)
-  hf.close()
+  #hf[groupName].create_dataset("pos_observer",data=pos_observer)
+  #hf[groupName].create_dataset("vel_observer",data=vel_observer)
+ # hf.close()
 
 
 
