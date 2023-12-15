@@ -20,7 +20,10 @@ proton_mass = 1.6726219*10**(-27)*(1000.0/unit_M) ##appropriate units
 pi = np.pi
 eps = 0.00000000000000000000000000000000000000000000001
 
-
+####Function to calculate the rotational velocity curve of a galaxy. Used for placing a mock observer within a galaxy
+####
+####Written By Cameron Trapp (ctrapped@gmail.com)
+####Updated 12/08/2023
 
 
 def FindRotationCurve(pos,vel,mass,nr,max_r):

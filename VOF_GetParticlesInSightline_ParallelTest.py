@@ -43,10 +43,15 @@ def GetParticlesInSightline(sightline,testPositions,testRadii,beamSize,rmag,max_
     
     beamRadiusPhysical=np.zeros((N))
     beamRadiusPhysical[radMask] = zmag[radMask] * beamSize / 2 #the physical size of the beam for each particle
-    mask = np.where((((smag-testRadii-beamRadiusPhysical)<0 ) & (zmag>0) & (rmag<max_r*1.5)))
-    indices = np.argsort(zmag[mask]) #start with the closest particles
+    #print("Defining mask...")
+    mask = (((smag-testRadii-beamRadiusPhysical)<0 ) & (zmag>0) & (rmag<max_r*1.5))
+    #print("Sorting...")
+ 
+    return mask,smag,zmag
+    #indices = np.argsort(zmag[mask]) #start with the closest particles
 
-    return mask[0][indices],smag[mask][indices],zmag[mask][indices] #smag is impact parameter
+   # print(np.shape(mask[0][indices]))
+    #return mask[0][indices],smag[mask][indices],zmag[mask][indices] #smag is impact parameter
     
     
 

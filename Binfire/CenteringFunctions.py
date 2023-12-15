@@ -1,10 +1,16 @@
-from shrinking_sphere import shrink_sphere
-from numpy import np
+from Binfire.shrinking_sphere import shrink_sphere
+import numpy as np
 
 unit_L = 3.086*10**21 #1 kpc / h !!in cm!!
 eps = 1e-10
 
-def FindCenter(pos_center,Gdens,Gpos,Spos,Smas,rshrinksphere=5000,rminsphere=10,shrinkfactor=0.7,shrinking_sphere_flag=1):
+
+####Various Centering functions used in Binfire
+####
+####Written By Cameron Trapp (ctrapped@gmail.com)
+####Updated 12/14/2023
+
+def FindCenter(pos_center,Gdens,Gpos,Spos,Smas,rshrinksphere,rminsphere,shrinkfactor,shrinking_sphere_flag,old_a=None,v=None,ascale=None,mask_centers=None,mask_radius=None):
     #Function to determine the central position of a galaxy using a shrinking sphere algorithm. Also contains functionality to estimate where the center would be from a previous snapshot
     #
     #Inputs:
@@ -16,10 +22,39 @@ def FindCenter(pos_center,Gdens,Gpos,Spos,Smas,rshrinksphere=5000,rminsphere=10,
     #### rshrinksphere : initial radius of the shrinking sphere in kpc
     #### shrinkfactor : how much the sphere is reduced each iteration
     #### shrinking_sphere_flag : set to 0 to skip shrinking sphere and just go with density estimate
-
+    #### old_a : scale factor of next snapshot for use in estimating center at this snapshot
+    #### v : central velocity of next snapshot for use in estimating center at this snapshot
+    #### ascale : scale factor of this snapshot
+    #### mask_centers : list of positions to mask. Use to ignore halos
+    #### mask_radius : list of mask radii. Use to ignore halos
     N = np.size(Gdens)
     NS = np.size(Smas)
+    if ((mask_centers is not None) and (mask_radius is not None)): #Mask data to ignore a certain halo/galaxy
+        Nmask = np.size(mask_centers)/3 #Number of mask centers
+        print("Nmask is",Nmask)
+        for ii in range(0,Nmask): #Mask multiple positions
+            if Nmask > 1:
+                mask_center = np.zeros((3))
+                mask_center[:] = mask_centers[ii,:]
+            else:
+                mask_center = mask_centers
+            print("Masking at: ",mask_center)
 
+            maxima = mask_center+mask_radius;minima = mask_center - mask_radius
+            xmax = maxima[0];ymax=maxima[1];zmax=maxima[2]
+            xmin = minima[0];ymin=minima[1];zmin=minima[2]
+            gasMask = np.where( (Gpos[:,0]<xmax) & (Gpos[:,0] > xmin) & (Gpos[:,1] < ymax) & (Gpos[:,1] > ymin) & (Gpos[:,2] < zmax) & (Gpos[:,2] > zmin) )
+            starMask = np.where( (Spos[:,0]<xmax) & (Spos[:,0] > xmin) & (Spos[:,1] < ymax) & (Spos[:,1] > ymin) & (Spos[:,2] < zmax) & (Spos[:,2] > zmin) )
+            Gdens[gasMask] = 0 #Won't Modify actual variables
+            Smas[starMask] = 0
+ 
+        
+        
+
+
+    if ((old_a is not None) and (v is not None) and (ascale is not None)):
+        delta_pos = v*(ascale-old_a)
+        pos_center = pos_center+delta_pos 
 
         
     if pos_center is None:
@@ -47,6 +82,9 @@ def FindCenter(pos_center,Gdens,Gpos,Spos,Smas,rshrinksphere=5000,rminsphere=10,
       print("Skipping Shrinking Sphere...")
       print("Center at:",pos_center)
     return pos_center
+    
+    
+    
 
 def FindAngularMomentum(nh,Gpos,Gmom,Gtemp,r2):
     #Function to find orientation of the galaxy based on the average angular momentum vector of the cold dense gas
@@ -78,74 +116,14 @@ def FindAngularMomentum(nh,Gpos,Gmom,Gtemp,r2):
     Lhat[:] = np.divide(L_avg,L_avg_mag)
     return Lhat
     
-    
-    
-def OrientGalaxy(pos,vel,Lhat,r0,returnPhi=False):
-    #Function to transform positions and velocity vectors to a coordinate system with the z direction defined by the angular momentum vector Lhat and the x direction defined by arbitrary direction r0. Probably simpler and more elegant ways to rotate these matrices...
-    #Inputs:
-    #### pos: position of particles to orient (Should be centered already)
-    #### vel: velocity of particles to orient
-    #### Lhat: Vector to define the zhat direction in the new coordinate system 
-    #### r0: Vector to define the xhat direction in the new coordinate system. Should be perpindicular to zhat
-    #### returnPhi: Return phi coordinate
-    
-    N,dim = np.shape(pos)
-    r_z = np.zeros((N,3))
-    r_s = np.zeros((N,3))
 
-    smag = np.zeros((N))
-    zmag = np.zeros((N))
+def center_of_mass_velocity(mas,vel):
+    mtot = np.sum(mas)
+    v_com = np.zeros((3))
+    v_com[0] = np.dot(mas,vel[:,0])/mtot
+    v_com[1] = np.dot(mas,vel[:,1])/mtot
+    v_com[2] = np.dot(mas,vel[:,2])/mtot
+    return v_com
 
-    zmag = np.dot(pos,Lhat)
-    r_z[:,0] = zmag*Lhat[0]
-    r_z[:,1] = zmag*Lhat[1]
-    r_z[:,2] = zmag*Lhat[2]
 
-    r_s = np.subtract(pos,r_z)
-    smag = VectorArrayMag(r_s)
-    smag[smag==0] = eps #make zero entries epsilon for division purposes
 
-    s_hat = np.zeros((N,3))
-    t_hat = np.zeros((N,3))
-
-    s_hat[:,0] = np.divide(r_s[:,0],smag)
-    s_hat[:,1] = np.divide(r_s[:,1],smag)
-    s_hat[:,2] = np.divide(r_s[:,2],smag)
-    t_hat = np.cross(Lhat,s_hat)
-
-    phi = np.zeros((N))
-
-    acos_term = np.divide(np.dot(r_s,r0),(np.linalg.norm(r0)*smag))
-    acos_term[acos_term>1] = 1 #make sure the term isn't above magnitude 1 by a rounding error
-    acos_term[acos_term<-1] = -1
-    phi = np.multiply( np.arccos(acos_term) , np.sign(np.dot(np.cross(r0,r_s),Lhat))) #first term gets us |phi| from 0 to pi, second term gives us the sign
-    del acos_term
-
-    phi[phi<0] = phi[phi<0] + 2*pi #make all values range from 0 to pi
-
-    xmag = np.multiply(smag,np.cos(phi))
-    ymag = np.multiply(smag,np.sin(phi))
-
-    xhat = r0
-    zhat = Lhat
-    yhat = np.cross(zhat,xhat)
-
-    pos[:,0] = xmag
-    pos[:,1] = ymag
-    pos[:,2] = zmag
-
-    if vel is not None:
-        vel_tmp = np.copy(vel)
-        vel[:,0] = np.multiply(vel_tmp[:,0],xhat[0]) + np.multiply(vel_tmp[:,1],xhat[1]) + np.multiply(vel_tmp[:,2],xhat[2]);
-        vel[:,1] = np.multiply(vel_tmp[:,0],yhat[0]) + np.multiply(vel_tmp[:,1],yhat[1]) + np.multiply(vel_tmp[:,2],yhat[2]);
-        vel[:,2] = np.multiply(vel_tmp[:,0],zhat[0]) + np.multiply(vel_tmp[:,1],zhat[1]) + np.multiply(vel_tmp[:,2],zhat[2]);
-
-        if returnPhi:
-            return pos,vel,phi
-        else:
-            return pos,vel
-    else:
-        if returnPhi:
-            return pos,phi
-        else:
-            return pos

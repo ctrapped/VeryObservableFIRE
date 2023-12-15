@@ -12,6 +12,12 @@ pi = np.pi
 eps = 0.00000000000000000000000000000000000000000000001
 atomsPerMol = 6.02214*np.power(10.,23.) #Avagadro's Number
 
+####Functions to read in emission species parameters for generating emission/absorption
+####
+####Written By Cameron Trapp (ctrapped@gmail.com)
+####Updated 12/08/2023
+
+
 def GetEmissionSpeciesParameters(speciesName):
     n_u_fraction = None
     n_l_fraction = None
@@ -59,7 +65,7 @@ def GetEmissionSpeciesParameters(speciesName):
 
         gamma_ul = A_ps # s is ground state, p is first excited state
         A_ul = A_ps
-        Elevels,Glevels = ReadNistEnergyLevels("VeryObservableFIRE/EnergyLevels/NIST_NaI_EnergyLevels.txt")
+        Elevels,Glevels = ReadNistEnergyLevels("EnergyLevels/NIST_NaI_EnergyLevels.txt")
     elif speciesName=='NaI_D2':
         #2p^6 3p - > 2p^6 3s 5889.9
         species_mass = 22.98977 / atomsPerMol / unit_M #amu to g to unit mass
@@ -71,7 +77,7 @@ def GetEmissionSpeciesParameters(speciesName):
 
         gamma_ul = A_ps # s is ground state, p is first excited state
         A_ul = A_ps
-        Elevels,Glevels = ReadNistEnergyLevels("VeryObservableFIRE/EnergyLevels/NIST_NaI_EnergyLevels.txt")
+        Elevels,Glevels = ReadNistEnergyLevels("EnergyLevels/NIST_NaI_EnergyLevels.txt")
     else:
     	print("Error: Parameters for "+speciesName+" have not been defined.")
     	return 0,0,0,0,0,0,0,0,0,0,0
@@ -113,7 +119,7 @@ def ReadNistEnergyLevels(filedir):
     return Elevels,Glevels
     
 
-ReadNistEnergyLevels("VeryObservableFIRE/EnergyLevels/NIST_NaI_EnergyLevels.txt")
+ReadNistEnergyLevels("EnergyLevels/NIST_NaI_EnergyLevels.txt")
 
 
        

@@ -1,5 +1,10 @@
 import numpy as np
+pi=np.pi
 arcsec = (1. /60. / 60.) * pi/180.
+####Modify the values of each parameter to run VeryObservableFIRE. Pass the name of this file (e.g param_template) when you run VOF_CreateDataset.py
+####
+####Written By Cameron Trapp (ctrapped@gmail.com)
+####Updated 12/08/2023
 
 #### File Parameters ####
 galName = 'm12i' #Simulation name as a string
@@ -8,7 +13,7 @@ maxSnap = 590 #Ending snapshot number as an int
 fileDir = '..\\FIRE_Simulations\\'+galName+'_cr700\\output\\snapdir_' #Path to the directory with snapshots. Should end without the trailing snapshot number
 statsDir= '..\\FIRE_Simulations\\'+galName+'_cr700\\stats\\'+galName+'_cr700_stats_' #Path to a directory to store stats info. Will create .hdf5 file if doesn't exist
 output= 'galfitData\\fire2_velocitySpace\\' #Directory to write outputs
-sightlineDir=output+'sightlines\\'+galName+'_cr700_' #Subdirectory to store sightline files
+sightlineDir=output+'sightlines\\'+galName+'_cr700' #Subdirectory to store sightline files
 #############################
 
 
@@ -22,7 +27,6 @@ savePng=True #[True]=Generate images showing annotations+images
 
 writeMassFlux=True #[True]=Generate mass flux annotations
 writeMass=True #[True]=Generate mass annotations
-writeTiltedRing=False #[True]=Generate tilted ring annotations [deprecated]
 writeRotationCurve=True #[True]=Generate rotation curve annotations
 #############################
 
@@ -51,6 +55,6 @@ def LoadObserverInfo():
     return observerDistance,observerVelocity,maxRadius,maxHeight,binsizes,targetBeamSize,Nsightlines1d,phiObs,inclinations,speciesToRun,bandwidth_km_s,res_km_s
 
 def LoadParameters():
-    return replaceAnnotationsFile,runBinfire,runVOF,createSightlineFiles,savePng,writeMassFlux,writeMass,writeTiltedRing,writeRotationCurve
+    return replaceAnnotationsFile,runBinfire,runVOF,createSightlineFiles,savePng,writeMassFlux,writeMass,writeRotationCurve
     
     

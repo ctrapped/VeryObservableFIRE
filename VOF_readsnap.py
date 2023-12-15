@@ -1,10 +1,11 @@
 import numpy as np
 import h5py as h5py
 import os.path
-import scipy.interpolate as interpolate
-import scipy.optimize as optimize
-import math
-import time
+
+####Legacy io functions to read in FIRE snapshots
+####
+####Modified By Cameron Trapp (ctrapped@gmail.com)
+####Updated 12/08/2023
 
 
 def readsnap_initial(sdir,snum,ptype,
@@ -117,126 +118,6 @@ def readsnap_initial(sdir,snum,ptype,
     #    return {'k':1,'p':pos,'rho':rho, 'header':newheader}; #Return Density for gas to help with centering
 
     return {'k':1,'p':pos, 'header':newheader}
-
-
-def readsnap_firelineIntersection(sdir,snum,ptype,
-    snapshot_name='snapshot',
-    extension='.hdf5',
-    h0=0,cosmological=0,skip_bh=0,four_char=0,
-    header_only=0,loud=0):
-    
-    if (ptype<0): return {'k':-1};
-    if (ptype>5): return {'k':-1};
-
-    fname,fname_base,fname_ext = check_if_filename_exists(sdir,snum,\
-        snapshot_name=snapshot_name,extension=extension,four_char=four_char)
-
-    if(fname=='NULL'): return {'k':-1}
-    if(loud==1): print('loading file : '+fname)
-
-    ## open file and parse its header information
-    nL = 0 # initial particle point to start at 
-    if(fname_ext=='.hdf5'):
-        file = h5py.File(fname,'r') # Open hdf5 snapshot file
-        header_master = file["Header"] # Load header dictionary (to parse below)
-        header_toparse = header_master.attrs
-    else:
-        file = open(fname) # Open binary snapshot file
-        header_toparse = load_gadget_binary_header(file)
-
-    npart = header_toparse["NumPart_ThisFile"]
-    massarr = header_toparse["MassTable"]
-    time_var = header_toparse["Time"]
-    redshift = header_toparse["Redshift"]
-    flag_sfr = header_toparse["Flag_Sfr"]
-    flag_feedbacktp = header_toparse["Flag_Feedback"]
-    npartTotal = header_toparse["NumPart_Total"]
-    flag_cooling = header_toparse["Flag_Cooling"]
-    numfiles = header_toparse["NumFilesPerSnapshot"]
-    boxsize = header_toparse["BoxSize"]
-    omega_matter = header_toparse["Omega0"]
-    omega_lambda = header_toparse["OmegaLambda"]
-    hubble = header_toparse["HubbleParam"]
-    flag_stellarage = header_toparse["Flag_StellarAge"]
-    flag_metals = header_toparse["Flag_Metals"]
-    newheader = [npart, massarr, time_var, redshift, flag_sfr, flag_feedbacktp, npartTotal, flag_cooling, numfiles, boxsize, omega_matter, omega_lambda, hubble, flag_stellarage, flag_metals]
-    print("npart_file: ",npart)
-    print("npart_total:",npartTotal)
-
-    hinv=1.
-    if (h0==1):
-        hinv=1./hubble
-    ascale=1.
-    if (cosmological==1):
-        ascale=time_var
-        hinv=1./hubble
-    if (cosmological==0): 
-        time_var*=hinv
-    
-    boxsize*=hinv*ascale
-    if (npartTotal[ptype]<=0): file.close(); return {'k':-1};
-    if (header_only==1): file.close(); return {'k':0,'time':time_var,
-        'boxsize':boxsize,'hubble':hubble,'npart':npart,'npartTotal':npartTotal};
-
-    # initialize variables to be read
-
-    pos=np.zeros([npartTotal[ptype],3],dtype=float)
-    pid = np.zeros(npartTotal[ptype],dtype=int)
-    cid = np.copy(pid)
-    gen = np.copy(pid)
-    #if (ptype==0):
-    #    rho=np.zeros([npartTotal[ptype]],dtype=float)
-
-    # loop over the snapshot parts to get the different data pieces
-    for i_file in range(numfiles):
-        
-        if (numfiles>1):
-            file.close()
-            fname = fname_base+'.'+str(i_file)+fname_ext
-            if(fname_ext=='.hdf5'):
-                file = h5py.File(fname,'r') # Open hdf5 snapshot file
-            else:
-                file = open(fname) # Open binary snapshot file
-                header_toparse = load_gadget_binary_header(file)
-                
-        if (fname_ext=='.hdf5'):
-            input_struct = file
-            npart = file["Header"].attrs["NumPart_ThisFile"]
-            bname = "PartType"+str(ptype)+"/"
-        else:
-            npart = header_toparse['NumPart_ThisFile']
-            input_struct = load_gadget_binary_particledat(file, header_toparse, ptype, skip_bh=skip_bh)
-            bname = ''
-            
-        
-        # now do the actual reading
-        print(npart[ptype])
-        if(npart[ptype]>0):
-            nR=nL + npart[ptype]
-            print("Reading Positions",i_file+1,"/",numfiles)
-            pos[nL:nR,:]=input_struct[bname+"Coordinates"]
-            pid[nL:nR]=input_struct[bname+"ParticleIDs"]
-            cid[nL:nR]=input_struct[bname+"ParticleChildIDsNumber"]
-            gen[nL:nR]=input_struct[bname+"ParticleIDGenerationNumber"]
-            #if (ptype==0):
-                #print "Reading Densities",i_file+1,"/",numfiles
-                #rho[nL:nR]=input_struct[bname+"Density"]
-            nL = nR # sets it for the next iteration	
-
-
-    # do the cosmological conversions on final vectors as needed
-    pos *= hinv*ascale # snapshot units are comoving
-    #if (ptype==0):
-    #    rho *= (hinv/((ascale*hinv)**3))
-
-
-    file.close();
-    #if (ptype==0):
-    #    return {'k':1,'p':pos,'rho':rho, 'header':newheader}; #Return Density for gas to help with centering
-
-    return {'k':1,'p':pos,'pid':pid,'cid':cid,'gen':gen, 'header':newheader}
-
-
 
 
 
@@ -816,264 +697,6 @@ def readsnap_sightline_itr(sdir,snum,ptype,
 
 
 
-def readsnap_trunc_sightline_gen(sdir,snum,ptype,truncMask,
-    snapshot_name='snapshot',
-    extension='.hdf5',
-    h0=0,cosmological=0,skip_bh=0,four_char=0,
-    header_only=0,loud=0):
-    
-    if (ptype<0): return {'k':-1};
-    if (ptype>5): return {'k':-1};
-
-    fname,fname_base,fname_ext = check_if_filename_exists(sdir,snum,\
-        snapshot_name=snapshot_name,extension=extension,four_char=four_char)
-
-    if(fname=='NULL'): return {'k':-1}
-    if(loud==1): print('loading file : '+fname)
-
-    ## open file and parse its header information
-    nL = 0 # initial particle point to start at
-    nL0 = 0
-    if(fname_ext=='.hdf5'):
-        file = h5py.File(fname,'r') # Open hdf5 snapshot file
-        header_master = file["Header"] # Load header dictionary (to parse below)
-        header_toparse = header_master.attrs
-    else:
-        file = open(fname) # Open binary snapshot file
-        header_toparse = load_gadget_binary_header(file)
-
-    npart = header_toparse["NumPart_ThisFile"]
-    massarr = header_toparse["MassTable"]
-    time_var = header_toparse["Time"]
-    redshift = header_toparse["Redshift"]
-    flag_sfr = header_toparse["Flag_Sfr"]
-    flag_feedbacktp = header_toparse["Flag_Feedback"]
-    npartTotal = header_toparse["NumPart_Total"]
-    flag_cooling = header_toparse["Flag_Cooling"]
-    numfiles = header_toparse["NumFilesPerSnapshot"]
-    boxsize = header_toparse["BoxSize"]
-    omega_matter = header_toparse["Omega0"]
-    omega_lambda = header_toparse["OmegaLambda"]
-    hubble = header_toparse["HubbleParam"]
-    flag_stellarage = header_toparse["Flag_StellarAge"]
-    flag_metals = header_toparse["Flag_Metals"]
-    newheader = [npart, massarr, time_var, redshift, flag_sfr, flag_feedbacktp, npartTotal, flag_cooling, numfiles, boxsize, omega_matter, omega_lambda, hubble, flag_stellarage, flag_metals]
-    print("npart_file: ",npart)
-    print("npart_total:",npartTotal)
-
-    hinv=1.
-    if (h0==1):
-        hinv=1./hubble
-    ascale=1.
-    if (cosmological==1):
-        ascale=time_var
-        hinv=1./hubble
-    if (cosmological==0): 
-        time_var*=hinv
-    
-    boxsize*=hinv*ascale
-    if (npartTotal[ptype]<=0): file.close(); return {'k':-1};
-    if (header_only==1): file.close(); return {'k':0,'time':time_var,
-        'boxsize':boxsize,'hubble':hubble,'npart':npart,'npartTotal':npartTotal};
-
-    # initialize variables to be read
-    Ntrunc =  np.size(np.where(truncMask))
-    #mass=np.zeros(Ntrunc,dtype=float)
-    #if (ptype==0) or (ptype==4):
-    #if True:
-    #    vel=np.zeros([Ntrunc,3],dtype=float)
-
-    if (ptype==0):
-    #    rho=np.copy(mass)
-    #    ugas=np.copy(mass)
-        hsml=np.zeros(Ntrunc,dtype=float) 
-    #    if (flag_cooling>0): 
-    #        nume=np.copy(mass)
-    #        numh=np.copy(mass)
-    #if (ptype==0) and (flag_metals > 0):
-    #    metal=np.zeros([Ntrunc,flag_metals],dtype=float)
-    #if (ptype==4) and (flag_sfr>0) and (flag_stellarage>0):
-    #    stellage=np.copy(mass)
-
-    # loop over the snapshot parts to get the different data pieces
-    for i_file in range(numfiles):
-        
-        if (numfiles>1):
-            file.close()
-            fname = fname_base+'.'+str(i_file)+fname_ext
-            if(fname_ext=='.hdf5'):
-                file = h5py.File(fname,'r') # Open hdf5 snapshot file
-            else:
-                file = open(fname) # Open binary snapshot file
-                header_toparse = load_gadget_binary_header(file)
-                
-        if (fname_ext=='.hdf5'):
-            input_struct = file
-            npart = file["Header"].attrs["NumPart_ThisFile"]
-            bname = "PartType"+str(ptype)+"/"
-        else:
-            npart = header_toparse['NumPart_ThisFile']
-            input_struct = load_gadget_binary_particledat(file, header_toparse, ptype, skip_bh=skip_bh)
-            bname = ''
-            
-        
-        # now do the actual reading
-        
-        if(npart[ptype]>0):
-            nR0=nL0 + npart[ptype]
-            nR=nL + np.size(np.where(truncMask[nL0:nR0]))
-            if nR>nL:
-             if (ptype==0):
-                print("Reading SmoothingLength",i_file+1,"/",numfiles)
-                tmp = np.zeros((nR0-nL0))
-                tmp[:]=(input_struct[bname+"SmoothingLength"])
-                hsml[nL:nR]=tmp[truncMask[nL0:nR0]]
-                del tmp
-
-            nL = nR # sets it for the next iteration
-            nL0 = nR0   
-
-
-    # do the cosmological conversions on final vectors as needed
-    
-    if (ptype==0):
-        hsml *= hinv*ascale
-    
-    file.close();
-    if (ptype==0):
-        return {'k':1,'h':hsml, 'header':newheader};
-
-def readsnap_trunc_sightline_gen2(sdir,snum,ptype,truncMask,
-    snapshot_name='snapshot',
-    extension='.hdf5',
-    h0=0,cosmological=0,skip_bh=0,four_char=0,
-    header_only=0,loud=0):
-    
-    if (ptype<0): return {'k':-1};
-    if (ptype>5): return {'k':-1};
-
-    fname,fname_base,fname_ext = check_if_filename_exists(sdir,snum,\
-        snapshot_name=snapshot_name,extension=extension,four_char=four_char)
-
-    if(fname=='NULL'): return {'k':-1}
-    if(loud==1): print('loading file : '+fname)
-
-    ## open file and parse its header information
-    nL = 0 # initial particle point to start at
-    nL0 = 0
-    if(fname_ext=='.hdf5'):
-        file = h5py.File(fname,'r') # Open hdf5 snapshot file
-        header_master = file["Header"] # Load header dictionary (to parse below)
-        header_toparse = header_master.attrs
-    else:
-        file = open(fname) # Open binary snapshot file
-        header_toparse = load_gadget_binary_header(file)
-
-    npart = header_toparse["NumPart_ThisFile"]
-    massarr = header_toparse["MassTable"]
-    time_var = header_toparse["Time"]
-    redshift = header_toparse["Redshift"]
-    flag_sfr = header_toparse["Flag_Sfr"]
-    flag_feedbacktp = header_toparse["Flag_Feedback"]
-    npartTotal = header_toparse["NumPart_Total"]
-    flag_cooling = header_toparse["Flag_Cooling"]
-    numfiles = header_toparse["NumFilesPerSnapshot"]
-    boxsize = header_toparse["BoxSize"]
-    omega_matter = header_toparse["Omega0"]
-    omega_lambda = header_toparse["OmegaLambda"]
-    hubble = header_toparse["HubbleParam"]
-    flag_stellarage = header_toparse["Flag_StellarAge"]
-    flag_metals = header_toparse["Flag_Metals"]
-    newheader = [npart, massarr, time_var, redshift, flag_sfr, flag_feedbacktp, npartTotal, flag_cooling, numfiles, boxsize, omega_matter, omega_lambda, hubble, flag_stellarage, flag_metals]
-    print("npart_file: ",npart)
-    print("npart_total:",npartTotal)
-
-    hinv=1.
-    if (h0==1):
-        hinv=1./hubble
-    ascale=1.
-    if (cosmological==1):
-        ascale=time_var
-        hinv=1./hubble
-    if (cosmological==0): 
-        time_var*=hinv
-    
-    boxsize*=hinv*ascale
-    if (npartTotal[ptype]<=0): file.close(); return {'k':-1};
-    if (header_only==1): file.close(); return {'k':0,'time':time_var,
-        'boxsize':boxsize,'hubble':hubble,'npart':npart,'npartTotal':npartTotal};
-
-    # initialize variables to be read
-    Ntrunc =  np.size(np.where(truncMask))
-    pid = np.zeros(Ntrunc,dtype=int)
-    cid = np.copy(pid)
-    gen = np.copy(pid)
-
-    if (ptype==0):
-        hsml=np.zeros(Ntrunc,dtype=float) 
-
-
-    # loop over the snapshot parts to get the different data pieces
-    for i_file in range(numfiles):
-        
-        if (numfiles>1):
-            file.close()
-            fname = fname_base+'.'+str(i_file)+fname_ext
-            if(fname_ext=='.hdf5'):
-                file = h5py.File(fname,'r') # Open hdf5 snapshot file
-            else:
-                file = open(fname) # Open binary snapshot file
-                header_toparse = load_gadget_binary_header(file)
-                
-        if (fname_ext=='.hdf5'):
-            input_struct = file
-            npart = file["Header"].attrs["NumPart_ThisFile"]
-            bname = "PartType"+str(ptype)+"/"
-        else:
-            npart = header_toparse['NumPart_ThisFile']
-            input_struct = load_gadget_binary_particledat(file, header_toparse, ptype, skip_bh=skip_bh)
-            bname = ''
-            
-        
-        # now do the actual reading
-        
-        if(npart[ptype]>0):
-            nR0=nL0 + npart[ptype]
-            nR=nL + np.size(np.where(truncMask[nL0:nR0]))
-            if nR>nL:
-
-
-             print("Reading ids",i_file+1,"/",numfiles)
-             pid[nL:nR]=(input_struct[bname+"ParticleIDs"])[truncMask[nL0:nR0]]
-             cid[nL:nR]=(input_struct[bname+"ParticleChildIDsNumber"])[truncMask[nL0:nR0]]
-             gen[nL:nR]=(input_struct[bname+"ParticleIDGenerationNumber"])[truncMask[nL0:nR0]]
-             
-
-             if (ptype==0):
-                print("Reading SmoothingLength",i_file+1,"/",numfiles)
-                tmp = np.zeros((nR0-nL0))
-                tmp[:]=(input_struct[bname+"SmoothingLength"])
-                hsml[nL:nR]=tmp[truncMask[nL0:nR0]]
-                del tmp
-                
-            nL = nR # sets it for the next iteration
-            nL0 = nR0	
-
-
-    # do the cosmological conversions on final vectors as needed
-
-    if (ptype==0):
-        hsml *= hinv*ascale
-
-
-    file.close();
-    if (ptype==0):
-        return {'k':1,'h':hsml, 'pid':pid, 'cid':cid, 'gen':gen, 'header':newheader};
-    if (ptype==4):
-        return {'k':1,'pid':pid, 'cid':cid, 'gen':gen, 'header':newheader}
-        
-    return {'k':1,'pid':pid, 'cid':cid, 'gen':gen, 'header':newheader}
-
 def readsnap_sightline_gen(sdir,snum,ptype,
     snapshot_name='snapshot',
     extension='.hdf5',
@@ -1135,9 +758,9 @@ def readsnap_sightline_gen(sdir,snum,ptype,
         'boxsize':boxsize,'hubble':hubble,'npart':npart,'npartTotal':npartTotal};
 
     # initialize variables to be read
-    pid = np.zeros(npartTotal[ptype],dtype=int)
-    cid = np.copy(pid)
-    gen = np.copy(pid)
+    #pid = np.zeros(npartTotal[ptype],dtype=int)
+    #cid = np.copy(pid)
+    #gen = np.copy(pid)
 
     if (ptype==0):
         hsml=np.zeros(npartTotal[ptype],dtype=float) 
@@ -1172,10 +795,10 @@ def readsnap_sightline_gen(sdir,snum,ptype,
             if nR>nL:
 
 
-             print("Reading ids",i_file+1,"/",numfiles)
-             pid[nL:nR]=(input_struct[bname+"ParticleIDs"])
-             cid[nL:nR]=(input_struct[bname+"ParticleChildIDsNumber"])
-             gen[nL:nR]=(input_struct[bname+"ParticleIDGenerationNumber"])
+             #print("Reading ids",i_file+1,"/",numfiles)
+             #pid[nL:nR]=(input_struct[bname+"ParticleIDs"])
+             #cid[nL:nR]=(input_struct[bname+"ParticleChildIDsNumber"])
+             #gen[nL:nR]=(input_struct[bname+"ParticleIDGenerationNumber"])
              
 
              if (ptype==0):
@@ -1193,11 +816,11 @@ def readsnap_sightline_gen(sdir,snum,ptype,
 
     file.close();
     if (ptype==0):
-        return {'k':1,'h':hsml, 'pid':pid, 'cid':cid, 'gen':gen, 'header':newheader};
+        return {'k':1,'h':hsml, 'header':newheader};
     if (ptype==4):
-        return {'k':1,'pid':pid, 'cid':cid, 'gen':gen, 'header':newheader}
+        return {'k':1, 'header':newheader}
         
-    return {'k':1,'pid':pid, 'cid':cid, 'gen':gen, 'header':newheader}
+    return {'k':1, 'header':newheader}
 
 
 def readsnap_speciesMassFrac(sdir,snum,ptype,truncMask,species,
