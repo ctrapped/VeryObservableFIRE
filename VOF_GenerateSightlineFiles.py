@@ -139,11 +139,11 @@ def GenerateSightlineFiles(snapdir,Nsnapstring,statsDir,observer_position,observ
             mask = x[Nsightline][0]
             impact = x[Nsightline][1]
             distance= x[Nsightline][2]
-            SaveSightline(hf,sightlines[i,j,:],mask,impact,distance,pos_observer,vel_observer,Nsightline) #Save information for parallel spectra generation
+            SaveSightline(hf,sightlines[i,j,:],mask,impact,distance,Nsightline) #Save information for parallel spectra generation
     hf.close()
     
 
-def SaveSightline(hf,sightline,mask,impact,distance,pos_observer,vel_observer,Nsightline):
+def SaveSightline(hf,sightline,mask,impact,distance,Nsightline):
   #Save all sightlines in their own file, but with group name equivalent to the thread id that will access it
   #hf = h5py.File(saveFile,'w') #overwrite if it exists already
   groupName = "sightline"+str(Nsightline)

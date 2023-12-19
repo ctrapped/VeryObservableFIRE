@@ -44,13 +44,14 @@ def ReadStats(statsDir):
 def ReadSightlineFile(sightlineDir,tid):
     #Read previously generated sightline information containing the direction of the sightline, intersecting particles, and relevant information to reconstruct column densities along the los
     hf = h5py.File(sightlineDir,'r')
+    pos_observer=np.array(hf['pos_observer'])
+    vel_observer=np.array(hf['vel_observer'])
     groupName = "sightline"+str(tid)
     mask = np.array(hf[groupName].get('mask'))
     impact = np.array(hf[groupName].get('impact'))
     distance = np.array(hf[groupName].get('distance'))
-    pos_observer=np.array(hf['pos_observer'])
-    vel_observer=np.array(hf['vel_observer'])
     sightline = np.array(hf[groupName].get('sightline'))
+    hf.close()
 
     return mask,impact,distance,pos_observer,vel_observer,sightline
 

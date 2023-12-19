@@ -26,11 +26,22 @@ startTime=time.time()
 paramFile = sys.argv[1]
 paramMod = importlib.import_module(paramFile)
 
-galName,minSnap,maxSnap,fileDir,statsDir,output,sightlineDir = paramMod.LoadFileInfo()
+try:
+    galName = sys.argv[2]
+    minSnap = int(sys.argv[3])
+    maxSnap = int(sys.argv[4])
+    inclination = int(sys.argv[5])
+except:
+    galName=None
+    minSnap=None
+    maxSnap=None
+    inclination=None
+
+galName,minSnap,maxSnap,fileDir,statsDir,output,sightlineDir = paramMod.LoadFileInfo(galName,minSnap,maxSnap)
 
 print("Looking at:"+fileDir)
 
-observerDistance,observerVelocity,maxRadius,maxHeight,binsizes,targetBeamSize,Nsightlines1d,phiObs,inclinations,speciesToRun,bandwidth_km_s,res_km_s=paramMod.LoadObserverInfo()
+observerDistance,observerVelocity,maxRadius,maxHeight,targetBeamSize,Nsightlines1d,phiObs,inclinations,speciesToRun,bandwidth_km_s,res_km_s=paramMod.LoadObserverInfo(inclination)
 
 beamSize = 2*maxRadius/Nsightlines1d / observerDistance
 noiseAmplitude = 0.0004 #Jy
@@ -52,7 +63,7 @@ print("#########################################################################
 replaceAnnotationsFile,runBinfire,runVOF,createSightlineFiles,savePng,writeMassFlux,writeMass,writeRotationCurve=paramMod.LoadParameters()
 
 for Nsnap in range(minSnap,maxSnap+1):
-    FireToDataset(fileDir,statsDir,Nsnap,output,sightlineDir,galName,observerDistance,observerVelocity,maxRadius,maxHeight,binsizes,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createSightlineFiles=createSightlineFiles)
+    FireToDataset(fileDir,statsDir,Nsnap,output,sightlineDir,galName,observerDistance,observerVelocity,maxRadius,maxHeight,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createSightlineFiles=createSightlineFiles)
     replaceAnnotationsFile=False
     
 print("Time to finish: ",time.time()-startTime)

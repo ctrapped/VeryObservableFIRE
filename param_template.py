@@ -36,7 +36,6 @@ observerDistance=5000 #Distance in kpc
 observerVelocity=np.array([0,0,0]) #Observer velocity
 maxRadius=40 #max radius from disk center to image
 maxHeight=10 #max height above disk plane to include
-binsizes=[2,2,20] # spatial resolution of annotation data when run in de-projected mode
 targetBeamSize=6*arcsec #beam size of instrument being modeled (in radians)
 Nsightlines1d=40 #number of sightlines along one axis
 phiObs=0 #offset image with this (radians)
@@ -48,11 +47,16 @@ res_km_s = 5.2 #spectral resolution in km/s
 #############################
 
 
-def LoadFileInfo():
+def LoadFileInfo(set_galName=None,set_minSnap=None,set_maxSnap=None):
+    if set_galName is not None: galName=set_galName
+    if set_minSnap is not None: minSnap=set_minSnap
+    if set_maxSnap is not None: maxSnap=set_maxSnap
+
     return galName,minSnap,maxSnap,fileDir,statsDir,output,sightlineDir
 
-def LoadObserverInfo():
-    return observerDistance,observerVelocity,maxRadius,maxHeight,binsizes,targetBeamSize,Nsightlines1d,phiObs,inclinations,speciesToRun,bandwidth_km_s,res_km_s
+def LoadObserverInfo(set_inclination=None):
+    if set_inclination is not None: inclinations=[set_inclination]
+    return observerDistance,observerVelocity,maxRadius,maxHeight,targetBeamSize,Nsightlines1d,phiObs,inclinations,speciesToRun,bandwidth_km_s,res_km_s
 
 def LoadParameters():
     return replaceAnnotationsFile,runBinfire,runVOF,createSightlineFiles,savePng,writeMassFlux,writeMass,writeRotationCurve

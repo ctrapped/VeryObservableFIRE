@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                     observerDistance, observerVelocity,
-                    maxRadius,maxHeight,binsizes,
+                    maxRadius,maxHeight,
                     noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,
                     phiObs,inclinations,
                     speciesToRun,Nspec,bandwidth,bandwidth_km_s,
