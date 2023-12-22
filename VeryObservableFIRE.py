@@ -9,7 +9,7 @@ from multiprocessing import Pool
 
 from functools import partial
 
-from VOF_GenerateSightlineFiles_ParallelTest import GenerateSightlineFiles
+from VOF_GenerateSightlineFiles import GenerateSightlineFiles
 from VOF_parallel_iterate_sightlines import IterateSightlines
 
 from matplotlib import pyplot as plt
