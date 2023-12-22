@@ -28,30 +28,6 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
 
     #Create synthetic image using VOF like code
     #do for a variety of inclinations + in disk observations!
-    if createImages:
-        print("Creating Synthetic Images...")
-        for inclination in inclinations:
-            print("Generating Image for inclination: ",inclination)
-            image_name=output+"i"+str(inclination)+"/training/"+galName+"_cr700_i"+str(inclination)+"_"+str(Nsnap)+"_image_04172023"
-            GenerateSyntheticImage(fileDir,
-                statsDir, #If not provided, generate
-                Nsnap,
-                image_name,
-                sightlineDir+"_i"+str(inclination)+"_"+str(Nsnap)+"_image",
-                observerDistance,
-                observerVelocity,
-                maxRadius,
-                noiseAmplitude,beamSize,targetBeamSize,
-                Nsightlines1d,
-                phiObs,
-                inclination,
-                speciesToRun,
-                Nspec,
-                bandwidth,
-                savePNG,createSightlineFiles,bandwidth_km_s=bandwidth_km_s
-                )
-
-
     if createAnnotations: #Run Binfire to create binned projection maps for radial mass flux, mass, and rotational velocities. Used as annotation files in NN training
         print("Creating Annotation files with Binfire...")
         for inclination in inclinations:
@@ -100,6 +76,32 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                     plt.savefig(annotationFileDir_RC+"_"+galName+"_RC_"+str(Nsnap)+".png")
                     plt.close()
                 
+    
+    
+    
+    if createImages:
+        print("Creating Synthetic Images...")
+        for inclination in inclinations:
+            print("Generating Image for inclination: ",inclination)
+            image_name=output+"i"+str(inclination)+"/training/"+galName+"_cr700_i"+str(inclination)+"_"+str(Nsnap)+"_image_04172023"
+            GenerateSyntheticImage(fileDir,
+                statsDir, #If not provided, generate
+                Nsnap,
+                image_name,
+                sightlineDir+"_i"+str(inclination)+"_"+str(Nsnap)+"_image",
+                observerDistance,
+                observerVelocity,
+                maxRadius,
+                noiseAmplitude,beamSize,targetBeamSize,
+                Nsightlines1d,
+                phiObs,
+                inclination,
+                speciesToRun,
+                Nspec,
+                bandwidth,
+                savePNG,createSightlineFiles,bandwidth_km_s=bandwidth_km_s
+                )
+
 
 
 
