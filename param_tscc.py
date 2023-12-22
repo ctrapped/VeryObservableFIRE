@@ -30,7 +30,7 @@ def LoadObserverInfo(set_inclination=None):
     phiObs=0 #offset image with this (radians)
     inclinations = np.array([40,50,60]) #Inclinations to image (degrees)
 
-    speciesToRun=['HI_21cm'] #List of spectra to run
+    speciesToRun='HI_21cm' #List of spectra to run
     bandwidth_km_s = 400. #bandwidth in km/s
     res_km_s = 5.2 #spectral resolution in km/s
     #############################
