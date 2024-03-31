@@ -28,13 +28,22 @@ paramMod = importlib.import_module(paramFile)
 
 try:
     galName = sys.argv[2]
-    minSnap = int(sys.argv[3])
-    maxSnap = int(sys.argv[4])
-    inclination = int(sys.argv[5])
 except:
     galName=None
+
+try:
+    minSnap = int(sys.argv[3])
+except:
     minSnap=None
-    maxSnap=None
+
+try:
+    maxSnap = int(sys.argv[4])
+except:
+    maxSnap=minSnap
+
+try:
+    inclination = int(sys.argv[5])
+except:
     inclination=None
 
 galName,minSnap,maxSnap,fileDir,statsDir,output,sightlineDir = paramMod.LoadFileInfo(galName,minSnap,maxSnap)
@@ -60,10 +69,11 @@ print("f0 = ",f0)
 print("Bandwidth = ",bandwidth)
 print("###########################################################################")
 
-replaceAnnotationsFile,runBinfire,runVOF,createSightlineFiles,savePng,writeMassFlux,writeMass,writeRotationCurve=paramMod.LoadParameters()
+replaceAnnotationsFile,runBinfire,runVOF,createSightlineFiles,savePng,writeMassFlux,writeMass,writeRotationCurve,writeInclination,createMaskFromExistingStatsDir=paramMod.LoadParameters()
 
 for Nsnap in range(minSnap,maxSnap+1):
-    FireToDataset(fileDir,statsDir,Nsnap,output,sightlineDir,galName,observerDistance,observerVelocity,maxRadius,maxHeight,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createSightlineFiles=createSightlineFiles)
+    print(Nsnap)
+    FireToDataset(fileDir,statsDir,Nsnap,output,sightlineDir,galName,observerDistance,observerVelocity,maxRadius,maxHeight,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,writeInclination,createSightlineFiles=createSightlineFiles,createMaskFromExistingStatsDir=createMaskFromExistingStatsDir)
     replaceAnnotationsFile=False
     
 print("Time to finish: ",time.time()-startTime)

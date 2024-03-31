@@ -75,7 +75,7 @@ def OrientGalaxy(pos,vel,Lhat,r0,returnRotationalVelocity=False):
     else:
         return pos
  
-def GetRadialVelocity(pos,vel):
+def GetRadialVelocity(pos,vel,rObs):
     N,dim = np.shape(pos)
 
     rMag = VectorArrayMag(pos)
@@ -85,6 +85,9 @@ def GetRadialVelocity(pos,vel):
     rHat[:,2] = np.divide(pos[:,2],rMag)
 
     rVel = np.multiply(vel[:,0],rHat[:,0]) + np.multiply(vel[:,1],rHat[:,1]) + np.multiply(vel[:,2],rHat[:,2])
+    
+    rVel = np.add( rVel , (rMag-rObs) * 0.07) #kpc * km/s /kpc, Hubble flow but still centered on galaxy
+    
     return rVel
 
 

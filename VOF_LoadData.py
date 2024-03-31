@@ -51,9 +51,10 @@ def ReadSightlineFile(sightlineDir,tid):
     impact = np.array(hf[groupName].get('impact'))
     distance = np.array(hf[groupName].get('distance'))
     sightline = np.array(hf[groupName].get('sightline'))
+    dopplerVel = np.array(hf[groupName].get('dopplerVel'))
     hf.close()
 
-    return mask,impact,distance,pos_observer,vel_observer,sightline
+    return mask,impact,distance,dopplerVel,pos_observer,vel_observer,sightline
 
 
 def LoadData(snapdir,Nsnapstring,ptype,rTrunc,posCenter,velCenter):
@@ -123,12 +124,14 @@ def LoadDataForSightlineGenerator(snapdir,Nsnapstring,ptype,rTrunc,posCenter,vel
 
     #Load the rest of the data 
     particles = readsnap_sightline_gen(snapdir, Nsnapstring, 0, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1)
-
+    vel = particles['v']
+    
     pos -= posCenter
+    vel -= velCenter
 
     if (ptype==0):
         kernal_lengths = particles['h']
-        return pos,kernal_lengths
+        return pos,kernal_lengths,vel
 
     else:
         return pos
@@ -146,6 +149,19 @@ def LoadDataForSightlineIteration(snapdir,Nsnapstring,ptype,mask,pos_center,vel_
     return particles['p']-pos_center, particles['v']-vel_center, particles['m'], particles['h'], temp
 
 
+       
+def LoadDataForSightlineIteration_v2(snapdir,Nsnapstring,ptype,mask,gKernal,species,buildShieldLengths=False):
+
+    particles = readsnap_sightline_itr_v2(snapdir, Nsnapstring, ptype, truncMask=mask,species=species,snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1)
+    temp = calcTemps(particles['u'],particles['ne'],particles['z']) ##Can potentially more efficiently deal with how metallicity is read in
+
+    if (species=="HI_21cm"):
+        speciesMassFrac=CalcMolecularFraction(particles['nh'],gKernal,particles['rho'],particles['fHe'],particles['z'],to_return="fH1")
+
+    return  particles['m'], temp, speciesMassFrac
+
+
+
 
 def LoadSpeciesMassFrac(snapdir,Nsnapstring,ptype,mask,species,buildShieldLengths=False,Gmas=None,KernalLengths=None):
     if mask is None:
@@ -156,6 +172,19 @@ def LoadSpeciesMassFrac(snapdir,Nsnapstring,ptype,mask,species,buildShieldLength
         return CalcMolecularFraction(p['nh'],p['hsml'],p['rho'],p['fHe'],p['z'],to_return="fH1")
     if (species=="HI_21cm"):
         return CalcMolecularFraction(p['nh'],p['hsml'],p['rho'],p['fHe'],p['z'],to_return="fH1")
+
+
+
+def LoadDataForSightlineIteration(snapdir,Nsnapstring,ptype,mask,pos_center,vel_center,buildShieldLengths=False):
+    if mask is None:
+        particles = readsnap_sightline_itr(snapdir, Nsnapstring, ptype, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1)
+    else:
+        particles = readsnap_trunc_sightline_itr(snapdir, Nsnapstring, ptype, mask, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1)
+    
+    temp = calcTemps(particles['u'],particles['ne'],particles['z']) ##Can potentially more efficiently deal with how metallicity is read in
+
+    return particles['p']-pos_center, particles['v']-vel_center, particles['m'], particles['h'], temp
+
 
 
 

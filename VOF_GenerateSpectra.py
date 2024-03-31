@@ -160,6 +160,7 @@ def GenLineProfile(nu_ul,f_lu,gamma_ul,dopplerVelocity,spectralRange,temp,mass_s
     sigma = np.zeros(np.shape(nu))
     sigma[coreFreqs] = prefactor * np.exp(-np.power(v[coreFreqs],2) / b**2)
     sigma[wingFreqs] = np.divide(prefactor * (1/(4*np.power(pi,1.5)) * gamma_ul*lamda_ul * b) , np.power(v[wingFreqs],2)) #Was commented out? double check
+    
 
     return sigma
 
