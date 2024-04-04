@@ -51,8 +51,7 @@ def LoadParameters():
     writeMassFlux=True #[True]=Generate mass flux annotations
     writeMass=True #[True]=Generate mass annotations
     writeRotationCurve=True #[True]=Generate rotation curve annotations
+    createMaskFromExistingStatsDir=False #Mask the previously run galaxy to find satellites/other galaxies in snapshot
     #############################
 
-    return replaceAnnotationsFile,runBinfire,runVOF,createSightlineFiles,savePng,writeMassFlux,writeMass,writeRotationCurve
-    
-    
+    return replaceAnnotationsFile,runBinfire,runVOF,createSightlineFiles,savePng,writeMassFlux,writeMass,writeRotationCurve,writeInclination,createMaskFromExistingStatsDir
