@@ -1,8 +1,10 @@
 import numpy as np
 import h5py
-
+import os
+import copy
 from VeryObservableFIRE import GenerateSyntheticImage
 from Binfire.Binfire import RunBinfire
+from Binfire.Binfire import LoadGas
 from Binfire.readsnap_binfire import ReadStats
 
 import matplotlib.pyplot as plt
@@ -18,7 +20,7 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                     observerDistance, observerVelocity,
                     maxRadius,maxHeight,
                     noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,
-                    phiObs,inclinations,
+                    phiObs,inclinations,position_angles,
                     speciesToRun,Nspec,bandwidth,bandwidth_km_s,
                     createAnnotations=True,replaceAnnotationsFile=False,
                     createImages=True,savePNG=False,
@@ -30,11 +32,12 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
 
     #Create synthetic image using VOF like code
     #do for a variety of inclinations + in disk observations!
+    outputSuffix=""
+
     if createAnnotations: #Run Binfire to create binned projection maps for radial mass flux, mass, and rotational velocities. Used as annotation files in NN training
         print("Creating Annotation files with Binfire...")
         
         maskCenter=None;maskRadius=None
-        outputSuffix=""
         if createMaskFromExistingStatsDir:
             try:
                 r_0,pos_center,Lhat,vel_center = ReadStats(statsDir+str(Nsnap).zfill(4)+'.hdf5')
@@ -47,23 +50,33 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
             except:
                 print("Warning, could not mask data as no previous stats file exists...")
             
-        for inclination in inclinations:
-            image_name=output+"i"+str(inclination)+"/training/"+galName+"_cr700_i"+str(inclination)+"_"+str(Nsnap)+outputSuffix+".hdf5"
-            annotationFileDir_MF = output+"i"+str(inclination)+"/training/training_annotations_MassFlux_i"+str(inclination)+outputSuffix
-            annotationFileDir_Mass = output+"i"+str(inclination)+"/training/training_annotations_Mass_i"+str(inclination)+outputSuffix
-            annotationFileDir_RC = output+"i"+str(inclination)+"/training/training_annotations_RC_i"+str(inclination)+outputSuffix
-            annotationFileDir_rVel = output+"i"+str(inclination)+"/training/training_annotations_rVel_i"+str(inclination)+outputSuffix
-            annotationFileDir_sMF = output+"i"+str(inclination)+"/training/training_annotations_sMassFlux_i"+str(inclination)+outputSuffix
-            annotationFileDir_sMF1d = output+"i"+str(inclination)+"/training/training_annotations_sMassFluxCurve_i"+str(inclination)+outputSuffix
-            annotationFileDir_Inclination = output+"i"+str(inclination)+"/training/training_annotations_inclination_i"+str(inclination)+outputSuffix
-
-
-            binnedMass , binnedRadialMassFlux, binnedPhiMassFlux, binnedCylRadMassFlux, binnedCylRadMassFluxCurve, binnedInclination = RunBinfire(fileDir+str(Nsnap), 
+        G, G0 = LoadGas(
+                fileDir+str(Nsnap),
                 statsDir+str(Nsnap).zfill(4)+'.hdf5',
+                Nsnap,
+                [maxRadius,maxRadius,maxHeight],
+                maskCenter=maskCenter,maskRadius=maskRadius
+        )
+    
+        for inclination in inclinations:
+          for position_angle in position_angles:
+            angle_str = "i"+str(inclination)+"_pa"+str(position_angle)
+            image_name=output+"i"+str(inclination)+"/training/"+galName+"_cr700_"+angle_str+"_"+str(Nsnap)+outputSuffix+".hdf5"
+            annotationFileDir_MF = output+"i"+str(inclination)+"/training/training_annotations_MassFlux_"+angle_str+outputSuffix
+            annotationFileDir_Mass = output+"i"+str(inclination)+"/training/training_annotations_Mass_"+angle_str+outputSuffix
+            annotationFileDir_RC = output+"i"+str(inclination)+"/training/training_annotations_RC_"+angle_str+outputSuffix
+            annotationFileDir_rVel = output+"i"+str(inclination)+"/training/training_annotations_rVel_"+angle_str+outputSuffix
+            annotationFileDir_sMF = output+"i"+str(inclination)+"/training/training_annotations_sMassFlux_"+angle_str+outputSuffix
+            annotationFileDir_sMF1d = output+"i"+str(inclination)+"/training/training_annotations_sMassFluxCurve_"+angle_str+outputSuffix
+            annotationFileDir_Inclination = output+"i"+str(inclination)+"/training/training_annotations_inclination_"+angle_str+outputSuffix
+
+            
+            binnedMass , binnedRadialMassFlux, binnedPhiMassFlux, binnedCylRadMassFlux, binnedCylRadMassFluxCurve, binnedInclination = RunBinfire(fileDir+str(Nsnap), 
+                statsDir+str(Nsnap).zfill(4)+'.hdf5',copy.deepcopy(G),copy.deepcopy(G0),
                 Nsnap,
                 output,
                 [maxRadius,maxRadius,maxHeight],
-                [Nsightlines1d,Nsightlines1d,Nspec],inclination=inclination,
+                [Nsightlines1d,Nsightlines1d,Nspec],inclination=inclination,position_angle=position_angle,
                 maskCenter=maskCenter,maskRadius=maskRadius
             )  
 
@@ -131,7 +144,8 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                     vmax = np.max(binnedMass)
                     vmin=vmax*1e-3
                     plt.figure()
-                    plt.imshow(binnedMass,cmap='inferno',norm=LogNorm(vmin=vmin,vmax=vmax))
+                    plt.imshow(binnedMass,cmap='inferno')
+                    plt.colorbar()
                     plt.savefig(annotationFileDir_Mass+"_"+galName+"_Mass_"+str(Nsnap)+".png")
                     plt.close()
                     
@@ -147,7 +161,8 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                     vmax = np.abs(np.max(np.divide(binnedPhiMassFlux,binnedMass)))
                     vmin=0
                     plt.figure()
-                    plt.imshow(np.divide(binnedPhiMassFlux,binnedMass),vmin=vmin,vmax=vmax,cmap='inferno')
+                    plt.imshow(np.divide(binnedPhiMassFlux,binnedMass),cmap='seismic')
+                    plt.colorbar()
                     plt.savefig(annotationFileDir_RC+"_"+galName+"_RC_"+str(Nsnap)+".png")
                     plt.close()
                 hfMass=h5py.File(annotationFileDir_RC+"_"+galName+"_RC_"+str(Nsnap)+".hdf5",'w')
@@ -172,12 +187,19 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                 hfMass.create_dataset('annotation',data=binnedInclination.flatten())
                 hfMass.close()
     
-    
+        del G; del G0
+        
     if createImages:
         print("Creating Synthetic Images...")
         for inclination in inclinations:
+          for position_angle in position_angles:
             print("Generating Image for inclination: ",inclination)
-            image_name=output+"i"+str(inclination)+"/training/"+galName+"_cr700_i"+str(inclination)+"_"+str(Nsnap)+"_image_04172023"+outputSuffix
+            image_name=output+"i"+str(inclination)+"/training/"+galName+"_cr700_i"+str(inclination)+"_pa"+str(position_angle)+"_"+str(Nsnap)+"_image_04172023"+outputSuffix
+
+            if os.path.isfile(image_name+"_fullSpectra.hdf5"):
+                print("Image for i=",inclination,"pa=",position_angle,"already exists, skipping...")
+                continue
+
             GenerateSyntheticImage(fileDir,
                 statsDir, #If not provided, generate
                 Nsnap,
@@ -189,7 +211,7 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                 noiseAmplitude,beamSize,targetBeamSize,
                 Nsightlines1d,
                 phiObs,
-                inclination,
+                inclination,position_angle,
                 speciesToRun,
                 Nspec,
                 bandwidth,

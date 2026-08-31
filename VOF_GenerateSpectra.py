@@ -1,6 +1,6 @@
 import numpy as np
 from VOF_EmissionSpecies import GetEmissionSpeciesParameters
-
+import time
 ####Functions to generate emission/absorption for particles along a sightline in order to construct the mock spectra
 ####
 ####Written By Cameron Trapp (ctrapped@gmail.com)
@@ -45,8 +45,9 @@ def GenerateSpectra(gMass,speciesMassFrac,dopplerVelocity,particleSize,temp,dist
     beamRadiusPhysical = distance * np.sin(beamSize) / 2. #sim units (kpc)
 
 
-
+    t0 = time.time()
     colDens,pathLength = GetColumnDensityAlongLOS(particleSize, impact,N_molecules,beamRadiusPhysical) #kpc^-2
+    t1=time.time()
     upperToLowerRate,attenuationCrossSection = GenEmissionAndAbsorptionRates(colDens,temp,species,beamRadiusPhysical,calcThermalLevels) #Units of Hz
     nu_ul = (E_upper-E_lower)/h #in Hz
     f_lu = g_upper / g_lower * A_ul * (m_e * c**3.)/(8.*pi**2.*e**2.*nu_ul**2.) #unitless
@@ -64,7 +65,7 @@ def GetColumnDensityAlongLOS(r,impact,N_mol_in_particle,beamRadiusPhysical):
     #This can be improved upon, as it is an approximation of what the FIRE simulations actually represent
     vol = 4/3 * pi * np.power(r,3)
     chordLength = CalcEffectiveChordLength(r,impact,beamRadiusPhysical)
-    colDensParticle = np.multiply(np.divide(N_mol_in_particle , vol) , chordLength)
+    colDensParticle = np.multiply(np.divide(N_mol_in_particle , vol) , chordLength) 
     if np.size(colDensParticle)>0 and np.min(colDensParticle)<0:
         print("Warning: colDensParticle<0, min=",np.min(colDensParticle))
         print("    N_mol_in_particle = ",np.min(N_mol_in_particle))
@@ -101,26 +102,41 @@ def MakeSpectrum(upperToLowerRate,attenuationCrossSection,distance,dopplerVeloci
     optical_depth = np.copy(emission)
     nu = np.linspace(spectralRange[0],spectralRange[1],Nspec) 
 
-    for p in range(0,Nparticles): #This form must be executed sequentially, as absorption is built up. Particles are sorted based on distance along sightline
-        sigma_nu = GenLineProfile(nu_ul, f_lu, gamma_ul, dopplerVelocity[p], spectralRange, temp[p], mass_species, Nspec)
+    assume_optically_thin = True
+
+    if assume_optically_thin:
+        sigma_nu = GenLineProfileMat(nu_ul, f_lu, gamma_ul, dopplerVelocity, spectralRange, temp, mass_species, Nspec)
         phi_nu = sigma_nu * m_e * c / pi / (e**2) / f_lu
-        if distance[p]==0:
-            distance[p]=eps;
+       # print("Shape of sigma_nu=",np.shape(sigma_nu))
+        distance[distance==0]=eps
+        emission = np.divide( np.multiply(upperToLowerRate[:,np.newaxis] * h , np.multiply(nu,phi_nu) ) , np.power(distance,2)[:,np.newaxis] )
+        emission = np.sum(emission,axis=0)
+        emission = np.multiply(emission , np.sum(colDens) / np.sum(emission)) / np.power(kpc2cm,2)#convert to effective column density in cm^-2
+        return emission,emission,emission*0,nu
+    else:
+        for p in range(0,Nparticles): #This form must be executed sequentially, as absorption is built up. Particles are sorted based on distance along sightline
+            sigma_nu = GenLineProfile(nu_ul, f_lu, gamma_ul, dopplerVelocity[p], spectralRange, temp[p], mass_species, Nspec)
+            phi_nu = sigma_nu * m_e * c / pi / (e**2) / f_lu
+            if distance[p]==0:
+                distance[p]=eps
 
         
-        power_emission = (upperToLowerRate[p] * h) * np.multiply(nu,phi_nu)
+            power_emission = (upperToLowerRate[p] * h) * np.multiply(nu,phi_nu)
 
-        emission += power_emission/ distance[p]**2
-        spectra = np.add(spectra , np.multiply(power_emission , np.exp(-optical_depth)) / distance[p]**2)
+            emission += power_emission/ distance[p]**2
+            spectra = np.add(spectra , np.multiply(power_emission , np.exp(-optical_depth)) / distance[p]**2)
         
-        optical_depth_particle = phi_nu*attenuationCrossSection[p]
-        if np.min(optical_depth_particle)<0:
-            print("WARNING, NEGATIVE OPTICAL DEPTH -> ",np.min(optical_depth_particle)," : ",np.max(optical_depth_particle))
-            print ("min(phi_nu)=",np.min(phi_nu))
-            print("attenuationCrossSection[p]=",attenuationCrossSection[p])
+            optical_depth_particle = phi_nu*attenuationCrossSection[p]
+            if np.min(optical_depth_particle)<0:
+                print("WARNING, NEGATIVE OPTICAL DEPTH -> ",np.min(optical_depth_particle)," : ",np.max(optical_depth_particle))
+                print ("min(phi_nu)=",np.min(phi_nu))
+                print("attenuationCrossSection[p]=",attenuationCrossSection[p])
         
-        optical_depth_particle[optical_depth_particle<0]=0
-        optical_depth += optical_depth_particle #Build up optical depth as you go through particles in the sightline
+            optical_depth_particle[optical_depth_particle<0]=0
+            optical_depth += optical_depth_particle #Build up optical depth as you go through particles in the sightline
+
+
+
 
     return spectra,emission,optical_depth,nu
 
@@ -161,6 +177,51 @@ def GenLineProfile(nu_ul,f_lu,gamma_ul,dopplerVelocity,spectralRange,temp,mass_s
     sigma[coreFreqs] = prefactor * np.exp(-np.power(v[coreFreqs],2) / b**2)
     sigma[wingFreqs] = np.divide(prefactor * (1/(4*np.power(pi,1.5)) * gamma_ul*lamda_ul * b) , np.power(v[wingFreqs],2)) #Was commented out? double check
     
+
+    return sigma
+
+def GenLineProfileMat(nu_ul,f_lu,gamma_ul,dopplerVelocity,spectralRange,temp,mass_species,Nspec):
+    #Defines line profile with a gaussian core and damping wings. Following Draine "Physics of the Interstellar and Intergalactic Medium"
+    nu = np.linspace(spectralRange[0],spectralRange[1],Nspec) 
+
+    spectral_resolution = np.abs(spectralRange[1]-spectralRange[0])/Nspec
+    dopplerBeta = dopplerVelocity / (3.0*np.power(10,5)) #both in km/s
+
+    doppler_freq_shift = nu_ul * (np.sqrt( np.divide(-dopplerBeta+1 , dopplerBeta+1) ) - 1)
+
+    Npart = np.size(dopplerVelocity)
+    v = np.zeros((Npart,Nspec)) #nparticles , nspec
+    v = np.divide( 1 - np.power(nu[np.newaxis,:] / (nu_ul+doppler_freq_shift[:,np.newaxis]) , 2) , 1 + np.power(nu[np.newaxis,:] / (nu_ul+doppler_freq_shift[:,np.newaxis]) , 2)) * c #in cm/s
+
+    lamda_ul = c / nu_ul 
+
+    b=12.90*np.sqrt(temp*np.power(10.,-4) / (mass_species/amu))*1000.*100. #cm/s
+    b6 = b / (10.*1000.*100.) #b/10 km/s unitless
+    
+    prefactor = np.divide(np.sqrt(pi)  * (e**2)/(m_e*c) * f_lu*lamda_ul , b )
+
+    z = np.sqrt(10.31+np.log(7616 / (gamma_ul*lamda_ul)*b6)) 
+    transition_v = np.abs(b*z)
+
+    coreFreqs = np.abs(v)<=transition_v[:,np.newaxis]
+    wingFreqs =  np.abs(v)> transition_v[:,np.newaxis]
+
+    #coreFreqs = coreFreqs[((coreFreqs<np.size(nu)) & (coreFreqs>=0))]
+
+   # wingFreqs = wingFreqs[((wingFreqs<np.size(nu)) & (wingFreqs>=0))]
+
+    bmat = np.zeros((Npart,Nspec))
+    bmat[:,:] = b[:,np.newaxis]
+    prefactor_mat = np.zeros((Npart,Nspec))
+    prefactor_mat[:,:] = prefactor[:,np.newaxis]
+
+
+    sigma = np.zeros((Npart,Nspec))
+
+    sigma[coreFreqs] = np.multiply(prefactor_mat[coreFreqs] , np.exp(np.divide( -np.power(v[coreFreqs],2) , np.power(bmat[coreFreqs],2))) )
+    #sigma[wingFreqs] = np.divide(prefactor * (1/(4*np.power(pi,1.5)) * gamma_ul*lamda_ul * b) , np.power(v[wingFreqs],2)) #Was commented out? double check
+    sigma[wingFreqs] = np.divide(np.multiply(prefactor_mat[wingFreqs] , (1/(4*np.power(pi,1.5)) * gamma_ul*lamda_ul * bmat[wingFreqs])) , np.power(v[wingFreqs],2)) #Was commented out? double check
+
 
     return sigma
 

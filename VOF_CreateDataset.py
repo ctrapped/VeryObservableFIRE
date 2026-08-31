@@ -50,7 +50,7 @@ galName,minSnap,maxSnap,fileDir,statsDir,output,sightlineDir = paramMod.LoadFile
 
 print("Looking at:"+fileDir)
 
-observerDistance,observerVelocity,maxRadius,maxHeight,targetBeamSize,Nsightlines1d,phiObs,inclinations,speciesToRun,bandwidth_km_s,res_km_s=paramMod.LoadObserverInfo(inclination)
+observerDistance,observerVelocity,maxRadius,maxHeight,targetBeamSize,Nsightlines1d,phiObs,inclinations,position_angles,speciesToRun,bandwidth_km_s,res_km_s=paramMod.LoadObserverInfo(inclination)
 
 beamSize = 2*maxRadius/Nsightlines1d / observerDistance
 noiseAmplitude = 0.0004 #Jy
@@ -73,7 +73,7 @@ replaceAnnotationsFile,runBinfire,runVOF,createSightlineFiles,savePng,writeMassF
 
 for Nsnap in range(minSnap,maxSnap+1):
     print(Nsnap)
-    FireToDataset(fileDir,statsDir,Nsnap,output,sightlineDir,galName,observerDistance,observerVelocity,maxRadius,maxHeight,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,writeInclination,createSightlineFiles=createSightlineFiles,createMaskFromExistingStatsDir=createMaskFromExistingStatsDir)
+    FireToDataset(fileDir,statsDir,Nsnap,output,sightlineDir,galName,observerDistance,observerVelocity,maxRadius,maxHeight,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,position_angles,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,writeInclination,createSightlineFiles=createSightlineFiles,createMaskFromExistingStatsDir=createMaskFromExistingStatsDir)
     replaceAnnotationsFile=False
     
 print("Time to finish: ",time.time()-startTime)

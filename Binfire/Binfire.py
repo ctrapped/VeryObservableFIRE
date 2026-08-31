@@ -31,8 +31,75 @@ eps = 1e-10
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 ####Updated 12/14/2023
 
+def LoadGas(snapdir,statsDir,Nsnap,maxima,maskCenter=None,maskRadius=None,rshrinksphere=5000):
+    Nsnapstring = str(Nsnap)
 
-def RunBinfire(snapdir,statsDir,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax=[None],densMin=[None],densMax=[None],phasetag=['AG'],rshrinksphere=5000,rminsphere=10,shrinkfactor=0.7,inclination=None,maskCenter=None,maskRadius=None):
+    max_x = maxima[0]
+    max_y= maxima[1]
+
+    G0 = readsnap_initial(snapdir, Nsnapstring, 0, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load position and density
+ 
+    densityMask=None
+    if maskCenter is not None and maskRadius is not None:
+        maskRmag = np.linalg.norm(np.subtract(G0['p'],maskCenter),axis=1)
+        densityMask = np.where( maskRmag > maskRadius )[0]
+
+
+
+
+    shrinking_sphere_flag=0
+    if statsDir is not None:
+        try:
+            r_0,pos_center,Lhat,vel_center = ReadStats(statsDir)
+        except:
+            pos_center=None
+            shrinking_sphere_flag=1
+            print("Ssf=1")
+
+
+    if shrinking_sphere_flag:
+        rTrunc = rshrinksphere #Only load relevant data
+    else:
+        rTrunc = np.sqrt(max_x*max_x + max_y*max_y)#max(max_y,max_x)
+
+
+    if pos_center is None:
+            if densityMask is None:
+                tmp_index = np.argmax(G0['rho']) 
+                if not np.isscalar(tmp_index):
+                    center_index = tmp_index[0]
+                    print("Warning: ",np.size(tmp_index)," multiple max density particles")
+                else:
+                    center_index = tmp_index #in case there are degenerate max densities
+
+                pos_center = G0['p'][center_index,:] #Naive center of sim.
+                print("Center estimate from density: ",pos_center)
+            else:
+                tmp_index = np.argmax(G0['rho'][densityMask]) 
+                if not np.isscalar(tmp_index):
+                    center_index = tmp_index[0]
+                    print("Warning: ",np.size(tmp_index)," multiple max density particles")
+                else:
+                    center_index = tmp_index #in case there are degenerate max densities
+
+                print(np.shape(G0['p']) , np.shape(G0['p'][densityMask,:]))
+                pos_center = G0['p'][densityMask,:][center_index,:] #Naive center of sim.
+                print("Center estimate from density: ",pos_center)
+
+
+    truncMax = np.zeros((3))
+    truncMin = np.zeros((3))
+    truncMax[0] = pos_center[0]+rTrunc;truncMax[1] = pos_center[1]+rTrunc;truncMax[2] = pos_center[2]+rTrunc
+    truncMin[0] = pos_center[0]-rTrunc;truncMin[1] = pos_center[1]-rTrunc;truncMin[2] = pos_center[2]-rTrunc
+ 
+    truncMask =  (G0['p'][:,0]<truncMax[0]) & (G0['p'][:,0] > truncMin[0]) & (G0['p'][:,1] < truncMax[1]) & (G0['p'][:,1] > truncMin[1]) & (G0['p'][:,2] < truncMax[2]) & (G0['p'][:,2] > truncMin[2]) 
+    G0['p'] = G0['p'][truncMask]
+    G0['rho'] = G0['rho'][truncMask]
+    G = readsnap_trunc(snapdir, Nsnapstring, 0, truncMask, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load truncated data
+
+    return G, G0
+
+def RunBinfire(snapdir,statsDir,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax=[None],densMin=[None],densMax=[None],phasetag=['AG'],rshrinksphere=5000,rminsphere=10,shrinkfactor=0.7,inclination=None,position_angle=None,maskCenter=None,maskRadius=None):
     Nsnapstring = str(Nsnap)
     shrinking_sphere_flag=0
     writeStatsFile = False
@@ -77,10 +144,12 @@ def RunBinfire(snapdir,statsDir,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax
 
     #Read the Snapshots#################################################
     #Already accounts for factors of h, but not the hubble flow
+    Gpos = G0['p']
+    Gdens = G0['rho']
     if needToCenter:
-        G = readsnap_initial(snapdir, Nsnapstring, 0, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load position and density
-        Gpos = G['p'] #positions
-        Gdens = G['rho'] #Densities for finding center
+        #G = readsnap_initial(snapdir, Nsnapstring, 0, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load position and density
+       # Gpos = G0['p'] #positions
+       # Gdens = G0['rho'] #Densities for finding center
         
         densityMask=None
         if maskCenter is not None and maskRadius is not None:
@@ -127,10 +196,10 @@ def RunBinfire(snapdir,statsDir,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax
 
 
 
-    if not needToCenter:
-        G = readsnap_initial(snapdir, Nsnapstring, 0, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load position and density
-        Gpos = G['p'] #positions
-        Gdens = G['rho'] #Densities for finding center
+    #if not needToCenter:
+        #G = readsnap_initial(snapdir, Nsnapstring, 0, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load position and density
+       # Gpos = G0['p'] #positions
+       # Gdens = G0['rho'] #Densities for finding center
 
 
     t1 = time.time()
@@ -138,7 +207,7 @@ def RunBinfire(snapdir,statsDir,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax
     Gpos = Gpos[truncMask]
     Gdens = Gdens[truncMask]
 
-    G = readsnap_trunc(snapdir, Nsnapstring, 0, truncMask, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load truncated data
+    #G = readsnap_trunc(snapdir, Nsnapstring, 0, truncMask, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load truncated data
     Gvel = G['v']#Velocities
     Gmas = G['m'] #masses
     Gz = G['z'] #metallicities
@@ -147,7 +216,7 @@ def RunBinfire(snapdir,statsDir,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax
     Gtemp = calcTemps(G['u'],G['ne'],Gz)
     N = np.size(Gmas) #Number of Gas Particles
     Gloaded = True
-    del G
+    #del G
     print("Time to load gas:",time.time()-t1)
 
     if needToCenter: ###Load dark matter and star particles only if needed for centering
@@ -248,8 +317,8 @@ def RunBinfire(snapdir,statsDir,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax
     zmag = np.zeros((N))
 
     print("Finding velocity components...")
-
-    zmag = np.dot(Gpos,Lhat)
+    Lhat_forStats = np.copy(Lhat)
+    zmag = np.dot(Gpos,Lhat_forStats)
     r_z[:,0] = zmag*Lhat[0]
     r_z[:,1] = zmag*Lhat[1]
     r_z[:,2] = zmag*Lhat[2]
@@ -304,16 +373,28 @@ def RunBinfire(snapdir,statsDir,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax
     Lhat=-Lhat
     
 
-    phi[phi<0] = phi[phi<0] + 2*pi #make all values range from 0 to pi
+    phi0[phi0<0] = phi0[phi0<0] + 2*pi #make all values range from 0 to pi
     
     if inclination is not None:
-        rotation_axis = Lhat
-        rotation_vector = np.pi*rotation_axis
+
+        r_0_original = r_0.copy()
+
+        rotation_axis = -Lhat
+        rotation_vector = (np.pi + position_angle*np.pi/180.)*rotation_axis
         rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
-    
         r_0 = rotation.apply(r_0)
 
+        #Update phi0. Do before inclination rotation?
+        acos_term = np.divide(np.dot(r_s,r_0),(np.linalg.norm(r_0)*smag))
+        acos_term[acos_term>1] = 1 #make sure the term isn't above magnitude 1 by a rounding error
+        acos_term[acos_term<-1] = -1
+        phi0 = np.multiply( np.arccos(acos_term) , np.sign(np.dot(np.cross(r_0,r_s),Lhat))) #first term gets us |phi| from 0 to pi, second term gives us the sign
+        del acos_term
+
+
+
         rotation_axis = np.cross(Lhat,r_0)
+
         rotation_vector = (90.+inclination)*np.pi/180.*rotation_axis
         rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
     
@@ -326,24 +407,24 @@ def RunBinfire(snapdir,statsDir,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax
         r_z[:,1] = np.dot(Gpos,Lhat)*Lhat[1]
         r_z[:,2] = np.dot(Gpos,Lhat)*Lhat[2]
 
-        r_s = np.subtract(Gpos,r_z)
-        smag_rot = VectorArrayMag(r_s)
+        r_s_tmp = np.subtract(Gpos,r_z)
+        smag_rot = VectorArrayMag(r_s_tmp)
         smag_rot[smag_rot==0] = eps #make zero entries epsilon for division purposes
 
-        #s_hat[:,0] = np.divide(r_s[:,0],smag)
-        #s_hat[:,1] = np.divide(r_s[:,1],smag)
-        #s_hat[:,2] = np.divide(r_s[:,2],smag)
+
         
-    acos_term = np.divide(np.dot(r_s,r_0),(np.linalg.norm(r_0)*smag_rot))
+    acos_term = np.divide(np.dot(r_s_tmp,r_0),(np.linalg.norm(r_0)*smag_rot))
     acos_term[acos_term>1] = 1 #make sure the term isn't above magnitude 1 by a rounding error
     acos_term[acos_term<-1] = -1
-    phi = np.multiply( np.arccos(acos_term) , np.sign(np.dot(np.cross(r_0,r_s),Lhat))) #first term gets us |phi| from 0 to pi, second term gives us the sign
+    phi = np.multiply( np.arccos(acos_term) , np.sign(np.dot(np.cross(r_0,r_s_tmp),Lhat))) #first term gets us |phi| from 0 to pi, second term gives us the sign
     del acos_term
 
-    phi[phi<0] = phi[phi<0] + 2*pi #make all values range from 0 to pi
+    phi[phi<0] = phi[phi<0] + 2*pi #make all values range from 0 to 2 pi
     
     Gmom_r = np.add(np.multiply(Gmom[:,0],r_hat[:,0]),np.add(np.multiply(Gmom[:,1],r_hat[:,1]),np.multiply(Gmom[:,2],r_hat[:,2])))
     Gmom_s = np.add(np.multiply(Gmom[:,0],s_hat[:,0]),np.add(np.multiply(Gmom[:,1],s_hat[:,1]),np.multiply(Gmom[:,2],s_hat[:,2])))
+
+    print("MEAN OF GMOM_R IS:",np.mean(Gmom[:,0]))
 
     angMom = np.cross(Gpos, Gmom)
     Lz = np.multiply(angMom[:,0],Lhat_forStats[0]) + np.multiply(angMom[:,1],Lhat_forStats[1]) + np.multiply(angMom[:,2],Lhat_forStats[2])
@@ -359,13 +440,14 @@ def RunBinfire(snapdir,statsDir,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax
     xmag = np.multiply(smag_rot,np.cos(phi))
     ymag = np.multiply(smag_rot,np.sin(phi))
 
+
     N = np.size(smag_rot)
     
     Gvel_r = np.divide(Gmom_r , Gmas)
     
     sample_cart = np.zeros((N,2))
     sample_cart[:,0]=xmag
-    sample_cart[:,1]=ymag;
+    sample_cart[:,1]=ymag
 
     t1=time.time()
 
@@ -387,7 +469,6 @@ def RunBinfire(snapdir,statsDir,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax
     
     binned_inclination,binedge,binnum = stats.binned_statistic_dd(sample_cart[heightMask,:],np.multiply(gInc[heightMask],Gmas[heightMask]),op,[nx,ny],range=binRange)
     binned_inclination = np.divide(binned_inclination,binned_mass_3d_cart+eps)
-    print("mean inc=",np.mean(binned_inclination))
 
     
     binned_mom_s_curve,binedge,binnum = stats.binned_statistic_dd(rmag[heightMask],Gmom_s[heightMask],op,[nx],range=[[0,max_x]])
