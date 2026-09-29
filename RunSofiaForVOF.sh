@@ -1,25 +1,27 @@
 #!/bin/bash
+# Run the SoFiA-2 source finder on a FITS cube produced by VOF_convert_to_fits.py
 
-#load from h5py
-#save  as .fits
+set -euo pipefail
 
-parfile=$1
+usage() {
+    echo "Usage: $0 <sofia_dir> <base_path> [parfile] [filename]" >&2
+    echo "  sofia_dir  Path to the SoFiA-2 install directory (contains the 'sofia' executable)" >&2
+    echo "  base_path  Directory containing the input FITS cube" >&2
+    echo "  parfile    SoFiA parameter file, relative to sofia_dir (default: par_things.par)" >&2
+    echo "  filename   FITS filename within base_path (default: temp.fits)" >&2
+    exit 1
+}
+
+if [ "$#" -lt 2 ]; then
+    usage
+fi
+
+sofia_dir=$1
 base_path=$2
-filename=$3
+parfile=${3:-par_things.par}
+filename=${4:-temp.fits}
 
-if [ $parfile = "-1" ]; then
-    parfile="par_things.par"
-fi
-
-if [ $base_path = "-1" ]; then
-    base_path="/Users/ctrapp/Documents/GitHub/VeryObservableFIRE/tmp/"
-fi
-
-if [ $filename = "-1" ]; then
-    filename="temp.fits"
-fi
-
-cd /Users/ctrapp/Documents/foggie_analysis/SoFiA-2-master
+cd "$sofia_dir"
 
 echo "Running Sofia on $filename"
-./sofia "${parfile}" input.data="${base_path}${filename}"
+./sofia "$parfile" "input.data=${base_path}${filename}"
