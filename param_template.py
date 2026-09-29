@@ -8,44 +8,46 @@ arcsec = (1. /60. / 60.) * pi/180.
 
 def LoadFileInfo(galName=None,minSnap=None,maxSnap=None):
     #### File Parameters ####
-    if galName is None: galName = 'm12i' #Simulation name as a string
-    if minSnap is None: minSnap = 581 #Starting snapshot number as an int
-    if maxSnap is None: maxSnap = 590 #Ending snapshot number as an int
-    fileDir = '..\\FIRE_Simulations\\'+galName+'_cr700\\output\\snapdir_' #Path to the directory with snapshots. Should end without the trailing snapshot number
-    statsDir= '..\\FIRE_Simulations\\'+galName+'_cr700\\stats\\'+galName+'_cr700_stats_' #Path to a directory to store stats info. Will create .hdf5 file if doesn't exist
-    output= 'galfitData\\fire2_velocitySpace\\' #Directory to write outputs
-    sightlineDir=output+'sightlines\\'+galName+'_cr700' #Subdirectory to store sightline files
+    if galName is None: galName = 'm12m' #Simulation name as a string
+    if minSnap is None: minSnap = 600 #Starting snapshot number as an int
+    if maxSnap is None: maxSnap = 600 #Ending snapshot number as an int
+    fileDir = '/Volumes/wde4tb/simulation_snapshots/fire-2/'+galName+'/snapdir_' #Path to the directory with snapshots. Should end without the trailing snapshot number
+    statsDir= '/Volumes/wde4tb/simulation_snapshots/fire-2/'+galName+'/stats/'+galName+"_stats" #Path to a directory to store stats info. Will create .hdf5 file if doesn't exist
+    output= '/Volumes/wde4tb/simulation_snapshots/fire-2/'+galName+'/vof_outputs/' #Directory to write outputs
+    sightlineDir=output+'sightlines\\'+galName #Subdirectory to store sightline files
     #############################
 
     return galName,minSnap,maxSnap,fileDir,statsDir,output,sightlineDir
 
 def LoadObserverInfo(set_inclination=None):
     #### Observer parameters ####
-    observerDistance=5000 #Distance in kpc
+    observerDistance=10000 #Distance in kpc
     observerVelocity=np.array([0,0,0]) #Observer velocity
-    maxRadius=40 #max radius from disk center to image
+    maxRadius=30 #max radius from disk center to image
     maxHeight=10 #max height above disk plane to include
     targetBeamSize=6*arcsec #beam size of instrument being modeled (in radians)
-    Nsightlines1d=40 #number of sightlines along one axis
+    Nsightlines1d=256 #number of sightlines along one axis
     phiObs=0 #offset image with this (radians)
-    inclinations = np.array([40,50,60]) #Inclinations to image (degrees)
+    inclinations = np.array([30]) #Inclinations to image (degrees)
+    position_angles = [0] #Position angles to image (degrees)
 
     speciesToRun='HI_21cm' #List of spectra to run
-    bandwidth_km_s = 400. #bandwidth in km/s
     res_km_s = 5.2 #spectral resolution in km/s
+    bandwidth_km_s = res_km_s * 256 #bandwidth in km/s
+
+    noiseAmplitude = 4e-4
     #############################
     
     if set_inclination is not None: inclinations=[set_inclination]
     
-    return observerDistance,observerVelocity,maxRadius,maxHeight,targetBeamSize,Nsightlines1d,phiObs,inclinations,speciesToRun,bandwidth_km_s,res_km_s
+    return observerDistance,observerVelocity,maxRadius,maxHeight,targetBeamSize,Nsightlines1d,phiObs,inclinations,position_angles,speciesToRun,bandwidth_km_s,res_km_s,noiseAmplitude
 
 def LoadParameters():
     #### Run Parameters ####
-    replaceAnnotationsFile=False #[False]=Append to existing annotation file. [True]=Overwrite existing annotation File
+    replaceAnnotationsFile=True #[False]=Append to existing annotation file. [True]=Overwrite existing annotation File
     runBinfire=True #[True]=Generate Annotation Files
     runVOF=True #[True]=Generate Spectral Datacubes
 
-    createSightlineFiles=True #[True]=Create New sightline files
     savePng=True #[True]=Generate images showing annotations+images
 
     writeMassFlux=True #[True]=Generate mass flux annotations
@@ -54,4 +56,4 @@ def LoadParameters():
     createMaskFromExistingStatsDir=False #Mask the previously run galaxy to find satellites/other galaxies in snapshot
     #############################
 
-    return replaceAnnotationsFile,runBinfire,runVOF,createSightlineFiles,savePng,writeMassFlux,writeMass,writeRotationCurve,writeInclination,createMaskFromExistingStatsDir
+    return replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir

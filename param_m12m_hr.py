@@ -26,34 +26,34 @@ def LoadObserverInfo(set_inclination=None):
     maxRadius=30 #max radius from disk center to image
     maxHeight=10 #max height above disk plane to include
     targetBeamSize=6*arcsec #beam size of instrument being modeled (in radians)
-    Nsightlines1d=600 #number of sightlines along one axis
+    Nsightlines1d=256 #number of sightlines along one axis
     phiObs=0 #offset image with this (radians)
-    inclinations = np.array([30,40,50,60]) #Inclinations to image (degrees)
-    position_angles = [0,45,90,135,180,225,270,315] #Position angles to image (degrees)
+    inclinations = np.array([30]) #Inclinations to image (degrees)
+    position_angles = [0] #Position angles to image (degrees)
 
     speciesToRun='HI_21cm' #List of spectra to run
-    bandwidth_km_s = 400. #bandwidth in km/s
     res_km_s = 5.2 #spectral resolution in km/s
+    bandwidth_km_s = res_km_s * 256 #bandwidth in km/s
+
+    noiseAmplitude = 4e-4
     #############################
     
     if set_inclination is not None: inclinations=[set_inclination]
     
-    return observerDistance,observerVelocity,maxRadius,maxHeight,targetBeamSize,Nsightlines1d,phiObs,inclinations,position_angles,speciesToRun,bandwidth_km_s,res_km_s
+    return observerDistance,observerVelocity,maxRadius,maxHeight,targetBeamSize,Nsightlines1d,phiObs,inclinations,position_angles,speciesToRun,bandwidth_km_s,res_km_s,noiseAmplitude
 
 def LoadParameters():
     #### Run Parameters ####
     replaceAnnotationsFile=True #[False]=Append to existing annotation file. [True]=Overwrite existing annotation File
     runBinfire=True #[True]=Generate Annotation Files
-    runVOF=False #[True]=Generate Spectral Datacubes
+    runVOF=True #[True]=Generate Spectral Datacubes
 
-    createSightlineFiles=False #[True]=Create New sightline files
     savePng=True #[True]=Generate images showing annotations+images
 
     writeMassFlux=True #[True]=Generate mass flux annotations
     writeMass=True #[True]=Generate mass annotations
     writeRotationCurve=True #[True]=Generate rotation curve annotations
-    writeInclination=True
     createMaskFromExistingStatsDir=False #Mask the previously run galaxy to find satellites/other galaxies in snapshot
     #############################
 
-    return replaceAnnotationsFile,runBinfire,runVOF,createSightlineFiles,savePng,writeMassFlux,writeMass,writeRotationCurve,writeInclination,createMaskFromExistingStatsDir
+    return replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir
