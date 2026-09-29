@@ -116,11 +116,4 @@ def ReadNistEnergyLevels(filedir):
     Elevels = Elevels[Glevels>0]
     Glevels = Glevels[Glevels>0]
 
-    return Elevels,Glevels
-    
-
-ReadNistEnergyLevels("EnergyLevels/NIST_NaI_EnergyLevels.txt")
-
-
-       
-        
+    return Elevels,Glevels    
