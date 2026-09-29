@@ -10,7 +10,7 @@ from VOF_EmissionSpecies import GetEmissionSpeciesParameters
 ####Runs VeryObservableFIRE to create synthetic images from given observational parameters.
 ####Also creates corresponding projected and deprojected maps of radial mass flux, rotational velocity, and mass for the purposes of neural network training
 ####To use, modify param_template.py and pass the renamed file as the first argument.
-####    e.g. python VOF_CreateDataset.py param_template
+####    e.g. python VeryObservableFIRE.py param_template
 ####
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 ####Updated 12/08/2023
@@ -68,11 +68,11 @@ print("f0 = ",f0)
 print("Bandwidth = ",bandwidth)
 print("###########################################################################")
 
-replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir=paramMod.LoadParameters()
+replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir,runDataAugmentation=paramMod.LoadParameters()
 
 for Nsnap in range(minSnap,maxSnap+1):
     print(Nsnap)
-    FireToDataset(fileDir,statsDir,Nsnap,output,sightlineDir,galName,observerDistance,observerVelocity,maxRadius,maxHeight,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,position_angles,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir=createMaskFromExistingStatsDir)
+    FireToDataset(fileDir,statsDir,Nsnap,output,sightlineDir,galName,observerDistance,observerVelocity,maxRadius,maxHeight,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,position_angles,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir=createMaskFromExistingStatsDir,runDataAugmentation=runDataAugmentation)
     replaceAnnotationsFile=False
     
 print("Time to finish: ",time.time()-startTime)
