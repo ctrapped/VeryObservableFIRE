@@ -60,7 +60,8 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
         for inclination in inclinations:
           for position_angle in position_angles:
             angle_str = "i"+str(inclination)+"_pa"+str(position_angle)
-            image_name=output+"i"+str(inclination)+"/training/"+galName+"_cr700_"+angle_str+"_"+str(Nsnap)+outputSuffix+".hdf5"
+            #Matches the datacube filename VOF_GenerateSyntheticImage.py actually writes in the createImages loop below (image_name+"_fullSpectra.hdf5" there)
+            image_name=output+"i"+str(inclination)+"/training/"+galName+"_"+angle_str+"_"+str(Nsnap)+"_image"+outputSuffix+"_fullSpectra.hdf5"
             annotationFileDir_MF = output+"i"+str(inclination)+"/training/training_annotations_MassFlux_"+angle_str+outputSuffix
             annotationFileDir_Mass = output+"i"+str(inclination)+"/training/training_annotations_Mass_"+angle_str+outputSuffix
             annotationFileDir_RC = output+"i"+str(inclination)+"/training/training_annotations_RC_"+angle_str+outputSuffix
@@ -178,7 +179,7 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
         for inclination in inclinations:
           for position_angle in position_angles:
             print("Generating Image for inclination: ",inclination)
-            image_name=output+"i"+str(inclination)+"/training/"+galName+"_cr700_i"+str(inclination)+"_pa"+str(position_angle)+"_"+str(Nsnap)+"_image_04172023"+outputSuffix
+            image_name=output+"i"+str(inclination)+"/training/"+galName+"_i"+str(inclination)+"_pa"+str(position_angle)+"_"+str(Nsnap)+"_image"+outputSuffix
 
             if os.path.isfile(image_name+"_fullSpectra.hdf5"):
                 print("Warning: image for i=",inclination,"pa=",position_angle,"already exists. Overwriting...")
