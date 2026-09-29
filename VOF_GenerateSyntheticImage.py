@@ -95,7 +95,7 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,sightlineDir,
         vmax = np.max(np.sum(noisy_image,2))
         vmin = vmax * np.power(10.0,-4.0)
         spec=np.linspace(-bandwidth_km_s/2,bandwidth_km_s/2,Nspec)
-        m1 = np.divide( np.sum( np.multiply(noisy_image,spec[:,None,None]), axis=2) , m0)
+        m1 = np.divide( np.sum( np.multiply(noisy_image,spec[None,None,:]), axis=2) , m0)
         plt.imshow(m1,vmin=-bandwidth_km_s/2,vmax=bandwidth_km_s/2,cmap='seismic')
         plt.colorbar()
         plt.savefig(output+'_FirstMomentMap.png')

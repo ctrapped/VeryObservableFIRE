@@ -43,41 +43,36 @@ def WriteAnnotation(hf,annotation,imageName,imageName_dn):
     hf.close()
 
 
-def ConvertSpectraToMomentMaps(spectra):
-    f0 = 1420.4 * np.power(10.,6.) # in hz
-    bandwidth_km_s = 400
-    res_km_s = 5.2
-    c_km_s = 3*10**5 #speed of light in km/s
-    Nspec = int(np.ceil(bandwidth_km_s / res_km_s))
-    bandwidth = f0*c_km_s * (1 / (c_km_s-bandwidth_km_s/2) - 1 / (c_km_s+bandwidth_km_s/2))
-    dv = bandwidth / Nspec
-    
-    velocities = np.linspace(-200,200,np.shape(spectra)[2])    
+def ConvertSpectraToMomentMaps(spectra,bandwidth_km_s):
+    Nspec = np.shape(spectra)[2]
+    dv = bandwidth_km_s / Nspec
+
+    velocities = np.linspace(-bandwidth_km_s/2,bandwidth_km_s/2,Nspec)
     moment0 = np.sum(spectra*dv,axis=2)
     moment0[moment0==0]=1e-10
-    
+
     moment1_integrand = np.copy(spectra)*0
     moment2_integrand = np.copy(spectra)*0
     for s in range(0,Nspec):
         moment1_integrand[:,:,s] = spectra[:,:,s] * velocities[s]
     moment1 = np.divide( np.sum( moment1_integrand * dv,axis=2) , moment0 )
-    
+
     for s in range(0,Nspec):
         moment2_integrand[:,:,s] = np.multiply(spectra[:,:,s] , np.power(velocities[s]-moment1[:,:],2))
-        
-        
+
+
     moment2 = np.divide( np.sum( moment2_integrand * dv,axis=2) , moment0 )
 
     momentMap = np.zeros((np.shape(spectra)[0],np.shape(spectra)[1],3))
     momentMap[:,:,0]=moment0
     momentMap[:,:,1]=moment1
     momentMap[:,:,2]=moment2
-    
+
     return momentMap
 
 def RotateData(imageDirBase , annotationDirBase, galName, inclination, position_angle, Nsnap, tag, masked, angles=[0,90,180,270],SavePNGs=False,denoise=False,DoTimeAveraging=False,template_fits=None,sofia_dir=None,sofia_base_path=None):
     saveSpectra=True
-    fov=observer_distance=obs_spatial_res_arcseconds=dnu_kmps=None
+    fov=observer_distance=obs_spatial_res_arcseconds=dnu_kmps=bandwidth_km_s=None
     try:
         hfImage = h5py.File(imageDirBase+".hdf5",'r')
         spectra = np.array(hfImage['spectra'])
@@ -86,13 +81,14 @@ def RotateData(imageDirBase , annotationDirBase, galName, inclination, position_
         observer_distance = hfImage.attrs['observer_distance_kpc']
         obs_spatial_res_arcseconds = hfImage.attrs['beam_arcsec']
         dnu_kmps = hfImage.attrs['dnu_kmps']
+        bandwidth_km_s = dnu_kmps * np.shape(spectra)[2]
         hfImage.close()
         print("Found image...")
     except:
         #print("Warning!!! No synthetic image for this inclination...")
-        spectra = np.zeros((40,40,77))
+        spectra = np.zeros((1,1,1))
         saveSpectra=False
-    
+
     suffix="_i"+str(inclination)+"_pa"+str(position_angle)+masked+"_"+galName+tag
 
     #CSV manifests the main pipeline (VOF_ConvertDataset.py) writes/appends to for this inclination/position angle,
@@ -110,7 +106,10 @@ def RotateData(imageDirBase , annotationDirBase, galName, inclination, position_
     hfrVel = h5py.File(annotationDirBase+"_rVel"+suffix+"_rVel_"+str(Nsnap)+".hdf5",'r')
     hfsMF = h5py.File(annotationDirBase+"_sMassFlux"+suffix+"_sMF_"+str(Nsnap)+".hdf5",'r')
 
-    
+    #Annotation grid resolution, read from the annotation files themselves rather than the (possibly missing) image
+    npix = int(round(np.sqrt(np.size(np.array(hfMF['annotation'])))))
+
+
     ####################################################
 
     if denoise:
@@ -132,26 +131,25 @@ def RotateData(imageDirBase , annotationDirBase, galName, inclination, position_
             spectra_rot=spectra_rot[rot_mask>0]
             hf_out = h5py.File(imageDirBase+rotString+"_dn.hdf5",'w')
             hf_out.create_dataset('spectra',data=spectra_rot)
-            hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_rot))
+            hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_rot,bandwidth_km_s))
             hf_out.close()
             print("Saved moments?")
           elif phi!=0:
             hf_out = h5py.File(imageDirBase+rotString+".hdf5",'w')
             hf_out.create_dataset('spectra',data=spectra_rot)
-            hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_rot))
+            hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_rot,bandwidth_km_s))
             hf_out.close()
-            
+
           spectra_lr = np.flip(spectra_rot,axis=0)
           hf_out = h5py.File(imageDirBase+rotString+dn_tag+"_lr.hdf5",'w')
           hf_out.create_dataset('spectra',data=spectra_lr)
-          hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_lr))
+          hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_lr,bandwidth_km_s))
           hf_out.close()
 
-        
-    
 
 
-        npix,npix,spec = np.shape(spectra)
+
+
         MF = RotateAnnotation(hfMF,phi,npix)
         Mass = RotateAnnotation(hfMass,phi,npix)
         RC = RotateAnnotation(hfRC,phi,npix)
@@ -232,7 +230,7 @@ if __name__ == "__main__":
         for tag in args.tags:
           for masked in args.masked_tags:
                 rootDir = os.path.join(args.data_root, galName, "vof_outputs", "i"+str(inclination), "training") + "/"
-                imageDirBase = rootDir+galName+tag+"_cr700_i"+str(inclination)+"_pa"+str(pa)+"_"+str(Nsnap)+"_image_04172023"+masked+"_fullSpectra"
+                imageDirBase = rootDir+galName+tag+"_i"+str(inclination)+"_pa"+str(pa)+"_"+str(Nsnap)+"_image"+masked+"_fullSpectra"
                 annotationDirBase = rootDir+"training_annotations"
                 RotateData(imageDirBase , annotationDirBase, galName,inclination,pa,Nsnap,tag,masked,denoise=args.denoise,DoTimeAveraging=False,
                            template_fits=args.template_fits,sofia_dir=args.sofia_dir,sofia_base_path=args.sofia_base_path)
