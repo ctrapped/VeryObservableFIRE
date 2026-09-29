@@ -498,7 +498,7 @@ def RunBinfire(snapdir,statsDir,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],te
 ###################################################################################################################################################################################################
 
 def calcTemps(GintE,ElectronAbundance,Gz): #Calculate Temperatures
-    gamma = 1.6666666666666666667
+    gamma = 5./3.
     kb =  1.38064852*10**(-23)*(100.0/unit_L)**2*(1000.0/unit_M)*(unit_T)**2 ## Boltzmann's constant, appropriate units
     #GintE = G['u'] #internal energy
     #ElectronAbundance = G['ne']
