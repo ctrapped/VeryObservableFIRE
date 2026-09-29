@@ -19,7 +19,7 @@ arcsec_to_rad = 1./60./60. * np.pi/180.
 import argparse
 
 
-def convert_to_fits(spectra,output_filename,fov,observer_distance,obs_spatial_res_arcseconds,dnu_kmps):
+def convert_to_fits(spectra,output_filename,fov,observer_distance,obs_spatial_res_arcseconds,dnu_kmps,template_filename,observer_name="unknown"):
 
     nx,ny,nspec = np.shape(spectra)
 
@@ -30,18 +30,8 @@ def convert_to_fits(spectra,output_filename,fov,observer_distance,obs_spatial_re
 
     dnu_mps = dnu_kmps * 1000.
 
-
-
-
-    input_filename = "/Users/ctrapp/Documents/foggie_analysis/analysis_tools/tilted_ring_fits/NGC_2403_NA_CUBE_THINGS.fits"
-    with fits.open(input_filename) as hdul:
-        hdul.info()  # Show HDU list
-        header = hdul[0].header
-        data = hdul[0].data  # This is a NumPy array
-
-
-# Step 4: Save to a new FITS file
-#output_filename = "/Users/ctrapp/Documents/foggie_analysis/analysis_tools/tilted_ring_fits/"+gal_name+"_NHI18_unfiltered_mock_ifu.fits"
+    with fits.open(template_filename) as hdul:
+        header = hdul[0].header.copy()
 
     bmaj = obs_spatial_res_arcseconds / 3600.#0.001666666666666666
     bmin = obs_spatial_res_arcseconds / 3600.#0.001666666666666666 
@@ -77,10 +67,10 @@ def convert_to_fits(spectra,output_filename,fov,observer_distance,obs_spatial_re
     header['CDELT3'] = -dnu_mps
     header['CUNIT3'] = 'M/S               ' 
 
-    header['BMAJ'] = bmaj                                                  
-    header['BMIN'] = bmin    
+    header['BMAJ'] = bmaj
+    header['BMIN'] = bmin
     header['OBJECT'] = "TEMP"
-    header['OBSERVER'] = 'ctrapp  '
+    header['OBSERVER'] = observer_name
 
     hdu = fits.PrimaryHDU(data=new_image, header=header)
     hdu.writeto(output_filename, overwrite=True)
@@ -93,3 +83,25 @@ def convert_to_fits(spectra,output_filename,fov,observer_distance,obs_spatial_re
     print("kpc per pixel=",fov_kpc / nx)
 
     print(f"\nSaved modified FITS file as {output_filename}")
+
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description="Convert a VeryObservableFIRE spectra datacube to a FITS cube.")
+    parser.add_argument("spectra_h5", help="Path to an HDF5 file with a 'spectra' dataset (e.g. a *_fullSpectra.hdf5 output from VeryObservableFIRE).")
+    parser.add_argument("template_fits", help="Path to an existing FITS cube whose header is used as a template.")
+    parser.add_argument("output_fits", help="Path to write the resulting FITS cube.")
+    parser.add_argument("--fov", type=float, required=True, help="Field of view in kpc.")
+    parser.add_argument("--observer-distance", type=float, required=True, help="Observer distance in kpc.")
+    parser.add_argument("--beam-arcsec", type=float, required=True, help="Beam size in arcseconds.")
+    parser.add_argument("--dnu-kms", type=float, required=True, help="Spectral resolution in km/s.")
+    parser.add_argument("--observer-name", default="unknown", help="Value to write to the FITS OBSERVER header keyword.")
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = _parse_args()
+    with h5py.File(args.spectra_h5, 'r') as hf:
+        spectra = np.array(hf['spectra'])
+    convert_to_fits(spectra, args.output_fits, args.fov, args.observer_distance,
+                     args.beam_arcsec, args.dnu_kms, args.template_fits,
+                     observer_name=args.observer_name)
