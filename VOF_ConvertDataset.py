@@ -25,6 +25,7 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                     createImages=True,savePNG=False,
                     writeMassFlux=True,writeMass=True,writeRotationCurve=True,writeRadialVelocity=True,
                     createMaskFromExistingStatsDir=False,
+                    runDataAugmentation=False,
     ):
 
 
@@ -200,6 +201,11 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                 bandwidth,
                 savePNG,bandwidth_km_s=bandwidth_km_s
                 )
+
+            if runDataAugmentation: #Rotate/flip this image+annotations and append the augmented images to the annotation csvs. Requires createAnnotations to have produced the annotation files for this inclination/position_angle.
+                from VOF_ImageRotater import RotateData
+                annotationDirBase = output+"i"+str(inclination)+"/training/training_annotations"
+                RotateData(image_name+"_fullSpectra", annotationDirBase, galName, inclination, position_angle, Nsnap, "", outputSuffix)
 
 
 
