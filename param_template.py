@@ -1,7 +1,7 @@
 import numpy as np
 pi=np.pi
 arcsec = (1. /60. / 60.) * pi/180.
-####Modify the values of each parameter to run VeryObservableFIRE. Pass the name of this file (e.g param_template) when you run VOF_CreateDataset.py
+####Modify the values of each parameter to run VeryObservableFIRE. Pass the name of this file (e.g param_template) when you run VeryObservableFIRE.py
 ####
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 ####Updated 12/08/2023
@@ -54,6 +54,7 @@ def LoadParameters():
     writeMass=True #[True]=Generate mass annotations
     writeRotationCurve=True #[True]=Generate rotation curve annotations
     createMaskFromExistingStatsDir=False #Mask the previously run galaxy to find satellites/other galaxies in snapshot
+    runDataAugmentation=True #[True]=Rotate/flip each generated image+annotations (VOF_ImageRotater.py) and append the augmented images to the annotation csvs. Requires runBinfire and runVOF to be True.
     #############################
 
-    return replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir
+    return replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir,runDataAugmentation
