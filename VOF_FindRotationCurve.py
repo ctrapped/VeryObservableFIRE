@@ -27,12 +27,12 @@ eps = 0.00000000000000000000000000000000000000000000001
 
 
 def FindRotationCurve(pos,vel,mass,nr,max_r):
-    rMag = VectorArrayMag(pos)
+    rMag =  np.linalg.norm(pos,axis=1)
     rHat = np.copy(pos)
     rHat[:,0] = np.divide(pos[:,0],rMag)
     rHat[:,1] = np.divide(pos[:,1],rMag)
     rHat[:,2] = np.divide(pos[:,2],rMag)
-    vMag = VectorArrayMag(vel - np.multiply(vel,rHat)) #Don't count radial velocity
+    vMag =  np.linalg.norm(vel - np.multiply(vel,rHat),axis=1) #Don't count radial velocity
 
     #Calculate mass weighted average
     binned_mom,binedge1d,binnum1d = stats.binned_statistic_dd(rMag,np.multiply(vMag,mass),'sum',nr,range=[[0,max_r]])
@@ -42,9 +42,7 @@ def FindRotationCurve(pos,vel,mass,nr,max_r):
 
    
 
-def VectorArrayMag(r):
-    r_magnitude = np.sqrt(np.add(np.power(r[:,0],2),np.add(np.power(r[:,1],2),np.power(r[:,2],2))))
-    return r_magnitude
+
 
 
 

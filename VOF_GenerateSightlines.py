@@ -1,0 +1,170 @@
+import numpy as np
+import h5py as h5py
+import math
+import time
+
+import scipy
+
+from VOF_LoadData import ReadStats
+from VOF_LoadData import LoadDataForSightlineGenerator
+from VOF_LoadData import LoadDataForSightlineIteration_v2
+from VOF_LoadData import LoadData
+
+from VOF_FindRotationCurve import FindRotationCurve
+from VOF_OrientGalaxy import CenterOnObserver
+from VOF_OrientGalaxy import OrientGalaxy
+from VOF_GetParticlesInSightline import GetParticlesInSightline
+
+from joblib import Parallel, delayed
+import multiprocessing
+from multiprocessing import Pool
+
+from functools import partial
+
+
+unit_M = 10**10 * 1.98855 *10**33 #10^10 solar masses / h !!in grams!! #h accounted for in readsnap
+unit_L = 3.086*10**21 #1 kpc / h !!in cm!!
+unit_V = 1.0*10.0**5 # 1 km/s !!in cm/s!! Converted by factor of sqrt(a) in readsnap
+unit_T = unit_L/unit_V
+unit_rho = unit_M / unit_L**3
+
+Joules2eV = 6.241509*np.power(10.0,18.0)
+meters2Kpc = 3.24078*np.power(10.0,-20.0)
+Jy2SimUnits = np.power(10.0,-26.0) * Joules2eV / meters2Kpc / meters2Kpc
+#J*s^-1*m^-2*Hz-1
+SimUnits2Jy = 1.0 / Jy2SimUnits 
+
+proton_mass = 1.6726219*10**(-27)*(1000.0/unit_M) ##appropriate units
+
+pi = np.pi
+
+arcsec2rad = pi / (180*3600)
+
+####Functions to generate a sightline spectra for a given set of observer parameters. Defines the vectors, overlapping particles in each sightline,
+####and relevant parameters that allows each thread to get the effective column density of a particle along that sightline.
+####
+####Then calculates the emission and absorption from each particle along the sightline.
+####
+####Written By Cameron Trapp (ctrapped@gmail.com)
+####Updated 03-10-2023
+
+def GenSightline(thread_id,Nsightlines_1d,sightlines,gPos,gVel,gKernal,gMas,gTemp,speciesMassFrac,beamSize,speciesToRun,Nspec,bandwidth,rObserver):
+    ix=thread_id % Nsightlines_1d #Thread pixel coordinates
+    iy = int(np.floor(thread_id / Nsightlines_1d))
+    t0=time.time()
+    spectrum,emission=GetParticlesInSightline(sightlines[ix,iy,:],gPos,gVel,gKernal,gMas,gTemp,speciesMassFrac,beamSize,speciesToRun,Nspec,bandwidth,rObserver,calcThermalLevels=False)
+    print("Finished sightline [",ix,',',iy,'] in ',time.time()-t0)
+    return emission#, [ix,iy]
+
+
+
+def GenerateSightlines(snapdir,Nsnapstring,statsDir,observer_position,observer_velocity,outputs,maxima,beamSize = 1*arcsec2rad,Nsightlines=100,sightlines=None,phiObs=0,inclination=0,speciesToRun='H1_21cm',Nspec=77,bandwidth=0,targetBeamSize=None,noiseAmplitude=None,position_angle=0):
+    max_r,maxPhi,maxTheta = maxima;
+    rObserver=np.abs(observer_position[0])
+    pos_center,vel_center,Lhat,r0,orientation_maxima = ReadStats(statsDir);
+    
+    if inclination>0:
+        #Rotate r0 first to set the position angle
+        rotation_axis = np.copy(Lhat)
+        rotation_vector = float(position_angle)*np.pi/180.*rotation_axis
+        rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
+        r0 = rotation.apply(r0)
+        
+        #Rotate the vectors Lhat and r0 that define the z and x unit vectors respectively. Effectively rotates the entire galaxy
+        rotation_axis = np.cross(Lhat,r0)
+        rotation_vector = float(inclination)*np.pi/180.*rotation_axis
+        rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
+
+        Lhat = rotation.apply(Lhat)
+        r0 =   rotation.apply(r0)
+
+    #Load the gas particles
+    gPos,gKernal,gVel = LoadDataForSightlineGenerator(snapdir,Nsnapstring,0,max_r,pos_center,vel_center)
+    #Transform into previously defined coordinate system
+    gPos,gVel = OrientGalaxy(gPos,gVel,Lhat,r0);
+    
+    rmag = np.linalg.norm(gPos,axis=1)
+    radMask = np.where(rmag<max_r*1.5)[0]
+    
+    gPos=gPos[radMask]
+    gVel=gVel[radMask]
+    gKernal=gKernal[radMask]
+    del rmag
+    #rmag=rmag[radMask]
+    
+    
+    gMas,gTemp,speciesMassFrac = LoadDataForSightlineIteration_v2(snapdir,Nsnapstring,ptype=0,mask=radMask,gKernal=gKernal,species=speciesToRun)
+    
+    
+    #If observer velocity is not defined, calculate rotation curve to put the observer in the galaxy. Should only be used for in galaxy observations.
+    rotationCurve=None
+    defineRotationCurve=False
+    
+    if observer_velocity is None: defineRotationCurve=True
+    
+    if defineRotationCurve:
+        #Load the star particles
+        sPos,sVel,sMass = LoadData(snapdir,Nsnapstring,1,max_r,pos_center,vel_center);
+        #Transform into previously defined coordinate system
+        sPos,sVel = OrientGalaxy(sPos,sVel,Lhat,r0);
+
+        rBinSize=0.1
+        nr = int(math.ceil(max_r/rBinSize)) 
+        rotationCurve = FindRotationCurve(sPos,sVel,sMass,nr,max_r)
+
+
+    output = outputs
+    pos_observer,vel_observer = CenterOnObserver(observer_position,observer_velocity,rotationCurve=rotationCurve,max_r=max_r);
+    print("vel_observer=",vel_observer)
+    gPos -= pos_observer #Switch to observers frame of reference
+    gVel -= vel_observer
+
+    if sightlines is None: #Create sightline vectors to evenly sample the observed space
+        Nsightlines_1d = int(np.round(np.sqrt(Nsightlines)))
+        sightlines = np.zeros((Nsightlines_1d,Nsightlines_1d,3))
+        phiRes = maxPhi / (Nsightlines_1d-1)
+        thetaRes = maxTheta / (Nsightlines_1d-1)
+        
+        phi0 = (2*pi - maxPhi)/2 + phiObs - pi
+        theta0 = (pi - maxTheta)/2
+                
+        indices = np.indices((Nsightlines_1d,Nsightlines_1d))
+        sightlines[:,:,0] = np.cos(indices[0,:,:]*phiRes+phi0)*np.cos(-(indices[1,:,:]*thetaRes-pi/2+theta0))
+        sightlines[:,:,1] = np.sin(indices[0,:,:]*phiRes+phi0)*np.cos(-(indices[1,:,:]*thetaRes-pi/2+theta0))
+        sightlines[:,:,2] = np.sin(-(indices[1,:,:]*thetaRes-pi/2+theta0))
+
+    t0=time.time()
+    #For each sightline get the particles that overlap with the beam and their offset from the beam. Assumes particles are spheres (they aren't, this can be improved)
+    sightline_indices = range(0,Nsightlines)
+    num_cores = multiprocessing.cpu_count()-1
+    print("Working with ",num_cores," cores")
+
+    tStart=time.time()
+
+    #Define partial function to parallelize
+    GenSightline_ = partial(GenSightline,Nsightlines_1d=Nsightlines_1d,sightlines=sightlines,gPos=gPos,gVel=gVel,gKernal=gKernal,gMas=gMas,gTemp=gTemp,speciesMassFrac=speciesMassFrac,beamSize=beamSize,speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,rObserver=rObserver)
+
+
+
+    print("Splitting into parallel runs")
+    x= Parallel(n_jobs=num_cores)(delayed(GenSightline_)(i) for i in sightline_indices)
+
+    print("Reshaping image...")
+    image = np.reshape(x,[Nsightlines_1d,Nsightlines_1d,Nspec])
+    image=np.flipud(image)
+
+    ###Smooth here
+    obs_spatial_resolution = targetBeamSize * np.linalg.norm(observer_position)
+    base_spatial_resolution = (2*maxima[0]) / Nsightlines_1d
+    print("Obs spatial resolution (kpc)=",obs_spatial_resolution)
+    print("Base spatial resolution (kpc)=",base_spatial_resolution)
+    smoothed_image = scipy.ndimage.gaussian_filter(image, sigma=obs_spatial_resolution/base_spatial_resolution / (2*np.sqrt(2*np.log(2))) , axes=[0,1])
+
+    ####Add noise here
+    beam_to_pixel = base_spatial_resolution**2 / (np.pi*obs_spatial_resolution**2)
+    
+    noiseProfile = np.random.normal(0, noiseAmplitude*beam_to_pixel, np.shape(image)) #Create noise profile scaled by the downsampling we are doing
+    noisy_image = np.add(smoothed_image, noiseProfile)
+
+    print("Time to run in parallel=",time.time()-tStart)
+    return image, smoothed_image, noisy_image

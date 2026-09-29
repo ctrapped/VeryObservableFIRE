@@ -2,13 +2,12 @@ import numpy as np
 import h5py
 import os
 import copy
-from VeryObservableFIRE import GenerateSyntheticImage
+from VOF_GenerateSyntheticImage import GenerateSyntheticImage
 from Binfire.Binfire import RunBinfire
 from Binfire.Binfire import LoadGas
 from Binfire.readsnap_binfire import ReadStats
 
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
 ####Function converts a FIRE snapshot to a dataset usable with CoNNGaFit.
 ####Based on given options will first generate annotation files in the form of a .csv file for the mass flux, mass, and/or rotational velocities
 ####Will then generate synthetic images corresponding to those projection maps.
@@ -24,8 +23,7 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                     speciesToRun,Nspec,bandwidth,bandwidth_km_s,
                     createAnnotations=True,replaceAnnotationsFile=False,
                     createImages=True,savePNG=False,
-                    writeMassFlux=True,writeMass=True,writeRotationCurve=True,writeRadialVelocity=True,writeInclination=True,
-                    createSightlineFiles=True,
+                    writeMassFlux=True,writeMass=True,writeRotationCurve=True,writeRadialVelocity=True,
                     createMaskFromExistingStatsDir=False,
     ):
 
@@ -107,6 +105,7 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                     plt.colorbar()
                     plt.savefig(annotationFileDir_sMF+"_"+galName+"_sMF_"+str(Nsnap)+".png")
                     plt.close()
+
                     
                 hfsMF=h5py.File(annotationFileDir_sMF+"_"+galName+"_sMF_"+str(Nsnap)+".hdf5",'w')
                 hfsMF.create_dataset('imageName',data=image_name)
@@ -170,22 +169,6 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                 hfMass.create_dataset('annotation',data=np.divide(binnedPhiMassFlux,binnedMass).flatten())
                 hfMass.close()
                 
-            if writeInclination:
-                binnedMass[binnedMass==0]=1e-10
-                AppendToAnnotationsFile(annotationFileDir_Inclination+".csv",image_name,np.divide(binnedPhiMassFlux,binnedMass).flatten(),replaceAnnotationsFile=replaceAnnotationsFile)
-                if savePNG:
-                    vmax = inclination+20
-                    vmin= inclination-20
-                    plt.figure()
-                    plt.imshow(binnedInclination,vmin=vmin,vmax=vmax,cmap='seismic')
-                    plt.colorbar()
-                    plt.savefig(annotationFileDir_Inclination+"_"+galName+"_inc_"+str(Nsnap)+".png")
-                  
-                    plt.close()
-                hfMass=h5py.File(annotationFileDir_Inclination+"_"+galName+"_inc_"+str(Nsnap)+".hdf5",'w')
-                hfMass.create_dataset('imageName',data=image_name)
-                hfMass.create_dataset('annotation',data=binnedInclination.flatten())
-                hfMass.close()
     
         del G; del G0
         
@@ -197,8 +180,8 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
             image_name=output+"i"+str(inclination)+"/training/"+galName+"_cr700_i"+str(inclination)+"_pa"+str(position_angle)+"_"+str(Nsnap)+"_image_04172023"+outputSuffix
 
             if os.path.isfile(image_name+"_fullSpectra.hdf5"):
-                print("Image for i=",inclination,"pa=",position_angle,"already exists, skipping...")
-                continue
+                print("Warning: image for i=",inclination,"pa=",position_angle,"already exists. Overwriting...")
+                
 
             GenerateSyntheticImage(fileDir,
                 statsDir, #If not provided, generate
@@ -215,7 +198,7 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                 speciesToRun,
                 Nspec,
                 bandwidth,
-                savePNG,createSightlineFiles,bandwidth_km_s=bandwidth_km_s
+                savePNG,bandwidth_km_s=bandwidth_km_s
                 )
 
 

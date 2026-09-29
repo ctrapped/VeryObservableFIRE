@@ -234,10 +234,6 @@ def CalcMolecularFraction(Gnh,KernalLengths,density,fHe,fMetals,to_return="fH1",
         return (1. - fHe - fMetals) * fH2
 
 
-def VectorArrayMag(r):
-    r_magnitude = np.sqrt(np.add(np.power(r[:,0],2),np.add(np.power(r[:,1],2),np.power(r[:,2],2))))
-    return r_magnitude
-
 
 
 
