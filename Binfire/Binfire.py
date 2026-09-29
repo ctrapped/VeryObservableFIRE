@@ -324,7 +324,7 @@ def RunBinfire(snapdir,statsDir,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],te
     r_z[:,2] = zmag*Lhat[2]
 
     r_s = np.subtract(Gpos,r_z)
-    smag = VectorArrayMag(r_s)
+    smag =  np.linalg.norm(r_s,axis=1)
     smag[smag==0] = eps #make zero entries epsilon for division purposes
 
 
@@ -337,7 +337,7 @@ def RunBinfire(snapdir,statsDir,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],te
     s_hat[:,1] = np.divide(r_s[:,1],smag)
     s_hat[:,2] = np.divide(r_s[:,2],smag)
     
-    rmag = VectorArrayMag(Gpos)
+    rmag =  np.linalg.norm(Gpos,axis=1)
     r_hat[:,0] = np.divide(Gpos[:,0],rmag)
     r_hat[:,1] = np.divide(Gpos[:,1],rmag)
     r_hat[:,2] = np.divide(Gpos[:,2],rmag)
@@ -359,7 +359,7 @@ def RunBinfire(snapdir,statsDir,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],te
     print('r0 is',r_0)
     r_0_forStats = np.copy(r_0)
     Lhat_forStats = np.copy(Lhat)
-    smag = VectorArrayMag(r_s)
+    smag =  np.linalg.norm(r_s,axis=1)
     smag[smag==0] = eps #make zero entries epsilon for division purposes
     acos_term = np.divide(np.dot(r_s,r_0),(np.linalg.norm(r_0)*smag))
     acos_term[acos_term>1] = 1 #make sure the term isn't above magnitude 1 by a rounding error
@@ -408,7 +408,7 @@ def RunBinfire(snapdir,statsDir,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],te
         r_z[:,2] = np.dot(Gpos,Lhat)*Lhat[2]
 
         r_s_tmp = np.subtract(Gpos,r_z)
-        smag_rot = VectorArrayMag(r_s_tmp)
+        smag_rot =  np.linalg.norm(r_s_tmp,axis=1)
         smag_rot[smag_rot==0] = eps #make zero entries epsilon for division purposes
 
 
@@ -527,7 +527,3 @@ def findDensities(Gz,Gdens):
     h_massfrac = np.subtract(h_massfrac,np.add(Gz[:,0],Gz[:,1])) #1 - mass frac of metals - mass frac of helium
     nh = np.divide(np.multiply(Gdens,h_massfrac),proton_mass)
     return nh
-
-def VectorArrayMag(r):
-    r_magnitude = np.sqrt(np.add(np.power(r[:,0],2),np.add(np.power(r[:,1],2),np.power(r[:,2],2))))
-    return r_magnitude
