@@ -34,7 +34,7 @@ SimUnits2Jy = 1.0 / Jy2SimUnits
 ####Updated 03-10-2023
             
 
-def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,sightlineDir,
+def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
                             observerDistance, observerVelocity,
                             maxRadius,
                             noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,
@@ -66,10 +66,14 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,sightlineDir,
     #gaussianMat = Generate_PSF_Matrix(Nsightlines1d,beamSize,targetBeamSize,Nspec) #Precalculate PSF matrix
 
     #Predefine which particles belong to which sightline files to speed up parallelization. Can be re-used for observations from the same distance/inclination
-    ideal_image, smooth_image, noisy_image = GenerateSightlines(snapDir,Nsnapstring,statsDir,observer_position,observerVelocity,sightlineDir,maxima,beamSize,Nsightlines,phiObs = phiObs, inclination = inclination,position_angle=position_angle, speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,targetBeamSize=targetBeamSize,noiseAmplitude=noiseAmplitude) 
+    ideal_image, smooth_image, noisy_image = GenerateSightlines(snapDir,Nsnapstring,statsDir,observer_position,observerVelocity,maxima,beamSize,Nsightlines,phiObs = phiObs, inclination = inclination,position_angle=position_angle, speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,targetBeamSize=targetBeamSize,noiseAmplitude=noiseAmplitude) 
         
 
          
+    output_dir = os.path.dirname(output)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+        
     hf = h5py.File(output+'_fullSpectra.hdf5','w')
     hf.create_dataset('spectra',data=noisy_image)
     hf.create_dataset('ideal_image',data=ideal_image)

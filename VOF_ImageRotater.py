@@ -71,6 +71,10 @@ def ConvertSpectraToMomentMaps(spectra,bandwidth_km_s):
     return momentMap
 
 def RotateData(imageDirBase , annotationDirBase, galName, inclination, position_angle, Nsnap, tag, masked, angles=[0,90,180,270],SavePNGs=False,denoise=False,DoTimeAveraging=False,template_fits=None,sofia_dir=None,sofia_base_path=None):
+    for base in (imageDirBase, annotationDirBase):
+        base_dir = os.path.dirname(base)
+        if base_dir:
+            os.makedirs(base_dir, exist_ok=True)
     saveSpectra=True
     fov=observer_distance=obs_spatial_res_arcseconds=dnu_kmps=bandwidth_km_s=None
     try:

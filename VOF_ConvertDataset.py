@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 ####Updated 12/08/2023
 
-def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
+def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
                     observerDistance, observerVelocity,
                     maxRadius,maxHeight,
                     noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,
@@ -58,6 +58,7 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
         )
     
         for inclination in inclinations:
+          os.makedirs(output+"i"+str(inclination)+"/training/", exist_ok=True)
           for position_angle in position_angles:
             angle_str = "i"+str(inclination)+"_pa"+str(position_angle)
             #Matches the datacube filename VOF_GenerateSyntheticImage.py actually writes in the createImages loop below (image_name+"_fullSpectra.hdf5" there)
@@ -177,6 +178,7 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
     if createImages:
         print("Creating Synthetic Images...")
         for inclination in inclinations:
+          os.makedirs(output+"i"+str(inclination)+"/training/", exist_ok=True)
           for position_angle in position_angles:
             print("Generating Image for inclination: ",inclination)
             image_name=output+"i"+str(inclination)+"/training/"+galName+"_i"+str(inclination)+"_pa"+str(position_angle)+"_"+str(Nsnap)+"_image"+outputSuffix
@@ -189,7 +191,6 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,sightlineDir,galName,
                 statsDir, #If not provided, generate
                 Nsnap,
                 image_name,
-                sightlineDir+"_i"+str(inclination)+"_"+str(Nsnap)+"_image",
                 observerDistance,
                 observerVelocity,
                 maxRadius,

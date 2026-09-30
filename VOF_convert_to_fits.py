@@ -1,6 +1,7 @@
 from astropy.io import fits
 import numpy as np
 import h5py
+import os
 import unyt as u
 
 c = 3e5 * u.km / u.s  # km/s
@@ -73,6 +74,9 @@ def convert_to_fits(spectra,output_filename,fov,observer_distance,obs_spatial_re
     header['OBSERVER'] = observer_name
 
     hdu = fits.PrimaryHDU(data=new_image, header=header)
+    output_dir = os.path.dirname(output_filename)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
     hdu.writeto(output_filename, overwrite=True)
 
     print("SHAPE OF IMAGE =",nx,ny)

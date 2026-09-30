@@ -1,5 +1,6 @@
 import numpy as np
 import h5py as h5py
+import os
 import time
 import scipy
 import scipy.stats as stats
@@ -31,7 +32,7 @@ eps = 1e-10
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 ####Updated 12/14/2023
 
-def LoadGas(snapdir,statsDir,Nsnap,maxima,maskCenter=None,maskRadius=None,rshrinksphere=5000):
+def LoadGas(snapdir,statsFile,Nsnap,maxima,maskCenter=None,maskRadius=None,rshrinksphere=5000):
     Nsnapstring = str(Nsnap)
 
     max_x = maxima[0]
@@ -48,9 +49,9 @@ def LoadGas(snapdir,statsDir,Nsnap,maxima,maskCenter=None,maskRadius=None,rshrin
 
 
     shrinking_sphere_flag=0
-    if statsDir is not None:
+    if statsFile is not None:
         try:
-            r_0,pos_center,Lhat,vel_center = ReadStats(statsDir)
+            r_0,pos_center,Lhat,vel_center = ReadStats(statsFile)
         except:
             pos_center=None
             shrinking_sphere_flag=1
@@ -99,15 +100,15 @@ def LoadGas(snapdir,statsDir,Nsnap,maxima,maskCenter=None,maskRadius=None,rshrin
 
     return G, G0
 
-def RunBinfire(snapdir,statsDir,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax=[None],densMin=[None],densMax=[None],phasetag=['AG'],rshrinksphere=5000,rminsphere=10,shrinkfactor=0.7,inclination=None,position_angle=None,maskCenter=None,maskRadius=None):
+def RunBinfire(snapdir,statsFile,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax=[None],densMin=[None],densMax=[None],phasetag=['AG'],rshrinksphere=5000,rminsphere=10,shrinkfactor=0.7,inclination=None,position_angle=None,maskCenter=None,maskRadius=None):
     Nsnapstring = str(Nsnap)
     shrinking_sphere_flag=0
     writeStatsFile = False
      
      
-    if statsDir is not None:
+    if statsFile is not None:
         try:
-            r_0,pos_center,Lhat,vel_center = ReadStats(statsDir)
+            r_0,pos_center,Lhat,vel_center = ReadStats(statsFile)
         except:
             writeStatsFile = True
             r_0=None
@@ -475,7 +476,10 @@ def RunBinfire(snapdir,statsDir,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],te
     
     
     if writeStatsFile:
-        hf_stats = h5py.File(statsDir,'w')
+        stats_dir = os.path.dirname(statsFile)
+        if stats_dir:
+            os.makedirs(stats_dir, exist_ok=True)
+        hf_stats = h5py.File(statsFile,'w')
         hf_stats.create_dataset('pos_center',data = pos_center);
         hf_stats.create_dataset('r0',data=r_0_forStats);
         hf_stats.create_dataset('Lhat',data=Lhat_forStats);
