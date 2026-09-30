@@ -14,10 +14,9 @@ def LoadFileInfo(galName=None,minSnap=None,maxSnap=None):
     fileDir = '/Volumes/wde4tb/simulation_snapshots/fire-2/'+galName+'/snapdir_' #Path to the directory with snapshots. Should end without the trailing snapshot number
     statsDir= '/Volumes/wde4tb/simulation_snapshots/fire-2/'+galName+'/stats/'+galName+"_stats" #Path to a directory to store stats info. Will create .hdf5 file if doesn't exist
     output= '/Volumes/wde4tb/simulation_snapshots/fire-2/'+galName+'/vof_outputs/' #Directory to write outputs
-    sightlineDir=output+'sightlines\\'+galName #Subdirectory to store sightline files
     #############################
 
-    return galName,minSnap,maxSnap,fileDir,statsDir,output,sightlineDir
+    return galName,minSnap,maxSnap,fileDir,statsDir,output
 
 def LoadObserverInfo(set_inclination=None):
     #### Observer parameters ####

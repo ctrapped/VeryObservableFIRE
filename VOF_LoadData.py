@@ -41,21 +41,6 @@ def ReadStats(statsDir):
     hf.close()
     return posCenter,velCenter,Lhat,r0,orientation_maxima
 
-def ReadSightlineFile(sightlineDir,tid):
-    #Read previously generated sightline information containing the direction of the sightline, intersecting particles, and relevant information to reconstruct column densities along the los
-    hf = h5py.File(sightlineDir,'r')
-    pos_observer=np.array(hf['pos_observer'])
-    vel_observer=np.array(hf['vel_observer'])
-    groupName = "sightline"+str(tid)
-    mask = np.array(hf[groupName].get('mask'))
-    impact = np.array(hf[groupName].get('impact'))
-    distance = np.array(hf[groupName].get('distance'))
-    sightline = np.array(hf[groupName].get('sightline'))
-    dopplerVel = np.array(hf[groupName].get('dopplerVel'))
-    hf.close()
-
-    return mask,impact,distance,dopplerVel,pos_observer,vel_observer,sightline
-
 
 def LoadData(snapdir,Nsnapstring,ptype,rTrunc,posCenter,velCenter):
     #Load position and density to create a mask for particles in user defined region of interest

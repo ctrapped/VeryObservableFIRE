@@ -46,7 +46,7 @@ try:
 except:
     inclination=None
 
-galName,minSnap,maxSnap,fileDir,statsDir,output,sightlineDir = paramMod.LoadFileInfo(galName,minSnap,maxSnap)
+galName,minSnap,maxSnap,fileDir,statsDir,output = paramMod.LoadFileInfo(galName,minSnap,maxSnap)
 
 print("Looking at:"+fileDir)
 
@@ -72,7 +72,7 @@ replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRo
 
 for Nsnap in range(minSnap,maxSnap+1):
     print(Nsnap)
-    FireToDataset(fileDir,statsDir,Nsnap,output,sightlineDir,galName,observerDistance,observerVelocity,maxRadius,maxHeight,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,position_angles,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir=createMaskFromExistingStatsDir,runDataAugmentation=runDataAugmentation)
+    FireToDataset(fileDir,statsDir,Nsnap,output,galName,observerDistance,observerVelocity,maxRadius,maxHeight,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,position_angles,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir=createMaskFromExistingStatsDir,runDataAugmentation=runDataAugmentation)
     replaceAnnotationsFile=False
     
 print("Time to finish: ",time.time()-startTime)
