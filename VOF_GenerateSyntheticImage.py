@@ -41,6 +41,7 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
                             phiObs,inclination,position_angle,
                             speciesToRun,Nspec,bandwidth,
                             savePNG,bandwidth_km_s=None,
+                            num_cores=None
     ):
                                         
     t1 = time.time()
@@ -66,14 +67,14 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
     #gaussianMat = Generate_PSF_Matrix(Nsightlines1d,beamSize,targetBeamSize,Nspec) #Precalculate PSF matrix
 
     #Predefine which particles belong to which sightline files to speed up parallelization. Can be re-used for observations from the same distance/inclination
-    ideal_image, smooth_image, noisy_image = GenerateSightlines(snapDir,Nsnapstring,statsDir,observer_position,observerVelocity,maxima,beamSize,Nsightlines,phiObs = phiObs, inclination = inclination,position_angle=position_angle, speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,targetBeamSize=targetBeamSize,noiseAmplitude=noiseAmplitude) 
+    ideal_image, smooth_image, noisy_image = GenerateSightlines(snapDir,Nsnapstring,statsDir,observer_position,observerVelocity,maxima,beamSize,Nsightlines,phiObs = phiObs, inclination = inclination,position_angle=position_angle, speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,targetBeamSize=targetBeamSize,noiseAmplitude=noiseAmplitude,num_cores=num_cores) 
         
 
          
     output_dir = os.path.dirname(output)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
-        
+
     hf = h5py.File(output+'_fullSpectra.hdf5','w')
     hf.create_dataset('spectra',data=noisy_image)
     hf.create_dataset('ideal_image',data=ideal_image)
@@ -89,7 +90,7 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
         plt.figure()
         m0=np.sum(noisy_image,2)
         vmax = np.max(m0)
-        vmin = vmax * np.power(10.0,-4.0)
+        vmin = vmax * 1e-4
         plt.imshow(m0,norm=LogNorm(vmin=vmin,vmax=vmax),cmap='inferno')
         plt.colorbar()
         plt.savefig(output+'_ZerothMomentMap.png')
@@ -97,7 +98,7 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
 
         plt.figure()
         vmax = np.max(np.sum(noisy_image,2))
-        vmin = vmax * np.power(10.0,-4.0)
+        vmin = vmax * 1e-4
         spec=np.linspace(-bandwidth_km_s/2,bandwidth_km_s/2,Nspec)
         m1 = np.divide( np.sum( np.multiply(noisy_image,spec[None,None,:]), axis=2) , m0)
         plt.imshow(m1,vmin=-bandwidth_km_s/2,vmax=bandwidth_km_s/2,cmap='seismic')

@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import time
 import sys
@@ -68,11 +67,11 @@ print("f0 = ",f0)
 print("Bandwidth = ",bandwidth)
 print("###########################################################################")
 
-replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir,runDataAugmentation=paramMod.LoadParameters()
+replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir,runDataAugmentation,num_cores=paramMod.LoadParameters()
 
 for Nsnap in range(minSnap,maxSnap+1):
     print(Nsnap)
-    FireToDataset(fileDir,statsDir,Nsnap,output,galName,observerDistance,observerVelocity,maxRadius,maxHeight,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,position_angles,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir=createMaskFromExistingStatsDir,runDataAugmentation=runDataAugmentation)
+    FireToDataset(fileDir,statsDir,Nsnap,output,galName,observerDistance,observerVelocity,maxRadius,maxHeight,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,position_angles,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir=createMaskFromExistingStatsDir,runDataAugmentation=runDataAugmentation,num_cores=num_cores)
     replaceAnnotationsFile=False
     
 print("Time to finish: ",time.time()-startTime)

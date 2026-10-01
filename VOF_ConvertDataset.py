@@ -26,6 +26,7 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
                     writeMassFlux=True,writeMass=True,writeRotationCurve=True,writeRadialVelocity=True,
                     createMaskFromExistingStatsDir=False,
                     runDataAugmentation=False,
+                    num_cores=None
     ):
 
 
@@ -201,7 +202,8 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
                 speciesToRun,
                 Nspec,
                 bandwidth,
-                savePNG,bandwidth_km_s=bandwidth_km_s
+                savePNG,bandwidth_km_s=bandwidth_km_s,
+                num_cores=num_cores
                 )
 
             if runDataAugmentation: #Rotate/flip this image+annotations and append the augmented images to the annotation csvs. Requires createAnnotations to have produced the annotation files for this inclination/position_angle.

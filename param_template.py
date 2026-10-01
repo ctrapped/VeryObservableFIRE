@@ -54,6 +54,7 @@ def LoadParameters():
     writeRotationCurve=True #[True]=Generate rotation curve annotations
     createMaskFromExistingStatsDir=False #Mask the previously run galaxy to find satellites/other galaxies in snapshot
     runDataAugmentation=True #[True]=Rotate/flip each generated image+annotations (VOF_ImageRotater.py) and append the augmented images to the annotation csvs. Requires runBinfire and runVOF to be True.
+    num_cores = None #Set the number of cores to use in parallel sightline generation. Defaults to all available if None
     #############################
 
-    return replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir,runDataAugmentation
+    return replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir,runDataAugmentation,num_cores
