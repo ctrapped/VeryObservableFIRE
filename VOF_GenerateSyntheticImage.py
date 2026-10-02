@@ -90,7 +90,7 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
         plt.figure()
         m0=np.sum(noisy_image,2)
         vmax = np.max(m0)
-        vmin = vmax * 1e-4
+        vmin = vmax * 1e-8
         plt.imshow(m0,norm=LogNorm(vmin=vmin,vmax=vmax),cmap='inferno')
         plt.colorbar()
         plt.savefig(output+'_ZerothMomentMap.png')

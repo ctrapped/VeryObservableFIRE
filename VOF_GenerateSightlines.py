@@ -160,10 +160,11 @@ def GenerateSightlines(snapdir,Nsnapstring,statsDir,observer_position,observer_v
     smoothed_image = scipy.ndimage.gaussian_filter(image, sigma=obs_spatial_resolution/base_spatial_resolution / (2*np.sqrt(2*np.log(2))) , axes=[0,1])
 
     ####Add noise here
-    beam_to_pixel = base_spatial_resolution**2 / (np.pi*obs_spatial_resolution**2)
-    
-    noiseProfile = np.random.normal(0, noiseAmplitude*beam_to_pixel, np.shape(image)) #Create noise profile scaled by the downsampling we are doing
+    #beam_to_pixel = base_spatial_resolution**2 / (np.pi*obs_spatial_resolution**2) #For noise in Jy
+    noiseProfile = np.random.normal(0, noiseAmplitude, np.shape(image)) #Create noise profile scaled by the downsampling we are doing
     noisy_image = np.add(smoothed_image, noiseProfile)
 
+    print("max of image is:",np.max(smoothed_image))
+    print("Max of noise profile is:",np.max(noiseProfile))
     print("Time to run in parallel=",time.time()-tStart)
     return image, smoothed_image, noisy_image

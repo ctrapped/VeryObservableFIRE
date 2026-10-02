@@ -24,7 +24,7 @@ def LoadObserverInfo(set_inclination=None):
     observerVelocity=np.array([0,0,0]) #Observer velocity
     maxRadius=30 #max radius from disk center to image
     maxHeight=10 #max height above disk plane to include
-    targetBeamSize=6*arcsec #beam size of instrument being modeled (in radians)
+    targetBeamSize=30*arcsec #beam size of instrument being modeled (in radians)
     Nsightlines1d=256 #number of sightlines along one axis
     phiObs=0 #offset image with this (radians)
     inclinations = np.array([30]) #Inclinations to image (degrees)
@@ -34,7 +34,7 @@ def LoadObserverInfo(set_inclination=None):
     res_km_s = 5.2 #spectral resolution in km/s
     bandwidth_km_s = res_km_s * 256 #bandwidth in km/s
 
-    noiseAmplitude = 4e-4
+    noiseAmplitude = 4e19 / 3. #Assume 3 sigma detection. In units of cm^-2
     #############################
     
     if set_inclination is not None: inclinations=[set_inclination]
