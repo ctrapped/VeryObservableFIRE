@@ -136,6 +136,7 @@ def GenerateSightlines(snapdir,Nsnapstring,statsDir,observer_position,observer_v
     #For each sightline get the particles that overlap with the beam and their offset from the beam. Assumes particles are spheres (they aren't, this can be improved)
     sightline_indices = range(0,Nsightlines)
     if num_cores is None: num_cores = multiprocessing.cpu_count()-1
+    if num_cores > multiprocessing.cpu_count()-1: num_cores = multiprocessing.cpu_count()-1
     print("Working with ",num_cores," cores")
 
     tStart=time.time()
