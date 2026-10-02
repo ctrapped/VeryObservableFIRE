@@ -81,6 +81,6 @@ python VOF_ImageRotater.py --data-root <dir> --gal-names m12m m12i --inclination
     [--tags ""] [--masked-tags ""] [--denoise --sofia-dir <sofia_dir> --sofia-base-path <base_path> --template-fits <template.fits>]
 ```
 
-`--data-root` is the base directory containing per-galaxy outputs; each combination is expected at `<data-root>/<gal-name>/vof_outputs/i<inclination>/training/`, matching the `output` directory layout written by the main pipeline. `--denoise` is a flag (off by default) that runs SoFiA-2 masking on each cube before rotating it; `--sofia-dir`/`--sofia-base-path`/`--template-fits` only matter when `--denoise` is set.
+`--data-root` is the base directory containing per-galaxy outputs matching the `output` directory layout written by the main pipeline. `--denoise` is a flag (off by default) that runs SoFiA-2 masking on each cube before rotating it; `--sofia-dir`/`--sofia-base-path`/`--template-fits` only matter when `--denoise` is set.
 
 Each rotated/flipped variant it writes is also appended as a new row to the same `.csv` annotation file the main pipeline writes (via the same `AppendToAnnotationsFile` used by `VOF_ConvertDataset.py`).
