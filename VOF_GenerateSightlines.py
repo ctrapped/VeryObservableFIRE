@@ -158,11 +158,14 @@ def GenerateSightlines(snapdir,Nsnapstring,statsDir,observer_position,observer_v
     base_spatial_resolution = (2*maxima[0]) / Nsightlines_1d
     print("Obs spatial resolution (kpc)=",obs_spatial_resolution)
     print("Base spatial resolution (kpc)=",base_spatial_resolution)
-    smoothed_image = scipy.ndimage.gaussian_filter(image, sigma=obs_spatial_resolution/base_spatial_resolution / (2*np.sqrt(2*np.log(2))) , axes=[0,1])
+    sigma = obs_spatial_resolution/base_spatial_resolution/ (2*np.sqrt(2*np.log(2)))
+    smoothed_image = scipy.ndimage.gaussian_filter(image, sigma=sigma , axes=[0,1])
 
     ####Add noise here
     #beam_to_pixel = base_spatial_resolution**2 / (np.pi*obs_spatial_resolution**2) #For noise in Jy
     noiseProfile = np.random.normal(0, noiseAmplitude, np.shape(image)) #Create noise profile scaled by the downsampling we are doing
+    noiseProfile = scipy.ndimage.gaussian_filter(noiseProfile, sigma = sigma, axes=[0,1])
+    noiseProfile = noiseProfile * noiseAmplitude / np.stdv(noiseProfile) #Renormalize noise
     noisy_image = np.add(smoothed_image, noiseProfile)
 
     print("max of image is:",np.max(smoothed_image))
