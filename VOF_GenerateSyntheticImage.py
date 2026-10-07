@@ -41,7 +41,8 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
                             phiObs,inclination,position_angle,
                             speciesToRun,Nspec,bandwidth,
                             savePNG,bandwidth_km_s=None,
-                            num_cores=None
+                            num_cores=None,
+                            particleData=None
     ):
                                         
     t1 = time.time()
@@ -67,7 +68,7 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
     #gaussianMat = Generate_PSF_Matrix(Nsightlines1d,beamSize,targetBeamSize,Nspec) #Precalculate PSF matrix
 
     #Predefine which particles belong to which sightline files to speed up parallelization. Can be re-used for observations from the same distance/inclination
-    ideal_image, smooth_image, noisy_image = GenerateSightlines(snapDir,Nsnapstring,statsDir,observer_position,observerVelocity,maxima,beamSize,Nsightlines,phiObs = phiObs, inclination = inclination,position_angle=position_angle, speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,targetBeamSize=targetBeamSize,noiseAmplitude=noiseAmplitude,num_cores=num_cores) 
+    ideal_image, smooth_image, noisy_image = GenerateSightlines(snapDir,Nsnapstring,statsDir,observer_position,observerVelocity,maxima,beamSize,Nsightlines,phiObs = phiObs, inclination = inclination,position_angle=position_angle, speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,targetBeamSize=targetBeamSize,noiseAmplitude=noiseAmplitude,num_cores=num_cores,particleData=particleData) 
         
 
          

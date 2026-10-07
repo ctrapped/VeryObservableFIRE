@@ -32,7 +32,7 @@ arcsec2rad = pi / (180.*3600.)
 defaultRes = 1. * arcsec2rad #default beamsize of 1 arcsec
 
 
-def GenerateSpectra(gMass,speciesMassFrac,dopplerVelocity,particleSize,temp,distance,impact,species,beamSize,Nspec,bandwidth,calcThermalLevels):
+def GenerateSpectra(gMass,speciesMassFrac,dopplerVelocity,particleSize,temp,distance,impact,species,beamSize,Nspec,bandwidth,calcThermalLevels,calcChordLength=True,return_sightline=True):
 
     mass_species,g_upper,g_lower,E_upper,E_lower,A_ul,gamma_ul,Glevels,Elevels,n_u_fraction,n_l_fraction = GetEmissionSpeciesParameters(species) #Load the emission/absorption parameters for this species
     N_molecules = np.multiply(gMass , speciesMassFrac) / mass_species
@@ -46,7 +46,7 @@ def GenerateSpectra(gMass,speciesMassFrac,dopplerVelocity,particleSize,temp,dist
 
 
     t0 = time.time()
-    colDens,pathLength = GetColumnDensityAlongLOS(particleSize, impact,N_molecules,beamRadiusPhysical) #kpc^-2
+    colDens,pathLength = GetColumnDensityAlongLOS(particleSize, impact,N_molecules,beamRadiusPhysical,calcChordLength) #kpc^-2
     t1=time.time()
     upperToLowerRate,attenuationCrossSection = GenEmissionAndAbsorptionRates(colDens,temp,species,beamRadiusPhysical,calcThermalLevels) #Units of Hz
     nu_ul = (E_upper-E_lower)/h #in Hz
@@ -56,15 +56,18 @@ def GenerateSpectra(gMass,speciesMassFrac,dopplerVelocity,particleSize,temp,dist
     spectralRange = [nu_0-bandwidth/2. , nu_0+bandwidth/2.]
      
     #Actually generate the spectrum with the above parameters
-    return MakeSpectrum(upperToLowerRate,attenuationCrossSection,distance,dopplerVelocity,temp,colDens,pathLength,nu_ul,f_lu,gamma_ul,spectralRange,mass_species,beamRadiusPhysical,Nspec,species)
+    return MakeSpectrum(upperToLowerRate,attenuationCrossSection,distance,dopplerVelocity,temp,colDens,pathLength,nu_ul,f_lu,gamma_ul,spectralRange,mass_species,beamRadiusPhysical,Nspec,species,return_sightline=return_sightline)
 
 
     
-def GetColumnDensityAlongLOS(r,impact,N_mol_in_particle,beamRadiusPhysical):
+def GetColumnDensityAlongLOS(r,impact,N_mol_in_particle,beamRadiusPhysical,calcChordLength=True):
     #calculate an effect path length through the material (i.e. the particles are spheres and the beam is of finite size, so each part of the beam will not pass through the same length)
     #This can be improved upon, as it is an approximation of what the FIRE simulations actually represent
     vol = 4/3 * pi * np.power(r,3)
-    chordLength = CalcEffectiveChordLength(r,impact,beamRadiusPhysical)
+    if calcChordLength:
+        chordLength = CalcEffectiveChordLength(r,impact,beamRadiusPhysical)
+    else:
+        chordLength = 2 * r
     colDensParticle = np.multiply(np.divide(N_mol_in_particle , vol) , chordLength) 
     if np.size(colDensParticle)>0 and np.min(colDensParticle)<0:
         print("Warning: colDensParticle<0, min=",np.min(colDensParticle))
@@ -93,7 +96,7 @@ def CalcEffectiveChordLength(r,impact,beamRadiusPhysical):
 
     return chordLength
 
-def MakeSpectrum(upperToLowerRate,attenuationCrossSection,distance,dopplerVelocity,temp,colDens,pathLength,nu_ul,f_lu,gamma_ul,spectralRange,mass_species,beamRadiusPhysical,Nspec,species):
+def MakeSpectrum(upperToLowerRate,attenuationCrossSection,distance,dopplerVelocity,temp,colDens,pathLength,nu_ul,f_lu,gamma_ul,spectralRange,mass_species,beamRadiusPhysical,Nspec,species,return_sightline=True):
     #Define min/max frequency of spectra somehow
     beamAreaPhysical = pi*np.power(beamRadiusPhysical,2)
     Nparticles = np.size(upperToLowerRate);
@@ -108,8 +111,13 @@ def MakeSpectrum(upperToLowerRate,attenuationCrossSection,distance,dopplerVeloci
         sigma_nu = GenLineProfileMat(nu_ul, f_lu, gamma_ul, dopplerVelocity, spectralRange, temp, mass_species, Nspec)
         phi_nu = sigma_nu * m_e * c / pi / (e**2) / f_lu
        # print("Shape of sigma_nu=",np.shape(sigma_nu))
-        distance[distance==0]=eps
+        try: distance[distance==0]=eps
+        except: xx=0
         emission = np.divide( np.multiply(upperToLowerRate[:,np.newaxis] * h , np.multiply(nu,phi_nu) ) , np.power(distance,2)[:,np.newaxis] )
+        if not return_sightline:
+            #Do not sum along particles
+            emission = np.multiply( emission, np.sum(colDens)/np.sum(emission) ) / np.power(kpc2cm,2)
+            return emission,emission,emission*0,nu
         emission = np.sum(emission,axis=0)
         emission = np.multiply(emission , np.sum(colDens) / np.sum(emission)) / np.power(kpc2cm,2)#convert to effective column density in cm^-2
         return emission,emission,emission*0,nu

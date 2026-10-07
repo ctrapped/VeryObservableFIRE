@@ -6,7 +6,12 @@ from VOF_GenerateSyntheticImage import GenerateSyntheticImage
 from Binfire.Binfire import RunBinfire
 from Binfire.Binfire import LoadGas
 from Binfire.readsnap_binfire import ReadStats
+from VOF_LoadData import LoadDataForSightlineGenerator
+from VOF_LoadData import LoadDataForSightlineIteration_v2
+from VOF_OrientGalaxy import OrientGalaxy
+from matplotlib.colors import LogNorm
 
+import scipy
 import matplotlib.pyplot as plt
 ####Function converts a FIRE snapshot to a dataset usable with CoNNGaFit.
 ####Based on given options will first generate annotation files in the form of a .csv file for the mass flux, mass, and/or rotational velocities
@@ -147,7 +152,7 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
                     vmax = np.max(binnedMass)
                     vmin=vmax*1e-3
                     plt.figure()
-                    plt.imshow(binnedMass,cmap='inferno')
+                    plt.imshow(binnedMass,cmap='inferno',norm=LogNorm())
                     plt.colorbar()
                     plt.savefig(annotationFileDir_Mass+"_"+galName+"_Mass_"+str(Nsnap)+".png")
                     plt.close()
@@ -178,6 +183,31 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
         
     if createImages:
         print("Creating Synthetic Images...")
+
+        Nsnapstring = str(Nsnap)
+        r0,pos_center,Lhat,vel_center = ReadStats(statsDir+Nsnapstring.zfill(4)+'.hdf5')
+        snapdir = fileDir+Nsnapstring #Directory containing the actual snapshots
+
+        print("snapdir=",snapdir)
+
+        #Load the gas particles
+        gPos,gKernal,gVel = LoadDataForSightlineGenerator(snapdir,Nsnapstring,0,maxRadius,pos_center,vel_center)
+        #Transform into previously defined coordinate system
+    
+        rmag = np.linalg.norm(gPos,axis=1)
+        radMask = np.where(rmag<maxRadius*1.5)[0]
+    
+        gPos=gPos[radMask]
+        gVel=gVel[radMask]
+        gKernal=gKernal[radMask]
+        del rmag
+        #rmag=rmag[radMask]
+    
+    
+        gMas,gTemp,speciesMassFrac = LoadDataForSightlineIteration_v2(snapdir,Nsnapstring,ptype=0,mask=radMask,gKernal=gKernal,species=speciesToRun)
+    
+
+
         for inclination in inclinations:
           os.makedirs(output+"i"+str(inclination)+"/training/", exist_ok=True)
           for position_angle in position_angles:
@@ -187,6 +217,33 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
             if os.path.isfile(image_name+"_fullSpectra.hdf5"):
                 print("Warning: image for i=",inclination,"pa=",position_angle,"already exists. Overwriting...")
                 
+
+
+            if inclination>0:
+                #Rotate r0 first to set the position angle
+                rotation_axis = np.copy(Lhat)
+                rotation_vector = float(position_angle)*np.pi/180.*rotation_axis
+                rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
+                r0 = rotation.apply(r0)
+        
+                #Rotate the vectors Lhat and r0 that define the z and x unit vectors respectively. Effectively rotates the entire galaxy
+                rotation_axis = np.cross(Lhat,r0)
+                rotation_vector = float(inclination)*np.pi/180.*rotation_axis
+                rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
+
+                Lhat_rot = rotation.apply(Lhat)
+                r0_rot =   rotation.apply(r0)
+
+            gPos_rot,gVel_rot = OrientGalaxy(gPos,gVel,Lhat_rot,r0_rot)
+
+            particleData = {}
+            particleData['pos'] = gPos_rot
+            particleData['vel'] = gVel_rot
+            particleData['kernal'] = gKernal
+            particleData['mass'] = gMas
+            particleData['temp'] = gTemp
+            particleData['speciesMassFrac'] = speciesMassFrac
+
 
             GenerateSyntheticImage(fileDir,
                 statsDir, #If not provided, generate
@@ -203,7 +260,8 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
                 Nspec,
                 bandwidth,
                 savePNG,bandwidth_km_s=bandwidth_km_s,
-                num_cores=num_cores
+                num_cores=num_cores,
+                particleData=particleData
                 )
 
             if runDataAugmentation: #Rotate/flip this image+annotations and append the augmented images to the annotation csvs. Requires createAnnotations to have produced the annotation files for this inclination/position_angle.
