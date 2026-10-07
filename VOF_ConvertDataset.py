@@ -234,15 +234,15 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
                 Lhat_rot = rotation.apply(Lhat)
                 r0_rot =   rotation.apply(r0)
 
-            gPos_rot,gVel_rot = OrientGalaxy(gPos,gVel,Lhat_rot,r0_rot)
+            gPos_rot,gVel_rot = OrientGalaxy(copy.deepcopy(gPos),copy.deepcopy(gVel),Lhat_rot,r0_rot)
 
             particleData = {}
             particleData['pos'] = gPos_rot
             particleData['vel'] = gVel_rot
-            particleData['kernal'] = gKernal
-            particleData['mass'] = gMas
-            particleData['temp'] = gTemp
-            particleData['speciesMassFrac'] = speciesMassFrac
+            particleData['kernal'] = copy.deepcopy(gKernal)
+            particleData['mass'] = copy.deepcopy(gMas)
+            particleData['temp'] = copy.deepcopy(gTemp)
+            particleData['speciesMassFrac'] = copy.deepcopy(speciesMassFrac)
 
 
             GenerateSyntheticImage(fileDir,
