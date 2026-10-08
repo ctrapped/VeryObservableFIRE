@@ -7,6 +7,7 @@ from matplotlib.colors import LogNorm
 import subprocess
 import argparse
 import os
+import time
 
 def RotateAnnotation(hf,phi,npix):
     return rotate(np.reshape(np.array(hf['annotation']),[npix,npix]) , angle=phi,reshape=False)
@@ -44,6 +45,7 @@ def WriteAnnotation(hf,annotation,imageName,imageName_dn):
 
 
 def ConvertSpectraToMomentMaps(spectra,bandwidth_km_s):
+    t0=time.time()
     Nspec = np.shape(spectra)[2]
     dv = bandwidth_km_s / Nspec
 
@@ -68,9 +70,12 @@ def ConvertSpectraToMomentMaps(spectra,bandwidth_km_s):
     momentMap[:,:,1]=moment1
     momentMap[:,:,2]=moment2
 
+    print("Time to make moment maps=",time.time()-t0)
     return momentMap
 
 def RotateData(imageDirBase , annotationDirBase, galName, inclination, position_angle, Nsnap, tag, masked, angles=[0,90,180,270],SavePNGs=False,denoise=False,DoTimeAveraging=False,template_fits=None,sofia_dir=None,sofia_base_path=None):
+    print("Rotating data...")
+    tsave=0
     for base in (imageDirBase, annotationDirBase):
         base_dir = os.path.dirname(base)
         if base_dir:
@@ -117,9 +122,10 @@ def RotateData(imageDirBase , annotationDirBase, galName, inclination, position_
     ####################################################
 
     if denoise:
+       print("Denoising...")
        sofia_mask = Denoise(spectra,fov,observer_distance,obs_spatial_res_arcseconds,dnu_kmps,template_fits,sofia_dir,sofia_base_path)
     for phi in angles:
-        print("saveSpectra=",saveSpectra)
+        print("Rotating spectra...")
         if phi!=0: spectra_rot = rotate(spectra,angle=phi,reshape=False)
         else: spectra_rot = np.copy(spectra)
 
@@ -135,25 +141,31 @@ def RotateData(imageDirBase , annotationDirBase, galName, inclination, position_
             spectra_rot=spectra_rot[rot_mask>0]
             hf_out = h5py.File(imageDirBase+rotString+"_dn.hdf5",'w')
             hf_out.create_dataset('spectra',data=spectra_rot)
-            hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_rot,bandwidth_km_s))
+            #hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_rot,bandwidth_km_s))
             hf_out.close()
-            print("Saved moments?")
           elif phi!=0:
+            print("Saving Rotations")
+            t1=time.time()
             hf_out = h5py.File(imageDirBase+rotString+".hdf5",'w')
             hf_out.create_dataset('spectra',data=spectra_rot)
-            hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_rot,bandwidth_km_s))
+            #hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_rot,bandwidth_km_s))
             hf_out.close()
+            tsave+=time.time()-t1
 
+          print("Flipping rotations...")
           spectra_lr = np.flip(spectra_rot,axis=0)
+          print("Saving Flips...")
+          t1=time.time()
           hf_out = h5py.File(imageDirBase+rotString+dn_tag+"_lr.hdf5",'w')
           hf_out.create_dataset('spectra',data=spectra_lr)
-          hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_lr,bandwidth_km_s))
+          #hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_lr,bandwidth_km_s))
           hf_out.close()
+          tsave+=time.time()-t1
 
 
 
 
-
+        print("Rotating Annotations...")
         MF = RotateAnnotation(hfMF,phi,npix)
         Mass = RotateAnnotation(hfMass,phi,npix)
         RC = RotateAnnotation(hfRC,phi,npix)
@@ -171,21 +183,22 @@ def RotateData(imageDirBase , annotationDirBase, galName, inclination, position_
             hfRC_o = h5py.File(annotationDirBase+"_RC"+suffix+"_RC_"+str(Nsnap)+rotString+".hdf5",'w')
             hfrVel_o = h5py.File(annotationDirBase+"_rVel_"+suffix+"_rVel_"+str(Nsnap)+rotString+".hdf5",'w')
             hfsMF_o = h5py.File(annotationDirBase+"_sMassFlux_"+suffix+"_sMF_"+str(Nsnap)+rotString+".hdf5",'w')
-        
+            print("Saving annotations...")
             WriteAnnotation(hfMF_o,MF,newImageName,newImageName_dn)
             WriteAnnotation(hfMass_o,Mass,newImageName,newImageName_dn)
             WriteAnnotation(hfRC_o,RC,newImageName,newImageName_dn)
             WriteAnnotation(hfrVel_o,rVel,newImageName,newImageName_dn)
             WriteAnnotation(hfsMF_o,sMF,newImageName,newImageName_dn)
 
-            AppendToAnnotationsFile(csv_MF,newImageName,MF.flatten())
-            AppendToAnnotationsFile(csv_Mass,newImageName,Mass.flatten())
-            AppendToAnnotationsFile(csv_RC,newImageName,RC.flatten())
-            AppendToAnnotationsFile(csv_rVel,newImageName,rVel.flatten())
-            AppendToAnnotationsFile(csv_sMF,newImageName,sMF.flatten())
+            #print("Appending annotation files...")
+            #AppendToAnnotationsFile(csv_MF,newImageName,MF.flatten())
+            #AppendToAnnotationsFile(csv_Mass,newImageName,Mass.flatten())
+            #AppendToAnnotationsFile(csv_RC,newImageName,RC.flatten())
+            #AppendToAnnotationsFile(csv_rVel,newImageName,rVel.flatten())
+            #AppendToAnnotationsFile(csv_sMF,newImageName,sMF.flatten())
 
 
-
+        
         hfMF_lr = h5py.File(annotationDirBase+"_MassFlux"+suffix+"_MF_"+str(Nsnap)+rotString+"_lr.hdf5",'w')
         hfMass_lr = h5py.File(annotationDirBase+"_Mass"+suffix+"_Mass_"+str(Nsnap)+rotString+"_lr.hdf5",'w')
         hfRC_lr = h5py.File(annotationDirBase+"_RC_"+suffix+"_RC_"+str(Nsnap)+rotString+"_lr.hdf5",'w')
@@ -194,18 +207,21 @@ def RotateData(imageDirBase , annotationDirBase, galName, inclination, position_
         
         newImageName_dn = imageDirBase+rotString+"_dn_lr.hdf5"
         newImageName = imageDirBase+rotString+"_lr.hdf5"
-        
+        print("Flipping and saving annotations...")
         WriteAnnotation(hfMF_lr,np.flip(MF,axis=0),newImageName,newImageName_dn)
         WriteAnnotation(hfMass_lr,np.flip(Mass,axis=0),newImageName,newImageName_dn)
         WriteAnnotation(hfRC_lr,np.flip(RC,axis=0),newImageName,newImageName_dn)
         WriteAnnotation(hfrVel_lr,np.flip(rVel,axis=0),newImageName,newImageName_dn)
         WriteAnnotation(hfsMF_lr,np.flip(sMF,axis=0),newImageName,newImageName_dn)
 
-        AppendToAnnotationsFile(csv_MF,newImageName,np.flip(MF,axis=0).flatten())
-        AppendToAnnotationsFile(csv_Mass,newImageName,np.flip(Mass,axis=0).flatten())
-        AppendToAnnotationsFile(csv_RC,newImageName,np.flip(RC,axis=0).flatten())
-        AppendToAnnotationsFile(csv_rVel,newImageName,np.flip(rVel,axis=0).flatten())
-        AppendToAnnotationsFile(csv_sMF,newImageName,np.flip(sMF,axis=0).flatten())
+        #print("Appending flipped annotation files...")
+        #AppendToAnnotationsFile(csv_MF,newImageName,np.flip(MF,axis=0).flatten())
+        #AppendToAnnotationsFile(csv_Mass,newImageName,np.flip(Mass,axis=0).flatten())
+        #AppendToAnnotationsFile(csv_RC,newImageName,np.flip(RC,axis=0).flatten())
+        #AppendToAnnotationsFile(csv_rVel,newImageName,np.flip(rVel,axis=0).flatten())
+        #AppendToAnnotationsFile(csv_sMF,newImageName,np.flip(sMF,axis=0).flatten())
+
+        print("Time to save rotated data was",tsave)
 
             
             

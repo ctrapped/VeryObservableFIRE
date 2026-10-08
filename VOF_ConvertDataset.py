@@ -10,6 +10,7 @@ from VOF_LoadData import LoadDataForSightlineGenerator
 from VOF_LoadData import LoadDataForSightlineIteration_v2
 from VOF_OrientGalaxy import OrientGalaxy
 from matplotlib.colors import LogNorm
+import time
 
 import scipy
 import matplotlib.pyplot as plt
@@ -31,15 +32,17 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
                     writeMassFlux=True,writeMass=True,writeRotationCurve=True,writeRadialVelocity=True,
                     createMaskFromExistingStatsDir=False,
                     runDataAugmentation=False,
-                    num_cores=None
+                    num_cores=None,
+                    project_gas_properties=False
     ):
 
 
     #Create synthetic image using VOF like code
     #do for a variety of inclinations + in disk observations!
     outputSuffix=""
+    particles=None
 
-    if createAnnotations: #Run Binfire to create binned projection maps for radial mass flux, mass, and rotational velocities. Used as annotation files in NN training
+    if createAnnotations or project_gas_properties: #Run Binfire to create binned projection maps for radial mass flux, mass, and rotational velocities. Used as annotation files in NN training
         print("Creating Annotation files with Binfire...")
         
         maskCenter=None;maskRadius=None
@@ -62,8 +65,19 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
                 [maxRadius,maxRadius,maxHeight],
                 maskCenter=maskCenter,maskRadius=maskRadius
         )
+
+        if project_gas_properties:
+            Gmom_r, Gmom_s, Gmom_phi = RunBinfire(fileDir+str(Nsnap), 
+                statsDir+str(Nsnap).zfill(4)+'.hdf5',copy.deepcopy(G),copy.deepcopy(G0),
+                Nsnap,
+                output,
+                [maxRadius,maxRadius,maxHeight],
+                [Nsightlines1d,Nsightlines1d,Nspec],inclination=inclinations[0],position_angle=position_angles[0],
+                maskCenter=maskCenter,maskRadius=maskRadius,project_gas_properties=project_gas_properties
+            )  
     
-        for inclination in inclinations:
+        else:
+         for inclination in inclinations:
           os.makedirs(output+"i"+str(inclination)+"/training/", exist_ok=True)
           for position_angle in position_angles:
             angle_str = "i"+str(inclination)+"_pa"+str(position_angle)
@@ -178,7 +192,7 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
                 hfMass.create_dataset('annotation',data=np.divide(binnedPhiMassFlux,binnedMass).flatten())
                 hfMass.close()
                 
-    
+        particles = G | G0
         del G; del G0
         
     if createImages:
@@ -191,21 +205,33 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
         print("snapdir=",snapdir)
 
         #Load the gas particles
-        gPos,gKernal,gVel = LoadDataForSightlineGenerator(snapdir,Nsnapstring,0,maxRadius,pos_center,vel_center)
+
+        gPos,gKernal,gVel = LoadDataForSightlineGenerator(snapdir,Nsnapstring,0,maxRadius,pos_center,vel_center,particles=particles)
+
         #Transform into previously defined coordinate system
+            #return {'k':1,'v':vel,'m':mass,'u':ugas,'h':hsml,'ne':nume,'nh':numh,'z':metal, 'fH2':fH2, 'header':newheader};
+
+        if particles is None:
+            rmag = np.linalg.norm(gPos,axis=1)
+            radMask = np.where(rmag<maxRadius*1.5)[0]
+            del rmag
+        else:
+            radMask = None
     
-        rmag = np.linalg.norm(gPos,axis=1)
-        radMask = np.where(rmag<maxRadius*1.5)[0]
-    
-        gPos=gPos[radMask]
-        gVel=gVel[radMask]
-        gKernal=gKernal[radMask]
-        del rmag
+        #gPos=gPos[radMask]
+        #gVel=gVel[radMask]
+        #gKernal=gKernal[radMask]
+        #if project_gas_properties:
+        #    Gmom_r = Gmom_r[radMask]
+        ##    Gmom_s = Gmom_s[radMask]
+         #   Gmom_phi = Gmom_phi[radMask]
+        #del rmag
         #rmag=rmag[radMask]
     
     
-        gMas,gTemp,speciesMassFrac = LoadDataForSightlineIteration_v2(snapdir,Nsnapstring,ptype=0,mask=radMask,gKernal=gKernal,species=speciesToRun)
-    
+        gMas,gTemp,speciesMassFrac = LoadDataForSightlineIteration_v2(snapdir,Nsnapstring,ptype=0,mask=radMask,gKernal=gKernal,species=speciesToRun,particles=particles)
+
+
 
 
         for inclination in inclinations:
@@ -244,6 +270,12 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
             particleData['temp'] = copy.deepcopy(gTemp)
             particleData['speciesMassFrac'] = copy.deepcopy(speciesMassFrac)
 
+            if project_gas_properties:
+                particleData['rMom'] = copy.deepcopy(Gmom_r)
+                particleData['sMom'] = copy.deepcopy(Gmom_s)
+                particleData['rotMom'] = copy.deepcopy(Gmom_phi)
+
+
 
             GenerateSyntheticImage(fileDir,
                 statsDir, #If not provided, generate
@@ -261,13 +293,16 @@ def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
                 bandwidth,
                 savePNG,bandwidth_km_s=bandwidth_km_s,
                 num_cores=num_cores,
-                particleData=particleData
+                particleData=particleData,
+                project_gas_properties=project_gas_properties
                 )
 
             if runDataAugmentation: #Rotate/flip this image+annotations and append the augmented images to the annotation csvs. Requires createAnnotations to have produced the annotation files for this inclination/position_angle.
                 from VOF_ImageRotater import RotateData
+                t0 = time.time()
                 annotationDirBase = output+"i"+str(inclination)+"/training/training_annotations"
                 RotateData(image_name+"_fullSpectra", annotationDirBase, galName, inclination, position_angle, Nsnap, "", outputSuffix)
+                print("Time to rotate data=",time.time()-t0)
 
 
 

@@ -4,6 +4,10 @@ import math
 import time
 
 import scipy
+from scipy.sparse import csr_matrix
+from scipy.signal import oaconvolve
+from scipy.sparse import coo_matrix, csr_matrix
+from scipy.fft import rfft2, irfft2, next_fast_len
 
 from VOF_LoadData import ReadStats
 from VOF_LoadData import LoadDataForSightlineGenerator
@@ -59,7 +63,16 @@ def GenSightline(thread_id,Nsightlines_1d,sightlines,gPos,gVel,gKernal,gMas,gTem
     return emission#, [ix,iy]
 
 
-def DepositParticles(thread_id,gPos,gVel,gKernal,gMas,gTemp,speciesMassFrac,Nsightlines_1d,beamSize,speciesToRun,Nspec,bandwidth,rObserver,Lhat,r_0,inclination,position_angle,max_r):
+
+def sphere_kernel(d):
+    if d == 0:
+        return np.ones((1, 1))
+    c = np.arange(-d, d + 1)
+    return np.sqrt(np.clip(d**2 - (c[:, None]**2 + c[None, :]**2), 0, None)) / d
+
+
+
+def DepositParticles(thread_id,gPos,gVel,gKernal,gMas,gTemp,speciesMassFrac,Nsightlines_1d,beamSize,speciesToRun,Nspec,bandwidth,rObserver,Lhat,r_0,max_r,project_gas_properties=False,gRmom=None,gSmom=None,gRotMom=None):
     #pass a subselection of the gas parameters
     print("Thread",thread_id,":",np.shape(gMas),"particles")
     #print("max_r=",max_r)
@@ -105,16 +118,95 @@ def DepositParticles(thread_id,gPos,gVel,gKernal,gMas,gTemp,speciesMassFrac,Nsig
 
     spectrum,emission,tau,nu = GenerateSpectra(gMas[mask],speciesMassFrac[mask],dopplerVelocity,gKernal[mask],gTemp[mask],distance,impact[mask],speciesToRun,beamSize,Nspec,bandwidth,calcThermalLevels=False,calcChordLength=False,return_sightline=False)
 
-    emission_map = np.zeros((Nsightlines_1d,Nsightlines_1d,Nspec))
+    N = Nsightlines_1d
+    Npix = N * N
+    emission_map = np.zeros((N, N, Nspec))
+    if project_gas_properties:
+        mass_map = np.zeros((N,N))
+        rMom_map = np.copy(mass_map)
+        sMom_map = np.copy(mass_map)
+        rotMom_map = np.copy(mass_map)
 
-    Nmask,dim = np.shape(gPos[mask])
-    #print("Nmask=",Nmask)
-    #print("Shape of emission=",np.shape(emission))
 
+        px = pixel_coords_x[mask]
+    py = pixel_coords_y[mask]
+    dx = np.round(gKernal[mask] / pixel_size_physical - 0.5).astype(np.int64)
+
+    order = np.argsort(dx, kind='stable')
+    dx_s, px_s, py_s = dx[order], px[order], py[order]
+    em_s = emission[order]
+
+    if project_gas_properties:
+        props_s = np.stack([gMas[mask], gRmom[mask], gSmom[mask], gRotMom[mask]], axis=1)[order]
+        Nprop = props_s.shape[1]
+
+    dx_vals, starts, counts = np.unique(dx_s, return_index=True, return_counts=True)
+
+    stamp_threshold = 5 * Npix
+    rows_l, cols_l, vals_l = [], [], []
+    conv_groups = []
+
+    for d, s, n in zip(dx_vals, starts, counts):
+        k = sphere_kernel(d)
+        if project_gas_properties:
+            props_s[s:s+n] /= k.sum()          # per-group: weights for properties sum to 1
+        ox, oy = np.nonzero(k)
+        w = k[ox, oy]
+        if n * w.size < stamp_threshold:
+            X = px_s[s:s+n, None] + (ox - d)
+            Y = py_s[s:s+n, None] + (oy - d)
+            ok = (X >= 0) & (X < N) & (Y >= 0) & (Y < N)
+            rows_l.append((X * N + Y)[ok])
+            cols_l.append(np.broadcast_to(np.arange(s, s + n)[:, None], X.shape)[ok])
+            vals_l.append(np.broadcast_to(w, X.shape)[ok])
+        else:
+            conv_groups.append((d, s, n, k))
+
+    # Properties become extra channels after the per-group scaling above
+    if project_gas_properties:
+        em_s = np.concatenate([em_s, props_s], axis=1)
+    Nch = em_s.shape[1]
+    out_map = np.zeros((N, N, Nch))
+
+    if rows_l:
+        P = coo_matrix((np.concatenate(vals_l),
+                        (np.concatenate(rows_l), np.concatenate(cols_l))),
+                       shape=(Npix, len(dx_s))).tocsr()
+        out_map += (P @ em_s).reshape(N, N, Nch)
+
+    if conv_groups:
+        dmax = max(g[0] for g in conv_groups)
+        L = next_fast_len(N + dmax, real=True)
+        acc = None
+        for d, s, n, k in conv_groups:
+            flat = px_s[s:s+n] * N + py_s[s:s+n]
+            Pg = csr_matrix((np.ones(n), (flat, np.arange(n))), shape=(Npix, n))
+            tmp = (Pg @ em_s[s:s+n]).reshape(N, N, Nch)
+
+            kp = np.zeros((L, L))
+            kp[:2*d+1, :2*d+1] = k
+            kp = np.roll(kp, (-d, -d), axis=(0, 1))
+
+            F = rfft2(tmp, s=(L, L), axes=(0, 1), workers=-1)
+            F *= rfft2(kp)[:, :, None]
+            if acc is None:
+                acc = F
+            else:
+                acc += F
+        out_map += irfft2(acc, s=(L, L), axes=(0, 1), workers=-1)[:N, :N]
+
+    emission_map = out_map[..., :Nspec]
+    if project_gas_properties:
+        mass_map, rMom_map, sMom_map, rotMom_map = np.moveaxis(out_map[..., Nspec:], -1, 0)
+        return emission_map, mass_map, rMom_map, sMom_map, rotMom_map
+    return emission_map
+
+
+'''
     for i in range(0,Nmask):
         if i%1000==0: print("Thread",thread_id,":",i,"/",Nmask)
-        ix = pixel_coords_x[mask][i]
-        iy = pixel_coords_y[mask][i]
+        ix = pixel_coords_x[i]
+        iy = pixel_coords_y[i]
         if gKernal[mask][i] <= pixel_size_physical:
             emission_map[ix,iy,:] = emission_map[ix,iy] + emission[i,:]
         else:
@@ -160,12 +252,12 @@ def DepositParticles(thread_id,gPos,gVel,gKernal,gMas,gTemp,speciesMassFrac,Nsig
             #    print('shape of emission is',np.shape(emission))
             #    print('i=',i)
             #    raise ValueError("Stencil did not fit?")
+'''
 
-    return emission_map
  
 
 
-def GenerateSightlines(snapdir,Nsnapstring,statsDir,observer_position,observer_velocity,maxima,beamSize = 1*arcsec2rad,Nsightlines=100,sightlines=None,phiObs=0,inclination=0,speciesToRun='H1_21cm',Nspec=77,bandwidth=0,targetBeamSize=None,noiseAmplitude=None,position_angle=0,num_cores=None,particleData=None):
+def GenerateSightlines(snapdir,Nsnapstring,statsDir,observer_position,observer_velocity,maxima,beamSize = 1*arcsec2rad,Nsightlines=100,sightlines=None,phiObs=0,inclination=0,speciesToRun='H1_21cm',Nspec=77,bandwidth=0,targetBeamSize=None,noiseAmplitude=None,position_angle=0,num_cores=None,particleData=None,project_gas_properties=False):
     max_r,maxPhi,maxTheta = maxima
     rObserver=np.abs(observer_position[0])
     pos_center,vel_center,Lhat,r0,orientation_maxima = ReadStats(statsDir);
@@ -210,6 +302,10 @@ def GenerateSightlines(snapdir,Nsnapstring,statsDir,observer_position,observer_v
         gMas=particleData['mass']
         gTemp=particleData['temp']
         speciesMassFrac=particleData['speciesMassFrac']
+        if project_gas_properties:
+            gRmom=particleData['rMom']
+            gSmom=particleData['sMom']
+            gRotMom = particleData['rotMom']
     
     #If observer velocity is not defined, calculate rotation curve to put the observer in the galaxy. Should only be used for in galaxy observations.
     rotationCurve=None
@@ -258,7 +354,7 @@ def GenerateSightlines(snapdir,Nsnapstring,statsDir,observer_position,observer_v
 
     #Define partial function to parallelize
     GenSightline_ = partial(GenSightline,Nsightlines_1d=Nsightlines_1d,sightlines=sightlines,gPos=gPos,gVel=gVel,gKernal=gKernal,gMas=gMas,gTemp=gTemp,speciesMassFrac=speciesMassFrac,beamSize=beamSize,speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,rObserver=rObserver)
-    DepositParticles_ = partial(DepositParticles,Nsightlines_1d=Nsightlines_1d,beamSize=beamSize,speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,rObserver=rObserver,Lhat=Lhat,r_0=r0,inclination=inclination,position_angle=position_angle,max_r=max_r)
+    DepositParticles_ = partial(DepositParticles,Nsightlines_1d=Nsightlines_1d,beamSize=beamSize,speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,rObserver=rObserver,Lhat=Lhat,r_0=r0,max_r=max_r)
 
 
     RunOpticallyThinApproximation = True
@@ -268,10 +364,13 @@ def GenerateSightlines(snapdir,Nsnapstring,statsDir,observer_position,observer_v
         print("Npart=",Npart)
         print("Splitting into parallel runs ranging from 0 to",num_cores*ppt)
 
-        x= Parallel(n_jobs=num_cores)(delayed(DepositParticles_)(i,gPos[i*ppt:min((i+1)*ppt,Npart),:],gVel[i*ppt:min((i+1)*ppt,Npart),:],gKernal[i*ppt:min((i+1)*ppt,Npart)],gMas[i*ppt:min((i+1)*ppt,Npart)],gTemp[i*ppt:min((i+1)*ppt,Npart)],speciesMassFrac[i*ppt:min((i+1)*ppt,Npart)]) for i in range(0,num_cores))
-        print(np.shape(x))
+        if num_cores>1:
+            x= Parallel(n_jobs=num_cores)(delayed(DepositParticles_)(i,gPos[i*ppt:min((i+1)*ppt,Npart),:],gVel[i*ppt:min((i+1)*ppt,Npart),:],gKernal[i*ppt:min((i+1)*ppt,Npart)],gMas[i*ppt:min((i+1)*ppt,Npart)],gTemp[i*ppt:min((i+1)*ppt,Npart)],speciesMassFrac[i*ppt:min((i+1)*ppt,Npart)]) for i in range(0,num_cores))
+            print(np.shape(x))
         
-        if num_cores>1: image = np.sum(x,axis=0)
+            image = np.sum(x,axis=0)
+        else:
+            image,mass_map,rMom_map,sMom_map,rotMom_map = DepositParticles(-1,gPos,gVel,gKernal,gMas,gTemp,speciesMassFrac,Nsightlines_1d,beamSize,speciesToRun,Nspec,bandwidth,rObserver,Lhat,r0,max_r,project_gas_properties=project_gas_properties,gRmom=gRmom,gSmom=gSmom,gRotMom=gRotMom)
 
     else:
         print("Splitting into parallel runs")
@@ -283,6 +382,7 @@ def GenerateSightlines(snapdir,Nsnapstring,statsDir,observer_position,observer_v
         image=np.flipud(image)
 
 
+    tParallel=time.time()
 
 
 
@@ -303,5 +403,9 @@ def GenerateSightlines(snapdir,Nsnapstring,statsDir,observer_position,observer_v
 
     print("max of image is:",np.max(smoothed_image))
     print("Max of noise profile is:",np.max(noiseProfile))
-    print("Time to run in parallel=",time.time()-tStart)
+    print("Time to run in parallel=",tParallel-tStart)
+    print("Total Time for image generation=",time.time()-tStart)
+
+    if project_gas_properties:
+        return image, smoothed_image, noisy_image, mass_map,rMom_map,sMom_map,rotMom_map
     return image, smoothed_image, noisy_image

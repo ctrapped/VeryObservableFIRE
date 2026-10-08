@@ -42,7 +42,8 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
                             speciesToRun,Nspec,bandwidth,
                             savePNG,bandwidth_km_s=None,
                             num_cores=None,
-                            particleData=None
+                            particleData=None,
+                            project_gas_properties=False
     ):
                                         
     t1 = time.time()
@@ -68,7 +69,10 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
     #gaussianMat = Generate_PSF_Matrix(Nsightlines1d,beamSize,targetBeamSize,Nspec) #Precalculate PSF matrix
 
     #Predefine which particles belong to which sightline files to speed up parallelization. Can be re-used for observations from the same distance/inclination
-    ideal_image, smooth_image, noisy_image = GenerateSightlines(snapDir,Nsnapstring,statsDir,observer_position,observerVelocity,maxima,beamSize,Nsightlines,phiObs = phiObs, inclination = inclination,position_angle=position_angle, speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,targetBeamSize=targetBeamSize,noiseAmplitude=noiseAmplitude,num_cores=num_cores,particleData=particleData) 
+    if project_gas_properties:
+        ideal_image, smooth_image, noisy_image, mass_map, rMom_map, sMom_map, rotMom_map = GenerateSightlines(snapDir,Nsnapstring,statsDir,observer_position,observerVelocity,maxima,beamSize,Nsightlines,phiObs = phiObs, inclination = inclination,position_angle=position_angle, speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,targetBeamSize=targetBeamSize,noiseAmplitude=noiseAmplitude,num_cores=num_cores,particleData=particleData,project_gas_properties=project_gas_properties) 
+    else:
+        ideal_image, smooth_image, noisy_image = GenerateSightlines(snapDir,Nsnapstring,statsDir,observer_position,observerVelocity,maxima,beamSize,Nsightlines,phiObs = phiObs, inclination = inclination,position_angle=position_angle, speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,targetBeamSize=targetBeamSize,noiseAmplitude=noiseAmplitude,num_cores=num_cores,particleData=particleData) 
         
 
          
@@ -85,6 +89,14 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
     hf.attrs['beam_arcsec'] = targetBeamSize / arcsec
     if bandwidth_km_s is not None:
         hf.attrs['dnu_kmps'] = bandwidth_km_s / Nspec
+    if project_gas_properties:
+        mass_map[mass_map==0]=1e-20
+        hf.create_dataset('mass_annotation',data=mass_map)
+        hf.create_dataset('radial_velocity_annotation',data=np.divide(rMom_map,mass_map))
+        hf.create_dataset('cylindrial_radial_velocity_annotation',data=np.divide(sMom_map,mass_map))
+        hf.create_dataset('rotational_velocity_annotation',data=np.divide(rotMom_map,mass_map))
+        hf.attrs['annotation_mass_units'] = "Msun"
+        hf.attrs['annotation_velocity_units'] = "km/s"
     hf.close()
 
     if savePNG: #Option to create a column density map to visualize results immediately
@@ -106,6 +118,39 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
         plt.colorbar()
         plt.savefig(output+'_FirstMomentMap.png')
         plt.close()
-            
 
-    print("Snapshot ",Nsnapstring," ran in ",time.time()-t1) 
+        if project_gas_properties:
+            plt.figure()
+    
+            plt.imshow(mass_map,norm=LogNorm(),cmap='inferno')
+            plt.colorbar()
+            plt.savefig(output+'_ProjectedMass.png')
+            plt.close()
+
+            plt.figure()
+            vmax = 150
+            vmin = -vmax
+            plt.imshow(np.divide(rMom_map,mass_map),vmin=vmin,vmax=vmax,cmap='seismic')
+            plt.colorbar()
+            plt.savefig(output+'_RadialVelocity.png')
+            plt.close()
+
+            plt.figure()
+            vmax = 150
+            vmin = -vmax
+            plt.imshow(np.divide(sMom_map,mass_map),vmin=vmin,vmax=vmax,cmap='seismic')
+            plt.colorbar()
+            plt.savefig(output+'_CylRadialVelocity.png')
+            plt.close()
+
+            plt.figure()
+            vmax = 400
+            vmin = 0
+            plt.imshow(np.divide(rotMom_map,mass_map),vmin=vmin,vmax=vmax,cmap='inferno')
+            plt.colorbar()
+            plt.savefig(output+'_RotationalVelocity.png')
+            plt.close()
+
+
+    print("Snapshot ",Nsnapstring," ran in ",time.time()-t1)
+

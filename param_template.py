@@ -24,15 +24,15 @@ def LoadObserverInfo(set_inclination=None):
     observerVelocity=np.array([0,0,0]) #Observer velocity
     maxRadius=30 #max radius from disk center to image
     maxHeight=10 #max height above disk plane to include
-    targetBeamSize=30*arcsec #beam size of instrument being modeled (in radians)
-    Nsightlines1d=256 #number of sightlines along one axis
+    targetBeamSize=6*arcsec #beam size of instrument being modeled (in radians)
+    Nsightlines1d=512 #number of sightlines along one axis
     phiObs=0 #offset image with this (radians)
-    inclinations = np.array([30]) #Inclinations to image (degrees)
-    position_angles = [0] #Position angles to image (degrees)
+    inclinations = np.array([45]) #Inclinations to image (degrees)
+    position_angles = [0,45,90] #Position angles to image (degrees)
 
     speciesToRun='HI_21cm' #List of spectra to run
     res_km_s = 5.2 #spectral resolution in km/s
-    bandwidth_km_s = res_km_s * 256 #bandwidth in km/s
+    bandwidth_km_s = res_km_s * 128 #bandwidth in km/s
 
     noiseAmplitude = 4e19 / 3. #Assume 3 sigma detection. In units of cm^-2
     #############################
@@ -44,7 +44,7 @@ def LoadObserverInfo(set_inclination=None):
 def LoadParameters():
     #### Run Parameters ####
     replaceAnnotationsFile=True #[False]=Append to existing annotation file. [True]=Overwrite existing annotation File
-    runBinfire=True #[True]=Generate Annotation Files
+    runBinfire=False #[True]=Generate Annotation Files
     runVOF=True #[True]=Generate Spectral Datacubes
 
     savePng=True #[True]=Generate images showing annotations+images
@@ -53,8 +53,9 @@ def LoadParameters():
     writeMass=True #[True]=Generate mass annotations
     writeRotationCurve=True #[True]=Generate rotation curve annotations
     createMaskFromExistingStatsDir=False #Mask the previously run galaxy to find satellites/other galaxies in snapshot
-    runDataAugmentation=True #[True]=Rotate/flip each generated image+annotations (VOF_ImageRotater.py) and append the augmented images to the annotation csvs. Requires runBinfire and runVOF to be True.
-    num_cores = None #Set the number of cores to use in parallel sightline generation. Defaults to all available if None
+    runDataAugmentation=False #[True]=Rotate/flip each generated image+annotations (VOF_ImageRotater.py). Preferential to do at runtime during training instead.
+    num_cores = 1 #Set the number of cores to use in parallel sightline generation. Defaults to all available if None
+    project_gas_properties=True
     #############################
 
-    return replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir,runDataAugmentation,num_cores
+    return replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir,runDataAugmentation,num_cores,project_gas_properties

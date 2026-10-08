@@ -61,7 +61,7 @@ def LoadGas(snapdir,statsFile,Nsnap,maxima,maskCenter=None,maskRadius=None,rshri
     if shrinking_sphere_flag:
         rTrunc = rshrinksphere #Only load relevant data
     else:
-        rTrunc = np.sqrt(max_x*max_x + max_y*max_y)#max(max_y,max_x)
+        rTrunc = 1.5*max_x#np.sqrt(max_x*max_x + max_y*max_y)#max(max_y,max_x)
 
 
     if pos_center is None:
@@ -100,7 +100,7 @@ def LoadGas(snapdir,statsFile,Nsnap,maxima,maskCenter=None,maskRadius=None,rshri
 
     return G, G0
 
-def RunBinfire(snapdir,statsFile,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax=[None],densMin=[None],densMax=[None],phasetag=['AG'],rshrinksphere=5000,rminsphere=10,shrinkfactor=0.7,inclination=None,position_angle=None,maskCenter=None,maskRadius=None):
+def RunBinfire(snapdir,statsFile,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax=[None],densMin=[None],densMax=[None],phasetag=['AG'],rshrinksphere=5000,rminsphere=10,shrinkfactor=0.7,inclination=None,position_angle=None,maskCenter=None,maskRadius=None,project_gas_properties=False):
     Nsnapstring = str(Nsnap)
     shrinking_sphere_flag=0
     writeStatsFile = False
@@ -185,7 +185,7 @@ def RunBinfire(snapdir,statsFile,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],t
     if shrinking_sphere_flag:
         rTrunc = rshrinksphere #Only load relevant data
     else:
-        rTrunc = np.sqrt(max_x*max_x + max_y*max_y)#max(max_y,max_x)
+        rTrunc = 1.5*max_x#np.sqrt(max_x*max_x + max_y*max_y)#max(max_y,max_x)
     truncMax = np.zeros((3))
     truncMin = np.zeros((3))
     truncMax[0] = pos_center[0]+rTrunc;truncMax[1] = pos_center[1]+rTrunc;truncMax[2] = pos_center[2]+rTrunc
@@ -433,7 +433,8 @@ def RunBinfire(snapdir,statsFile,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],t
     Gmom_phi = np.divide(Lz,rmag) 
     del r_z;del r_s;del Lz
     print("Time to convert to disk coordinates:",time.time()-t1)
-
+    if project_gas_properties:
+        return Gmom_r,Gmom_s,Gmom_phi
    
 
     ##################SORT INTO BINS########################################
