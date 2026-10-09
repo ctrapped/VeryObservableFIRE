@@ -14,14 +14,14 @@ import time
 
 import scipy
 import matplotlib.pyplot as plt
-####Function converts a FIRE snapshot to a dataset usable with CoNNGaFit.
+####Function converts a FIRE snapshot to an image dataset usable with CoNNGaFit.
 ####Based on given options will first generate annotation files in the form of a .csv file for the mass flux, mass, and/or rotational velocities
 ####Will then generate synthetic images corresponding to those projection maps.
 ####
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 ####Updated 12/08/2023
 
-def FireToDataset(fileDir,statsDir, Nsnap, output,galName,
+def MakeImages(fileDir,statsDir, Nsnap, output,galName,
                     observerDistance, observerVelocity,
                     maxRadius,maxHeight,
                     noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,

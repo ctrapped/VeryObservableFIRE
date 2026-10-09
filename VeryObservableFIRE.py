@@ -3,7 +3,7 @@ import time
 import sys
 import importlib
 
-from VOF_ConvertDataset import FireToDataset
+from VOF_ConvertDataset import MakeImages
 from VOF_EmissionSpecies import GetEmissionSpeciesParameters
 
 ####Runs VeryObservableFIRE to create synthetic images from given observational parameters.
@@ -71,7 +71,7 @@ replaceAnnotationsFile,runBinfire,runVOF,savePng,writeMassFlux,writeMass,writeRo
 
 for Nsnap in range(minSnap,maxSnap+1):
     print(Nsnap)
-    FireToDataset(fileDir,statsDir,Nsnap,output,galName,observerDistance,observerVelocity,maxRadius,maxHeight,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,position_angles,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir=createMaskFromExistingStatsDir,runDataAugmentation=runDataAugmentation,num_cores=num_cores,project_gas_properties=project_gas_properties)
+    MakeImages(fileDir,statsDir,Nsnap,output,galName,observerDistance,observerVelocity,maxRadius,maxHeight,noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,phiObs,inclinations,position_angles,speciesToRun,Nspec,bandwidth,bandwidth_km_s,runBinfire,replaceAnnotationsFile,runVOF,savePng,writeMassFlux,writeMass,writeRotationCurve,createMaskFromExistingStatsDir=createMaskFromExistingStatsDir,runDataAugmentation=runDataAugmentation,num_cores=num_cores,project_gas_properties=project_gas_properties)
     replaceAnnotationsFile=False
     
 print("Time to finish: ",time.time()-startTime)
