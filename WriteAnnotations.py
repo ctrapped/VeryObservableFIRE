@@ -13,6 +13,13 @@ def WriteAnnotations(output, galName, inclination, position_angle, Nsnap, output
                       writeRadialVelocity=True,
                       savePNG=False):
 
+    #Binfire's binned grids and the image grid are built with opposite row order; flip here (once, at the point
+    #Binfire output is written) rather than in ProjectImage.py, so both projection modes there share one convention.
+    binnedMass = np.flipud(binnedMass)
+    binnedRadialMassFlux = np.flipud(binnedRadialMassFlux)
+    binnedPhiMassFlux = np.flipud(binnedPhiMassFlux)
+    binnedCylRadMassFlux = np.flipud(binnedCylRadMassFlux)
+
     angle_str = "i"+str(inclination)+"_pa"+str(position_angle)
     #Matches the datacube filename GenerateSyntheticImage.py actually writes in MakeDataset's createImages loop (image_name+"_fullSpectra.hdf5" there)
     image_name=output+"i"+str(inclination)+"/"+galName+"_"+angle_str+"_"+str(Nsnap)+"_image"+outputSuffix+"_fullSpectra.hdf5"
