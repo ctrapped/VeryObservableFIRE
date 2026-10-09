@@ -12,8 +12,7 @@ import time
 def RotateAnnotation(hf,phi,npix):
     return rotate(np.reshape(np.array(hf['annotation']),[npix,npix]) , angle=phi,reshape=False)
 
-from VOF_convert_to_fits import convert_to_fits
-from VOF_ConvertDataset import AppendToAnnotationsFile
+from convert_to_fits import convert_to_fits
 
 def Denoise(spectra,fov,observer_distance,obs_spatial_res_arcseconds,dnu_kmps,template_fits,sofia_dir,sofia_base_path):
     #Convert to Fits

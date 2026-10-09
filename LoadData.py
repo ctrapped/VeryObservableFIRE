@@ -1,6 +1,6 @@
 import numpy as np
 import h5py as h5py
-from VOF_readsnap import *
+from readsnap_VOF import *
 ####
 
 
@@ -67,10 +67,10 @@ def LoadData(snapdir,Nsnapstring,ptype,rTrunc,posCenter,velCenter):
         dens = particles['rho']
         metallicity = particles['z']
         neutral_H_frac = particles['nh']
-        kernal_lengths = particles['h']
+        kernel_lengths = particles['h']
         temp = calcTemps(particles['u'],particles['ne'],metallicity)
 
-        return pos,vel,mass,dens,metallicity,neutral_H_frac,kernal_lengths,temp
+        return pos,vel,mass,dens,metallicity,neutral_H_frac,kernel_lengths,temp
 
     else:
         return pos,vel,mass
@@ -102,7 +102,7 @@ def calcTemps(GintE,ElectronAbundance,Gz): #Calculate Temperatures
     return Gtemp
 
 
-def LoadDataForSightlineGenerator(snapdir,Nsnapstring,ptype,rTrunc,posCenter,velCenter,particles=None):
+def LoadDataForImageGen(snapdir,Nsnapstring,ptype,rTrunc,posCenter,velCenter,particles=None):
     #Load position and density to create a mask for particles in user defined region of interest
     if particles is None:
         particles = readsnap_initial(snapdir, Nsnapstring, ptype, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) ##!! EDIT READSNAP INITIAL TO ONLY LOAD POS
@@ -119,8 +119,8 @@ def LoadDataForSightlineGenerator(snapdir,Nsnapstring,ptype,rTrunc,posCenter,vel
     vel -= velCenter
 
     if (ptype==0):
-        kernal_lengths = particles['h']
-        return pos,kernal_lengths,vel
+        kernel_lengths = particles['h']
+        return pos,kernel_lengths,vel
 
     else:
         return pos
@@ -140,7 +140,7 @@ def LoadDataForSightlineIteration(snapdir,Nsnapstring,ptype,mask,pos_center,vel_
 
 
        
-def LoadDataForSightlineIteration_v2(snapdir,Nsnapstring,ptype,mask,gKernal,species,buildShieldLengths=False,particles=None):
+def LoadMaskedDataForImageGen(snapdir,Nsnapstring,ptype,mask,gKernel,species,buildShieldLengths=False,particles=None):
 
     if particles is None:
         particles = readsnap_sightline_itr_v2(snapdir, Nsnapstring, ptype, truncMask=mask,species=species,snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1)
@@ -156,14 +156,14 @@ def LoadDataForSightlineIteration_v2(snapdir,Nsnapstring,ptype,mask,gKernal,spec
     temp = calcTemps(particles['u'],particles['ne'],particles['z']) ##Can potentially more efficiently deal with how metallicity is read in
 
     if (species=="HI_21cm"):
-        speciesMassFrac=CalcMolecularFraction(particles['nh'],gKernal,particles['rho'],fHe,z,to_return="fH1")
+        speciesMassFrac=CalcMolecularFraction(particles['nh'],gKernel,particles['rho'],fHe,z,to_return="fH1")
 
     return  particles['m'], temp, speciesMassFrac
 
 
 
 
-def LoadSpeciesMassFrac(snapdir,Nsnapstring,ptype,mask,species,buildShieldLengths=False,Gmas=None,KernalLengths=None):
+def LoadSpeciesMassFrac(snapdir,Nsnapstring,ptype,mask,species,buildShieldLengths=False,Gmas=None,KernelLengths=None):
     if mask is None:
         p = readsnap_speciesMassFrac_noMask(snapdir,Nsnapstring,ptype,species,snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1)
     else:
@@ -188,8 +188,8 @@ def LoadDataForSightlineIteration(snapdir,Nsnapstring,ptype,mask,pos_center,vel_
 
 
 
-def CalcMolecularFraction(Gnh,KernalLengths,density,fHe,fMetals,to_return="fH1",buildShieldLengths=False,sph_shieldLength=None):
-    #Inputs = Mass, number density, Kernal Length, density, metallicity
+def CalcMolecularFraction(Gnh,KernelLengths,density,fHe,fMetals,to_return="fH1",buildShieldLengths=False,sph_shieldLength=None):
+    #Inputs = Mass, number density, Kernel Length, density, metallicity
     Z = fMetals #metal mass (everything not H, He)
     M_H = 1.67353269159582103*10**(-27)*(1000.0/unit_M) ##kg to g to unit mass
     mu_H = 2.3*np.power(10.0,-27.0)*(1000.0/unit_M) #'average' mass of hydrogen nucleus from Krumholz&Gnedin 2011
@@ -201,7 +201,7 @@ def CalcMolecularFraction(Gnh,KernalLengths,density,fHe,fMetals,to_return="fH1",
     Z_solar = 0.02 #From Gizmo documentation
 
     N_ngb = 32.
-    sobColDens =np.multiply(KernalLengths,density) / np.power(N_ngb,1./3.) #Cheesy approximation of Column density
+    sobColDens =np.multiply(KernelLengths,density) / np.power(N_ngb,1./3.) #Cheesy approximation of Column density
     
     tau = np.multiply(sobColDens,Z)*1/(mu_H*Z_MW) * np.power(10.0,-21.0)/(unit_L**(2)) #cm^2 to Unit_L^2
     tau[tau==0]=eps #avoid divide by 0

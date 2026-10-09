@@ -9,7 +9,7 @@ from multiprocessing import Pool
 
 from functools import partial
 
-from VOF_GenerateSightlines import GenerateSightlines
+from ProjectImage import ProjectImage
 
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
@@ -34,48 +34,47 @@ SimUnits2Jy = 1.0 / Jy2SimUnits
 ####Updated 03-10-2023
             
 
-def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
-                            observerDistance, observerVelocity,
-                            maxRadius,
-                            noiseAmplitude,beamSize,targetBeamSize,Nsightlines1d,
-                            phiObs,inclination,position_angle,
-                            speciesToRun,Nspec,bandwidth,
-                            savePNG,bandwidth_km_s=None,
-                            num_cores=None,
-                            particleData=None,
-                            project_gas_properties=False
-    ):
-                                        
+def GenerateSyntheticImage(config, fileDir, statsDir, Nsnap, output, inclination, position_angle, particleData=None):
+
+    #Config values this function's own body needs. Everything else ProjectImage needs
+    #is read directly out of config there instead of being passed through here.
+    observerDistance = config['observerDistance']
+    maxRadius = config['maxRadius']
+    beamSize = config['beamSize']
+    targetBeamSize = config['targetBeamSize']
+    Nsightlines1d = config['Nsightlines1d']
+    phiObs = config['phiObs']
+    Nspec = config['Nspec']
+    bandwidth_km_s = config['bandwidth_km_s']
+    savePNG = config['savePng']
+    projectGasProperties = config['projectGasProperties']
+
     t1 = time.time()
-    Nsnapstring = str(Nsnap)     
+    Nsnapstring = str(Nsnap)
     snapDir = fileDir+Nsnapstring #Directory containing the actual snapshots
     statsDir = statsDir+Nsnapstring.zfill(4)+".hdf5" #Centering/orientation information.
-    
+
     Nsightlines=Nsightlines1d*Nsightlines1d
 
     print("Generating Sightline Files...")
     observer_position = np.array([-observerDistance, phiObs, 0]) #in spherical coordinates
-   # maxPhi = pi* maxRadius / observerDistance #Convert physical size of observation to radians on the sky
     maxPhi = 2 * maxRadius / observerDistance #Convert physical size of observation to radians on the sky
 
     maxTheta = maxPhi
     if maxTheta>pi: #You probably shouldn't ever look at an image this big anyway...
         maxTheta = pi
-        
+
     maxima=[maxRadius,maxPhi,maxTheta]
-    print("Beam size set to: ",beamSize /arcsec," ''")
-    
-    
-    #gaussianMat = Generate_PSF_Matrix(Nsightlines1d,beamSize,targetBeamSize,Nspec) #Precalculate PSF matrix
+    print("Pixel size set to: ",beamSize /arcsec," ''")
 
     #Predefine which particles belong to which sightline files to speed up parallelization. Can be re-used for observations from the same distance/inclination
-    if project_gas_properties:
-        ideal_image, smooth_image, noisy_image, mass_map, rMom_map, sMom_map, rotMom_map = GenerateSightlines(snapDir,Nsnapstring,statsDir,observer_position,observerVelocity,maxima,beamSize,Nsightlines,phiObs = phiObs, inclination = inclination,position_angle=position_angle, speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,targetBeamSize=targetBeamSize,noiseAmplitude=noiseAmplitude,num_cores=num_cores,particleData=particleData,project_gas_properties=project_gas_properties) 
+    if projectGasProperties:
+        ideal_image, smooth_image, noisy_image, mass_map, rMom_map, sMom_map, rotMom_map = ProjectImage(config, snapDir, Nsnapstring, statsDir, observer_position, maxima, Nsightlines, inclination, position_angle, particleData=particleData)
     else:
-        ideal_image, smooth_image, noisy_image = GenerateSightlines(snapDir,Nsnapstring,statsDir,observer_position,observerVelocity,maxima,beamSize,Nsightlines,phiObs = phiObs, inclination = inclination,position_angle=position_angle, speciesToRun=speciesToRun,Nspec=Nspec,bandwidth=bandwidth,targetBeamSize=targetBeamSize,noiseAmplitude=noiseAmplitude,num_cores=num_cores,particleData=particleData) 
-        
+        ideal_image, smooth_image, noisy_image = ProjectImage(config, snapDir, Nsnapstring, statsDir, observer_position, maxima, Nsightlines, inclination, position_angle, particleData=particleData)
 
-         
+
+
     output_dir = os.path.dirname(output)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
@@ -89,7 +88,7 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
     hf.attrs['beam_arcsec'] = targetBeamSize / arcsec
     if bandwidth_km_s is not None:
         hf.attrs['dnu_kmps'] = bandwidth_km_s / Nspec
-    if project_gas_properties:
+    if projectGasProperties:
         mass_map[mass_map==0]=1e-20
         hf.create_dataset('mass_annotation',data=mass_map)
         hf.create_dataset('radial_velocity_annotation',data=np.divide(rMom_map,mass_map))
@@ -119,7 +118,7 @@ def GenerateSyntheticImage(fileDir,statsDir, Nsnap, output,
         plt.savefig(output+'_FirstMomentMap.png')
         plt.close()
 
-        if project_gas_properties:
+        if projectGasProperties:
             plt.figure()
     
             plt.imshow(mass_map,norm=LogNorm(),cmap='inferno')

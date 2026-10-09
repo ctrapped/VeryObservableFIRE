@@ -98,9 +98,9 @@ def LoadGas(snapdir,statsFile,Nsnap,maxima,maskCenter=None,maskRadius=None,rshri
     G0['rho'] = G0['rho'][truncMask]
     G = readsnap_trunc(snapdir, Nsnapstring, 0, truncMask, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load truncated data
 
-    return G, G0
+    return G | G0 #Return all data
 
-def RunBinfire(snapdir,statsFile,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax=[None],densMin=[None],densMax=[None],phasetag=['AG'],rshrinksphere=5000,rminsphere=10,shrinkfactor=0.7,inclination=None,position_angle=None,maskCenter=None,maskRadius=None,project_gas_properties=False):
+def RunBinfire(snapdir,statsFile,particles,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax=[None],densMin=[None],densMax=[None],phasetag=['AG'],rshrinksphere=5000,rminsphere=10,shrinkfactor=0.7,inclination=None,position_angle=None,maskCenter=None,maskRadius=None,project_gas_properties=False):
     Nsnapstring = str(Nsnap)
     shrinking_sphere_flag=0
     writeStatsFile = False
@@ -145,13 +145,9 @@ def RunBinfire(snapdir,statsFile,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],t
 
     #Read the Snapshots#################################################
     #Already accounts for factors of h, but not the hubble flow
-    Gpos = G0['p']
-    Gdens = G0['rho']
+    Gpos = particles['p']
+    Gdens = particles['rho']
     if needToCenter:
-        #G = readsnap_initial(snapdir, Nsnapstring, 0, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load position and density
-       # Gpos = G0['p'] #positions
-       # Gdens = G0['rho'] #Densities for finding center
-        
         densityMask=None
         if maskCenter is not None and maskRadius is not None:
             maskRmag = np.linalg.norm(np.subtract(Gpos,maskCenter),axis=1)
@@ -209,12 +205,10 @@ def RunBinfire(snapdir,statsFile,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],t
     Gdens = Gdens[truncMask]
 
     #G = readsnap_trunc(snapdir, Nsnapstring, 0, truncMask, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load truncated data
-    Gvel = G['v']#Velocities
-    Gmas = G['m'] #masses
-    Gz = G['z'] #metallicities
-    Gnh = G['nh'] #neutral hydrogen
-    Gh = G['h'] #Kernal Lengths for col dens approx
-    Gtemp = calcTemps(G['u'],G['ne'],Gz)
+    Gvel = particles['v']#Velocities
+    Gmas = particles['m'] #masses
+    Gz = particles['z'] #metallicities
+    Gtemp = calcTemps(particles['u'],particles['ne'],Gz)
     N = np.size(Gmas) #Number of Gas Particles
     Gloaded = True
     #del G
@@ -291,7 +285,7 @@ def RunBinfire(snapdir,statsFile,G,G0,Nsnap,output,maxima,Nbins,tempMin=[None],t
 
 
 #CALCULATE MOMENTUMS################################################################################
-    Gmom = np.zeros((N,3));
+    Gmom = np.zeros((N,3))
     Gmom[:,0] = np.multiply(Gmas,Gvel[:,0]) #Calculate each Momentum component
     Gmom[:,1] = np.multiply(Gmas,Gvel[:,1])
     Gmom[:,2] = np.multiply(Gmas,Gvel[:,2])

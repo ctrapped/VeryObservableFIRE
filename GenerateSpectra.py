@@ -1,5 +1,5 @@
 import numpy as np
-from VOF_EmissionSpecies import GetEmissionSpeciesParameters
+from EmissionSpecies import GetEmissionSpeciesParameters
 import time
 ####Functions to generate emission/absorption for particles along a sightline in order to construct the mock spectra
 ####
@@ -55,48 +55,6 @@ def GenerateSpectra(gMass,speciesMassFrac,dopplerVelocity,particleSize,temp,dist
     nu_0 = nu_ul
     spectralRange = [nu_0-bandwidth/2. , nu_0+bandwidth/2.]
      
-    #Actually generate the spectrum with the above parameters
-    return MakeSpectrum(upperToLowerRate,attenuationCrossSection,distance,dopplerVelocity,temp,colDens,pathLength,nu_ul,f_lu,gamma_ul,spectralRange,mass_species,beamRadiusPhysical,Nspec,species,return_sightline=return_sightline)
-
-
-    
-def GetColumnDensityAlongLOS(r,impact,N_mol_in_particle,beamRadiusPhysical,calcChordLength=True):
-    #calculate an effect path length through the material (i.e. the particles are spheres and the beam is of finite size, so each part of the beam will not pass through the same length)
-    #This can be improved upon, as it is an approximation of what the FIRE simulations actually represent
-    vol = 4/3 * pi * np.power(r,3)
-    if calcChordLength:
-        chordLength = CalcEffectiveChordLength(r,impact,beamRadiusPhysical)
-    else:
-        chordLength = 2 * r
-    colDensParticle = np.multiply(np.divide(N_mol_in_particle , vol) , chordLength) 
-    if np.size(colDensParticle)>0 and np.min(colDensParticle)<0:
-        print("Warning: colDensParticle<0, min=",np.min(colDensParticle))
-        print("    N_mol_in_particle = ",np.min(N_mol_in_particle))
-        print("    vol = ",np.min(vol))
-        print("    chordLength = ",np.min(chordLength))
-    return colDensParticle,chordLength         
-
-def CalcEffectiveChordLength(r,impact,beamRadiusPhysical):
-    #Finds an average chord length through the sphere for a given beam width
-    Nsample = 100
-
-    impactMax = impact+beamRadiusPhysical
-    impactMin = impact-beamRadiusPhysical
-
-    impactMax[np.greater(impactMax,r)] = r[np.greater(impactMax,r)]
-    impactMin[np.less(impactMin,-r)] = -r[np.less(impactMin,-r)]
-
-
-    impactInc = (impactMax-impactMin)/Nsample
-    chordLength = np.zeros((np.size(r)))
-    for i in range(0,Nsample):
-        impact = np.abs(impactMin+i*impactInc)
-        mask = np.where((r-impact)>0)
-        chordLength[mask] += 2*np.multiply( r[mask],np.sin(np.arccos( np.divide(impact[mask] , r[mask]) )) ) / Nsample #calculates an effective path length through the particle
-
-    return chordLength
-
-def MakeSpectrum(upperToLowerRate,attenuationCrossSection,distance,dopplerVelocity,temp,colDens,pathLength,nu_ul,f_lu,gamma_ul,spectralRange,mass_species,beamRadiusPhysical,Nspec,species,return_sightline=True):
     #Define min/max frequency of spectra somehow
     beamAreaPhysical = pi*np.power(beamRadiusPhysical,2)
     Nparticles = np.size(upperToLowerRate);
@@ -148,6 +106,42 @@ def MakeSpectrum(upperToLowerRate,attenuationCrossSection,distance,dopplerVeloci
 
     return spectra,emission,optical_depth,nu
 
+    
+def GetColumnDensityAlongLOS(r,impact,N_mol_in_particle,beamRadiusPhysical,calcChordLength=True):
+    #calculate an effect path length through the material (i.e. the particles are spheres and the beam is of finite size, so each part of the beam will not pass through the same length)
+    #This can be improved upon, as it is an approximation of what the FIRE simulations actually represent
+    vol = 4/3 * pi * np.power(r,3)
+    if calcChordLength:
+        chordLength = CalcEffectiveChordLength(r,impact,beamRadiusPhysical)
+    else:
+        chordLength = 2 * r
+    colDensParticle = np.multiply(np.divide(N_mol_in_particle , vol) , chordLength) 
+    if np.size(colDensParticle)>0 and np.min(colDensParticle)<0:
+        print("Warning: colDensParticle<0, min=",np.min(colDensParticle))
+        print("    N_mol_in_particle = ",np.min(N_mol_in_particle))
+        print("    vol = ",np.min(vol))
+        print("    chordLength = ",np.min(chordLength))
+    return colDensParticle,chordLength         
+
+def CalcEffectiveChordLength(r,impact,beamRadiusPhysical):
+    #Finds an average chord length through the sphere for a given beam width
+    Nsample = 100
+
+    impactMax = impact+beamRadiusPhysical
+    impactMin = impact-beamRadiusPhysical
+
+    impactMax[np.greater(impactMax,r)] = r[np.greater(impactMax,r)]
+    impactMin[np.less(impactMin,-r)] = -r[np.less(impactMin,-r)]
+
+
+    impactInc = (impactMax-impactMin)/Nsample
+    chordLength = np.zeros((np.size(r)))
+    for i in range(0,Nsample):
+        impact = np.abs(impactMin+i*impactInc)
+        mask = np.where((r-impact)>0)
+        chordLength[mask] += 2*np.multiply( r[mask],np.sin(np.arccos( np.divide(impact[mask] , r[mask]) )) ) / Nsample #calculates an effective path length through the particle
+
+    return chordLength
 
 
 def GenLineProfile(nu_ul,f_lu,gamma_ul,dopplerVelocity,spectralRange,temp,mass_species,Nspec):
@@ -234,7 +228,6 @@ def GenLineProfileMat(nu_ul,f_lu,gamma_ul,dopplerVelocity,spectralRange,temp,mas
     return sigma
 
 
-    
 
 def GenEmissionAndAbsorptionRates(colDens,T,species,beamRadiusPhysical,calcThermalLevels):
     #Find rates of emission and attenuation cross section. Following Draine "Physics of the Interstellar and Intergalactic Medium"
