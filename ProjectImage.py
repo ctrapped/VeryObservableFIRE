@@ -296,7 +296,6 @@ def ProjectImage(config,snapdir,Nsnapstring,statsDir,observer_position,maxima,Ns
 
         print("Reshaping image...")
         image = np.reshape(x,[Nsightlines_1d,Nsightlines_1d,Nspec])
-        image=np.flipud(image)
 
 
     tParallel=time.time()
