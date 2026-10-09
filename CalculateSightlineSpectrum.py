@@ -2,7 +2,7 @@ import numpy as np
 import math
 import sys
 import time
-from VOF_GenerateSpectra import GenerateSpectra
+from GenerateSpectra import GenerateSpectra
 
 unit_M = 10**10 * 1.98855 *10**33 #10^10 solar masses / h !!in grams!! #h accounted for in readsnap
 unit_L = 3.086*10**21 #1 kpc / h !!in cm!!
@@ -24,7 +24,7 @@ eps = 1e-10
 ####Updated 03-10-2023
 
 
-def GetParticlesInSightline(sightline,testPositions,testVel,testRadii,testMass,testTemp,testSpeciesMassFrac,beamSize,speciesToRun,Nspec,bandwidth,rObserver,calcThermalLevels): #assume already centered on observer
+def CalculateSightlineSpectrum(sightline,testPositions,testVel,testRadii,testMass,testTemp,testSpeciesMassFrac,beamSize,speciesToRun,Nspec,bandwidth,rObserver,calcThermalLevels): #assume already centered on observer
     #print("Setting up sightline geometry...")
     #radMask = np.where(rmag<max_r*1.5)[0]
     zHat = sightline / np.linalg.norm(sightline) #orient cylindrical coordinate system along the sightline

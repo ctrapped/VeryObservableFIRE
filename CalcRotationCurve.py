@@ -26,7 +26,7 @@ eps = 0.00000000000000000000000000000000000000000000001
 ####Updated 12/08/2023
 
 
-def FindRotationCurve(pos,vel,mass,nr,max_r):
+def CalcRotationCurve(pos,vel,mass,nr,max_r):
     rMag =  np.linalg.norm(pos,axis=1)
     rHat = np.copy(pos)
     rHat[:,0] = np.divide(pos[:,0],rMag)
