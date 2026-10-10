@@ -427,6 +427,27 @@ def RunBinfire(snapdir,statsFile,particles,Nsnap,output,maxima,Nbins,tempMin=[No
     Gmom_phi = np.divide(Lz,rmag) 
     del r_z;del r_s;del Lz
     print("Time to convert to disk coordinates:",time.time()-t1)
+
+
+    if writeStatsFile:
+        stats_dir = os.path.dirname(statsFile)
+        if stats_dir:
+            os.makedirs(stats_dir, exist_ok=True)
+        hf_stats = h5py.File(statsFile,'w')
+        hf_stats.create_dataset('pos_center',data = pos_center);
+        hf_stats.create_dataset('r0',data=r_0_forStats);
+        hf_stats.create_dataset('Lhat',data=Lhat_forStats);
+        hf_stats.create_dataset('vel_center',data=vel_center);
+        hf_stats.create_dataset('max_x',data=max_x);
+        hf_stats.create_dataset('max_y',data=max_y);
+        hf_stats.create_dataset('max_vel',data=max_vel);
+        hf_stats.create_dataset('max_z',data=max_z);
+        hf_stats.create_dataset('nx',data=nx);
+        hf_stats.create_dataset('ny',data=ny);
+        hf_stats.create_dataset('nvel',data=nvel);
+        hf_stats.create_dataset('ascale',data=ascale);
+        hf_stats.close()   
+
     if project_gas_properties:
         return Gmom_r,Gmom_s,Gmom_phi
    
@@ -470,24 +491,7 @@ def RunBinfire(snapdir,statsFile,particles,Nsnap,output,maxima,Nbins,tempMin=[No
     binned_mom_s_curve,binedge,binnum = stats.binned_statistic_dd(rmag[heightMask],Gmom_s[heightMask],op,[nx],range=[[0,max_x]])
     
     
-    if writeStatsFile:
-        stats_dir = os.path.dirname(statsFile)
-        if stats_dir:
-            os.makedirs(stats_dir, exist_ok=True)
-        hf_stats = h5py.File(statsFile,'w')
-        hf_stats.create_dataset('pos_center',data = pos_center);
-        hf_stats.create_dataset('r0',data=r_0_forStats);
-        hf_stats.create_dataset('Lhat',data=Lhat_forStats);
-        hf_stats.create_dataset('vel_center',data=vel_center);
-        hf_stats.create_dataset('max_x',data=max_x);
-        hf_stats.create_dataset('max_y',data=max_y);
-        hf_stats.create_dataset('max_vel',data=max_vel);
-        hf_stats.create_dataset('max_z',data=max_z);
-        hf_stats.create_dataset('nx',data=nx);
-        hf_stats.create_dataset('ny',data=ny);
-        hf_stats.create_dataset('nvel',data=nvel);
-        hf_stats.create_dataset('ascale',data=ascale);
-        hf_stats.close()   
+
 
 
     return binned_mass_3d_cart , binned_mom_r_cart, binned_mom_phi_cart, binned_mom_s_cart, binned_mom_s_curve, binned_inclination
