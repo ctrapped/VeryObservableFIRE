@@ -103,18 +103,16 @@ def GenerateSyntheticImage(config, fileDir, statsDir, Nsnap, output, inclination
         m0=np.sum(noisy_image,2)
         vmax = np.max(m0)
         vmin = vmax * 1e-8
-        plt.imshow(m0,norm=LogNorm(vmin=vmin,vmax=vmax),cmap='inferno')
-        plt.colorbar()
+        plt.imshow(np.abs(m0),norm=LogNorm(vmin=vmin,vmax=vmax),cmap='inferno')
+        plt.colorbar(label='Column Density [cm$^{-2}$]')
         plt.savefig(output+'_ZerothMomentMap.png')
         plt.close()
 
         plt.figure()
-        vmax = np.max(np.sum(noisy_image,2))
-        vmin = vmax * 1e-4
         spec=np.linspace(-bandwidth_km_s/2,bandwidth_km_s/2,Nspec)
         m1 = np.divide( np.sum( np.multiply(noisy_image,spec[None,None,:]), axis=2) , m0)
         plt.imshow(m1,vmin=-bandwidth_km_s/2,vmax=bandwidth_km_s/2,cmap='seismic')
-        plt.colorbar()
+        plt.colorbar(label='First Moment [km/s]')
         plt.savefig(output+'_FirstMomentMap.png')
         plt.close()
 
@@ -122,7 +120,7 @@ def GenerateSyntheticImage(config, fileDir, statsDir, Nsnap, output, inclination
             plt.figure()
     
             plt.imshow(mass_map,norm=LogNorm(),cmap='inferno')
-            plt.colorbar()
+            plt.colorbar(label='Projected Mass (Msun)')
             plt.savefig(output+'_ProjectedMass.png')
             plt.close()
 
@@ -130,15 +128,24 @@ def GenerateSyntheticImage(config, fileDir, statsDir, Nsnap, output, inclination
             vmax = 150
             vmin = -vmax
             plt.imshow(np.divide(rMom_map,mass_map),vmin=vmin,vmax=vmax,cmap='seismic')
-            plt.colorbar()
+            plt.colorbar(label='Radial Velocity (km/s)')
             plt.savefig(output+'_RadialVelocity.png')
+            plt.close()
+
+
+            plt.figure()
+            vmax = np.max(np.abs(rMom_map)) / 2.
+            vmin = -vmax
+            plt.imshow(rMom_map,vmin=vmin,vmax=vmax,cmap='seismic')
+            plt.colorbar(label='Radial Momentum (Msun km/s)')
+            plt.savefig(output+'_RadialMomentum.png')
             plt.close()
 
             plt.figure()
             vmax = 150
             vmin = -vmax
             plt.imshow(np.divide(sMom_map,mass_map),vmin=vmin,vmax=vmax,cmap='seismic')
-            plt.colorbar()
+            plt.colorbar(label='Cylindrical Radial Velocity (km/s)')
             plt.savefig(output+'_CylRadialVelocity.png')
             plt.close()
 
@@ -146,7 +153,7 @@ def GenerateSyntheticImage(config, fileDir, statsDir, Nsnap, output, inclination
             vmax = 400
             vmin = 0
             plt.imshow(np.divide(rotMom_map,mass_map),vmin=vmin,vmax=vmax,cmap='inferno')
-            plt.colorbar()
+            plt.colorbar(label='Rotational Velocity (km/s)')
             plt.savefig(output+'_RotationalVelocity.png')
             plt.close()
 
