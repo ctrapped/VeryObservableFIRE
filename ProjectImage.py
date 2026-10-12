@@ -73,7 +73,7 @@ def sphere_kernel(d):
 
 
 
-def DepositParticles(gPos,gVel,gKernel,gMas,gTemp,speciesMassFrac,Nsightlines_1d,beamSize,speciesToRun,Nspec,bandwidth,rObserver,Lhat,r_0,max_r,projectGasProperties=False,gRmom=None,gSmom=None,gRotMom=None):
+def DepositParticles(gPos,gVel,gKernel,gMas,gTemp,speciesMassFrac,Nsightlines_1d,beamSize,speciesToRun,Nspec,bandwidth,rObserver,Lhat,r_0,max_r,projectGasProperties=False,gRmom=None,gSmom=None,gRotMom=None,minKernelSanityCheck=1.0):
     pixel_size_physical = 2*max_r/Nsightlines_1d
 
     #Already rotated
@@ -89,6 +89,13 @@ def DepositParticles(gPos,gVel,gKernel,gMas,gTemp,speciesMassFrac,Nsightlines_1d
     pixel_coords_y = np.floor(fy).astype(int)
     mask = (pixel_coords_x >= 0) & (pixel_coords_x < Nsightlines_1d) & \
        (pixel_coords_y >= 0) & (pixel_coords_y < Nsightlines_1d)
+
+    if not np.any(mask):
+        raise ValueError("No particles fall within the image bounds -- centering is likely incorrect.")
+
+    minKernel = np.min(gKernel[mask])
+    if minKernel > minKernelSanityCheck:
+        raise ValueError(f"Smallest particle smoothing length in the image is {minKernel:.3f} kpc (> {minKernelSanityCheck} kpc) -- centering is likely incorrect.")
 
     dopplerVelocity = gVel[mask][:,0]
     dopplerVelocity = np.add(dopplerVelocity , (zmag[mask]-rObserver) * 0.07) #kpc * km/s /kpc, Hubble flow but still centered on galaxy
@@ -118,7 +125,9 @@ def DepositParticles(gPos,gVel,gKernel,gMas,gTemp,speciesMassFrac,Nsightlines_1d
     rows_l, cols_l, vals_l = [], [], []
     conv_groups = []
 
+    print("Depositing particles onto the pixel grid fro dx_vals=",np.min(dx_vals),":",np.max(dx_vals))
     for d, s, n in zip(dx_vals, starts, counts):
+        print("Depositing d=",d," with ",n," particles")
         k = sphere_kernel(d)
         if projectGasProperties:
             props_s[s:s+n] /= k.sum()          # per-group: weights for properties sum to 1
