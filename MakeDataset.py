@@ -167,3 +167,6 @@ def MakeDataset(config, fileDir, statsDir, Nsnap, output, galName, writeRadialVe
                 particleData['rotMom'] = Gmom_phi
 
             GenerateSyntheticImage(config, fileDir, statsDir, Nsnap, image_name, inclination, position_angle, particleData=particleData)
+
+            if config['onlySaveFirstPng']:
+                config['savePng'] = False

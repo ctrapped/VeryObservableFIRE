@@ -52,6 +52,7 @@ config = LoadParams(paramFile, galName=galName, minSnap=minSnap, maxSnap=maxSnap
 galName = config['galName']
 minSnap = config['minSnap']
 maxSnap = config['maxSnap']
+snapStep = config['snapStep']
 fileDir = config['fileDir']
 statsDir = config['statsDir']
 output = config['output']
@@ -75,7 +76,7 @@ print("f0 = ",f0)
 print("Bandwidth = ",config['bandwidth'])
 print("###########################################################################")
 
-for Nsnap in range(minSnap,maxSnap+1):
+for Nsnap in range(minSnap,maxSnap+1,snapStep):
     print(Nsnap)
     MakeDataset(config, fileDir, statsDir, Nsnap, output, galName)
 

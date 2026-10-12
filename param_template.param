@@ -6,6 +6,7 @@
 galName = m12m                  #Simulation name as a string
 minSnap = 600                   #Starting snapshot number as an int
 maxSnap = 600                   #Ending snapshot number as an int
+snapStep = 1                    #Step between snapshots to run
 fileDir = /Volumes/wde4tb/simulation_snapshots/fire-2/{galName}/snapdir_                 #Path to the directory with snapshots. Should end without the trailing snapshot number
 statsDir = /Volumes/wde4tb/simulation_snapshots/fire-2/{galName}/stats_test/{galName}_stats   #Path to a directory to store stats info. Will create .hdf5 file if doesn't exist
 output = /Volumes/wde4tb/simulation_snapshots/fire-2/{galName}/vof_outputs/              #Directory to write outputs
@@ -25,13 +26,14 @@ speciesToRun = HI_21cm          #List of spectra to run
 res_km_s = 5.2                  #spectral resolution in km/s
 Nchannels = 128                 #number of spectral channels (bandwidth_km_s = Nchannels*res_km_s)
 
-noiseAmplitude = 3.2e20/3.        #Assume 3 sigma detection. In units of cm^-2
+noiseAmplitude = 3.2e20/3.      #Assume 3 sigma detection. In units of cm^-2
 
 # Run Parameters
 runBinfire = False               #[True]=Generate Annotation Files
 runVOF = True                    #[True]=Generate Spectral Datacubes
 
 savePng = True                   #[True]=Generate images showing annotations+images
+onlySaveFirstPng = true          #[True]=Only generate png files for the first orientation
 
 createMaskFromExistingStatsDir = False   #Mask the previously run galaxy to find satellites/other galaxies in snapshot
 num_cores = 1                    #Set the number of cores to use in parallel sightline generation. Defaults to all available if None
