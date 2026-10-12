@@ -126,7 +126,7 @@ def MakeDataset(config, fileDir, statsDir, Nsnap, output, galName, writeRadialVe
         for inclination in inclinations:
           os.makedirs(output+"i"+str(inclination)+"/", exist_ok=True)
           for position_angle in position_angles:
-            print("Generating Image for inclination: ",inclination)
+            print("Generating Image for inclination: ",inclination, "P.A.=",position_angle)
             image_name=output+"i"+str(inclination)+"/"+galName+"_i"+str(inclination)+"_pa"+str(position_angle)+"_"+str(Nsnap)+"_image"+outputSuffix
             if os.path.isfile(image_name+"_fullSpectra.hdf5"):
                 print("Warning: image for i=",inclination,"pa=",position_angle,"already exists. Overwriting...")
