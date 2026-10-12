@@ -1,6 +1,5 @@
 import numpy as np
 import os
-import copy
 from GenerateSynetheticImage import GenerateSyntheticImage
 from Binfire.Binfire import RunBinfire
 from Binfire.Binfire import LoadGas
@@ -18,6 +17,13 @@ import scipy
 ####
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 ####Updated 12/08/2023
+
+def ParticlesForBinfire(particles):
+    #RunBinfire subtracts vel_center from particles['v'] in place; give it a shallow copy of the dict
+    #with its own copy of just that array, so repeated calls don't re-subtract into the same buffer.
+    shielded = dict(particles)
+    shielded['v'] = np.copy(particles['v'])
+    return shielded
 
 def MakeDataset(config, fileDir, statsDir, Nsnap, output, galName, writeRadialVelocity=True):
 
@@ -65,7 +71,7 @@ def MakeDataset(config, fileDir, statsDir, Nsnap, output, galName, writeRadialVe
 
         if projectGasProperties:
             Gmom_r, Gmom_s, Gmom_phi = RunBinfire(fileDir+str(Nsnap),
-                statsDir+str(Nsnap).zfill(4)+'.hdf5',copy.deepcopy(particles),
+                statsDir+str(Nsnap).zfill(4)+'.hdf5',ParticlesForBinfire(particles),
                 Nsnap,
                 output,
                 [maxRadius,maxRadius,maxHeight],
@@ -78,8 +84,8 @@ def MakeDataset(config, fileDir, statsDir, Nsnap, output, galName, writeRadialVe
             for inclination in inclinations:
                 os.makedirs(output+"i"+str(inclination)+"/", exist_ok=True)
                 for position_angle in position_angles:
-                    binnedMass , binnedRadialMassFlux, binnedPhiMassFlux, binnedCylRadMassFlux, binnedCylRadMassFluxCurve, binnedInclination = RunBinfire(fileDir+str(Nsnap), 
-                            statsDir+str(Nsnap).zfill(4)+'.hdf5',copy.deepcopy(particles),
+                    binnedMass , binnedRadialMassFlux, binnedPhiMassFlux, binnedCylRadMassFlux, binnedCylRadMassFluxCurve, binnedInclination = RunBinfire(fileDir+str(Nsnap),
+                            statsDir+str(Nsnap).zfill(4)+'.hdf5',ParticlesForBinfire(particles),
                             Nsnap,
                             output,
                             [maxRadius,maxRadius,maxHeight],
@@ -143,21 +149,19 @@ def MakeDataset(config, fileDir, statsDir, Nsnap, output, galName, writeRadialVe
                 Lhat_rot = np.copy(Lhat)
                 r0_rot = np.copy(r0)
 
-            gPos_rot,gVel_rot = OrientGalaxy(copy.deepcopy(gPos),copy.deepcopy(gVel),Lhat_rot,r0_rot)
+            gPos_rot,gVel_rot = OrientGalaxy(gPos,gVel,Lhat_rot,r0_rot)
 
             particleData = {}
             particleData['pos'] = gPos_rot
             particleData['vel'] = gVel_rot
-            #kernel/mass/temp/speciesMassFrac are only ever read (fancy-indexed) downstream, never mutated in
-            #place, so these are borrowed references rather than per-iteration copies. Do not write into them.
+            #kernel/mass/temp/speciesMassFrac/rMom/sMom/rotMom are shared references, not per-iteration
+            #copies: nothing downstream mutates them in place. Do not write into them.
             particleData['kernel'] = gKernel
             particleData['mass'] = gMas
             particleData['temp'] = gTemp
             particleData['speciesMassFrac'] = speciesMassFrac
 
             if projectGasProperties:
-                #Same reasoning as kernel/mass/temp/speciesMassFrac above: only ever read (fancy-indexed)
-                #downstream, never mutated in place.
                 particleData['rMom'] = Gmom_r
                 particleData['sMom'] = Gmom_s
                 particleData['rotMom'] = Gmom_phi

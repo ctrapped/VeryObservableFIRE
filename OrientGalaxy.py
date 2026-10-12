@@ -49,31 +49,32 @@ def CenterOnObserver(observer_position,observer_velocity=None,rotationCurve=None
    
 def OrientGalaxy(pos,vel,Lhat,r0,returnRotationalVelocity=False):
     #Rotate galaxy with Lhat defined as the z direction and r0 as the x direction
+    #Does not modify pos/vel; always returns new arrays.
     xhat = r0
     zhat = Lhat
     yhat = np.cross(zhat,xhat)
-    
-    pos_tmp = np.copy(pos)
-    pos[:,0] = np.multiply(pos_tmp[:,0],xhat[0]) + np.multiply(pos_tmp[:,1],xhat[1]) + np.multiply(pos_tmp[:,2],xhat[2]);
-    pos[:,1] = np.multiply(pos_tmp[:,0],yhat[0]) + np.multiply(pos_tmp[:,1],yhat[1]) + np.multiply(pos_tmp[:,2],yhat[2]);
-    pos[:,2] = np.multiply(pos_tmp[:,0],zhat[0]) + np.multiply(pos_tmp[:,1],zhat[1]) + np.multiply(pos_tmp[:,2],zhat[2]);
+
+    new_pos = np.empty_like(pos)
+    new_pos[:,0] = np.multiply(pos[:,0],xhat[0]) + np.multiply(pos[:,1],xhat[1]) + np.multiply(pos[:,2],xhat[2]);
+    new_pos[:,1] = np.multiply(pos[:,0],yhat[0]) + np.multiply(pos[:,1],yhat[1]) + np.multiply(pos[:,2],yhat[2]);
+    new_pos[:,2] = np.multiply(pos[:,0],zhat[0]) + np.multiply(pos[:,1],zhat[1]) + np.multiply(pos[:,2],zhat[2]);
 
     if vel is not None:
-        vel_tmp = np.copy(vel)
-        vel[:,0] = np.multiply(vel_tmp[:,0],xhat[0]) + np.multiply(vel_tmp[:,1],xhat[1]) + np.multiply(vel_tmp[:,2],xhat[2]);
-        vel[:,1] = np.multiply(vel_tmp[:,0],yhat[0]) + np.multiply(vel_tmp[:,1],yhat[1]) + np.multiply(vel_tmp[:,2],yhat[2]);
-        vel[:,2] = np.multiply(vel_tmp[:,0],zhat[0]) + np.multiply(vel_tmp[:,1],zhat[1]) + np.multiply(vel_tmp[:,2],zhat[2]);
+        new_vel = np.empty_like(vel)
+        new_vel[:,0] = np.multiply(vel[:,0],xhat[0]) + np.multiply(vel[:,1],xhat[1]) + np.multiply(vel[:,2],xhat[2]);
+        new_vel[:,1] = np.multiply(vel[:,0],yhat[0]) + np.multiply(vel[:,1],yhat[1]) + np.multiply(vel[:,2],yhat[2]);
+        new_vel[:,2] = np.multiply(vel[:,0],zhat[0]) + np.multiply(vel[:,1],zhat[1]) + np.multiply(vel[:,2],zhat[2]);
 
         if returnRotationalVelocity:
-            j = np.cross(pos_tmp, vel_tmp)
+            j = np.cross(pos, vel)
             jz = np.multiply(j[:,0],zhat[0]) + np.multiply(j[:,1],zhat[1]) + np.multiply(j[:,2],zhat[2])
-            rmag = np.linalg.norm(pos_tmp,axis=1)
+            rmag = np.linalg.norm(pos,axis=1)
             rotVel = np.divide(jz , rmag)
-            return pos,vel,rotVel
+            return new_pos,new_vel,rotVel
 
-        return pos,vel
+        return new_pos,new_vel
     else:
-        return pos
+        return new_pos
  
 def GetRadialVelocity(pos,vel,rObs):
     N,dim = np.shape(pos)

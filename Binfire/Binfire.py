@@ -109,6 +109,10 @@ def RunBinfire(snapdir,statsFile,particles,Nsnap,output,maxima,Nbins,tempMin=[No
     if statsFile is not None:
         try:
             r_0,pos_center,Lhat,vel_center = ReadStats(statsFile)
+            print("From Stats:")
+            print("    pos_center=",pos_center)
+            print("    vel_center=",vel_center)
+            print("    Lhat=",Lhat)
         except:
             writeStatsFile = True
             r_0=None
