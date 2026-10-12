@@ -26,7 +26,7 @@ speciesToRun = HI_21cm          #List of spectra to run
 res_km_s = 5.2                  #spectral resolution in km/s
 Nchannels = 128                 #number of spectral channels (bandwidth_km_s = Nchannels*res_km_s)
 
-noiseAmplitude = 3.2e20/3.      #Assume 3 sigma detection. In units of cm^-2
+noiseAmplitude = 3.2e20/3/1.4142136     #Assume 3 sigma detection across 2 channels. In units of cm^-2
 
 # Run Parameters
 runBinfire = False               #[True]=Generate Annotation Files
