@@ -7,7 +7,7 @@ galName = m12m                  #Simulation name as a string
 minSnap = 600                   #Starting snapshot number as an int
 maxSnap = 600                   #Ending snapshot number as an int
 fileDir = /Volumes/wde4tb/simulation_snapshots/fire-2/{galName}/snapdir_                 #Path to the directory with snapshots. Should end without the trailing snapshot number
-statsDir = /Volumes/wde4tb/simulation_snapshots/fire-2/{galName}/stats/{galName}_stats   #Path to a directory to store stats info. Will create .hdf5 file if doesn't exist
+statsDir = /Volumes/wde4tb/simulation_snapshots/fire-2/{galName}/stats_test/{galName}_stats   #Path to a directory to store stats info. Will create .hdf5 file if doesn't exist
 output = /Volumes/wde4tb/simulation_snapshots/fire-2/{galName}/vof_outputs/              #Directory to write outputs
 
 # Observer Parameters
@@ -18,14 +18,14 @@ maxHeight = 10                  #max height above disk plane to include
 targetBeamSize = 6              #beam size of instrument being modeled (in arcseconds)
 Nsightlines1d = 512             #number of sightlines along one axis
 phiObs = 0                      #offset image with this (radians)
-inclinations = [30,40,50,60]             #Inclinations to image (degrees)
+inclinations = [45]             #Inclinations to image (degrees)
 position_angles = [0,45,90,135,180,225,270,315]   #Position angles to image (degrees)
 
 speciesToRun = HI_21cm          #List of spectra to run
 res_km_s = 5.2                  #spectral resolution in km/s
 Nchannels = 128                 #number of spectral channels (bandwidth_km_s = Nchannels*res_km_s)
 
-noiseAmplitude = 4e19/3.        #Assume 3 sigma detection. In units of cm^-2
+noiseAmplitude = 3.2e20/3.        #Assume 3 sigma detection. In units of cm^-2
 
 # Run Parameters
 runBinfire = False               #[True]=Generate Annotation Files
