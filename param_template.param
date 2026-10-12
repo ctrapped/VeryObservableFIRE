@@ -18,7 +18,7 @@ maxHeight = 10                  #max height above disk plane to include
 targetBeamSize = 6              #beam size of instrument being modeled (in arcseconds)
 Nsightlines1d = 512             #number of sightlines along one axis
 phiObs = 0                      #offset image with this (radians)
-inclinations = [45]             #Inclinations to image (degrees)
+inclinations = [45,55]             #Inclinations to image (degrees)
 position_angles = [0,45,90,135,180,225,270,315]   #Position angles to image (degrees)
 
 speciesToRun = HI_21cm          #List of spectra to run

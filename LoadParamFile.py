@@ -86,8 +86,7 @@ def LoadParamFile(path, overrides=None):
 
 
 def LoadParams(path, galName=None, minSnap=None, maxSnap=None, inclination=None):
-    #Read a parameter file, applying the same overrides VeryObservableFIRE.py's
-    #command-line arguments previously applied via LoadFileInfo/LoadObserverInfo.
+    #Read a parameter file, applying galName/minSnap/maxSnap/inclination as overrides on top of it.
     if not os.path.isfile(path) and os.path.isfile(path + ".param"):
         path = path + ".param"
 

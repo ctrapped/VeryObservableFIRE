@@ -84,7 +84,7 @@ def RotateData(imageDirBase , annotationDirBase, galName, inclination, position_
     try:
         hfImage = h5py.File(imageDirBase+".hdf5",'r')
         spectra = np.array(hfImage['spectra'])
-        #Observation parameters saved alongside the datacube by VOF_GenerateSyntheticImage.py
+        #Observation parameters saved alongside the datacube
         fov = hfImage.attrs['fov_kpc']
         observer_distance = hfImage.attrs['observer_distance_kpc']
         obs_spatial_res_arcseconds = hfImage.attrs['beam_arcsec']
@@ -99,8 +99,6 @@ def RotateData(imageDirBase , annotationDirBase, galName, inclination, position_
 
     suffix="_i"+str(inclination)+"_pa"+str(position_angle)+masked+"_"+galName+tag
 
-    #CSV manifests the main pipeline (VOF_ConvertDataset.py) writes/appends to for this inclination/position angle,
-    #shared across galaxies and snapshots the same way AppendToAnnotationsFile is used there.
     csv_suffix = "_i"+str(inclination)+"_pa"+str(position_angle)+masked
     csv_MF = annotationDirBase+"_MassFlux"+csv_suffix+".csv"
     csv_Mass = annotationDirBase+"_Mass"+csv_suffix+".csv"

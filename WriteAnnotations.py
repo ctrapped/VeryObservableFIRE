@@ -13,8 +13,7 @@ def WriteAnnotations(output, galName, inclination, position_angle, Nsnap, output
                       writeRadialVelocity=True,
                       savePNG=False):
 
-    #Binfire's binned grids and the image grid are built with opposite row order; flip here (once, at the point
-    #Binfire output is written) rather than in ProjectImage.py, so both projection modes there share one convention.
+    #Binfire's binned grids and the image grid are built with opposite row order.
     binnedMass = np.flipud(binnedMass)
     binnedRadialMassFlux = np.flipud(binnedRadialMassFlux)
     binnedPhiMassFlux = np.flipud(binnedPhiMassFlux)
