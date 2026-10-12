@@ -74,8 +74,6 @@ def sphere_kernel(d):
 
 
 def DepositParticles(gPos,gVel,gKernel,gMas,gTemp,speciesMassFrac,Nsightlines_1d,beamSize,speciesToRun,Nspec,bandwidth,rObserver,Lhat,r_0,max_r,projectGasProperties=False,gRmom=None,gSmom=None,gRotMom=None):
-    t0=time.time()
-
     pixel_size_physical = 2*max_r/Nsightlines_1d
 
     #Already rotated
@@ -83,7 +81,6 @@ def DepositParticles(gPos,gVel,gKernel,gMas,gTemp,speciesMassFrac,Nsightlines_1d
     xmag = gPos[:,2]
     ymag = gPos[:,1]
 
-    N,dim = np.shape(gPos)
     impact = np.zeros_like(gMas) #Assume dead center, will be smoothed later
 
     fx = (xmag / max_r + 1) / 2 * Nsightlines_1d
@@ -103,13 +100,6 @@ def DepositParticles(gPos,gVel,gKernel,gMas,gTemp,speciesMassFrac,Nsightlines_1d
 
     N = Nsightlines_1d
     Npix = N * N
-    emission_map = np.zeros((N, N, Nspec))
-    if projectGasProperties:
-        mass_map = np.zeros((N,N))
-        rMom_map = np.copy(mass_map)
-        sMom_map = np.copy(mass_map)
-        rotMom_map = np.copy(mass_map)
-
 
     px = pixel_coords_x[mask]
     py = pixel_coords_y[mask]
@@ -135,13 +125,18 @@ def DepositParticles(gPos,gVel,gKernel,gMas,gTemp,speciesMassFrac,Nsightlines_1d
         ox, oy = np.nonzero(k)
         w = k[ox, oy]
         if n * w.size < stamp_threshold:
-            X = px_s[s:s+n, None] + (ox - d)
-            Y = py_s[s:s+n, None] + (oy - d)
-            ok = (X >= 0) & (X < N) & (Y >= 0) & (Y < N)
-            rows_l.append((X * N + Y)[ok])
-            cols_l.append(np.broadcast_to(np.arange(s, s + n)[:, None], X.shape)[ok])
-            vals_l.append(np.broadcast_to(w, X.shape)[ok])
+            #Direct stenciling: for each of the n particles in this d-group, stamp its kernel directly onto
+            #the pixel grid as a sparse list of (row, col, value) entries, to be assembled into a sparse
+            #matrix below. Cheap when n*kernel_size is small; becomes wasteful for large/many-particle groups
+            #since most of a big sparse matrix's rows end up empty.
+            X = px_s[s:s+n, None] + (ox - d)   #absolute pixel x-coord of each (particle, kernel-offset) pair
+            Y = py_s[s:s+n, None] + (oy - d)   #absolute pixel y-coord of each (particle, kernel-offset) pair
+            ok = (X >= 0) & (X < N) & (Y >= 0) & (Y < N)   #drop kernel pixels that fall outside the image
+            rows_l.append((X * N + Y)[ok])   #flattened pixel index (row of the sparse matrix) for each entry
+            cols_l.append(np.broadcast_to(np.arange(s, s + n)[:, None], X.shape)[ok])   #which particle (column) each entry belongs to
+            vals_l.append(np.broadcast_to(w, X.shape)[ok])   #kernel weight for each entry
         else:
+            #Group too large/dense for direct stenciling to be efficient; convolve it via FFT instead (below).
             conv_groups.append((d, s, n, k))
 
     # Properties become extra channels after the per-group scaling above
@@ -157,25 +152,39 @@ def DepositParticles(gPos,gVel,gKernel,gMas,gTemp,speciesMassFrac,Nsightlines_1d
         out_map += (P @ em_s).reshape(N, N, Nch)
 
     if conv_groups:
+        #FFT-based stenciling: stamping each particle's kernel directly (as above) is equivalent to placing a
+        #point source at the particle's pixel and convolving the whole image with that d-group's kernel. For
+        #a group large/dense enough, it's cheaper to do that convolution once via FFT than to stamp every
+        #particle individually.
         dmax = max(g[0] for g in conv_groups)
-        L = next_fast_len(N + dmax, real=True)
+        #Padded transform size: must be big enough to (a) hold the (2*d+1)-wide kernel itself and (b) give
+        #linear (non-wraparound) convolution via the circular convolution that FFT multiplication computes --
+        #the standard requirement for that is pad_length >= signal_length + kernel_length - 1 = N + 2*dmax.
+        #next_fast_len rounds that minimum up to a length that keeps the FFT itself fast.
+        L = next_fast_len(N + 2*dmax, real=True)
         acc = None
         for d, s, n, k in conv_groups:
+            #Point-source image: each of the n particles in this d-group placed at its pixel with weight 1
+            #(no kernel yet -- that gets applied by the convolution below).
             flat = px_s[s:s+n] * N + py_s[s:s+n]
             Pg = csr_matrix((np.ones(n), (flat, np.arange(n))), shape=(Npix, n))
-            tmp = (Pg @ em_s[s:s+n]).reshape(N, N, Nch)
+            tmp = (Pg @ em_s[s:s+n]).reshape(N, N, Nch)   #sum each particle's (per-channel) value onto its pixel
 
+            #Place the kernel in the top-left corner of the padded (L,L) buffer, then roll it so its center
+            #(originally at index d,d) sits at index (0,0) -- the layout FFT-based convolution expects.
             kp = np.zeros((L, L))
             kp[:2*d+1, :2*d+1] = k
             kp = np.roll(kp, (-d, -d), axis=(0, 1))
 
+            #Convolve (point sources) * (kernel) via multiplication in Fourier space; accumulate across
+            #all d-groups sharing this L before transforming back once at the end.
             F = rfft2(tmp, s=(L, L), axes=(0, 1), workers=-1)
             F *= rfft2(kp)[:, :, None]
             if acc is None:
                 acc = F
             else:
                 acc += F
-        out_map += irfft2(acc, s=(L, L), axes=(0, 1), workers=-1)[:N, :N]
+        out_map += irfft2(acc, s=(L, L), axes=(0, 1), workers=-1)[:N, :N]   #back to real space, crop the padding off
 
     emission_map = out_map[..., :Nspec]
     if projectGasProperties:
