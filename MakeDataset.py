@@ -148,14 +148,18 @@ def MakeDataset(config, fileDir, statsDir, Nsnap, output, galName, writeRadialVe
             particleData = {}
             particleData['pos'] = gPos_rot
             particleData['vel'] = gVel_rot
-            particleData['kernel'] = copy.deepcopy(gKernel)
-            particleData['mass'] = copy.deepcopy(gMas)
-            particleData['temp'] = copy.deepcopy(gTemp)
-            particleData['speciesMassFrac'] = copy.deepcopy(speciesMassFrac)
+            #kernel/mass/temp/speciesMassFrac are only ever read (fancy-indexed) downstream, never mutated in
+            #place, so these are borrowed references rather than per-iteration copies. Do not write into them.
+            particleData['kernel'] = gKernel
+            particleData['mass'] = gMas
+            particleData['temp'] = gTemp
+            particleData['speciesMassFrac'] = speciesMassFrac
 
             if projectGasProperties:
-                particleData['rMom'] = copy.deepcopy(Gmom_r)
-                particleData['sMom'] = copy.deepcopy(Gmom_s)
-                particleData['rotMom'] = copy.deepcopy(Gmom_phi)
+                #Same reasoning as kernel/mass/temp/speciesMassFrac above: only ever read (fancy-indexed)
+                #downstream, never mutated in place.
+                particleData['rMom'] = Gmom_r
+                particleData['sMom'] = Gmom_s
+                particleData['rotMom'] = Gmom_phi
 
             GenerateSyntheticImage(config, fileDir, statsDir, Nsnap, image_name, inclination, position_angle, particleData=particleData)
