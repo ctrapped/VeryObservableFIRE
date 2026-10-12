@@ -831,7 +831,7 @@ def readsnap_sightline_itr_v2(sdir,snum,ptype,truncMask,species,
                  if (ptype==0) and (flag_metals > 0):
                     print("Reading Metallicities",i_file+1,"/",numfiles)
                     tmp = np.zeros((nR0-nL0,2))
-                    tmp[:]=input_struct[bname+"Metallicity"][:,0:1]
+                    tmp[:]=input_struct[bname+"Metallicity"][:,0:2]
 
                     fHe[nL:nR] = tmp[mask,1]
                     metal[nL:nR]=tmp[mask,0]#helium mass frac

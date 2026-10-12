@@ -193,7 +193,7 @@ def readsnap_trunc(sdir,snum,ptype,truncMask,
             nume=np.copy(mass)
             numh=np.copy(mass)
     if (ptype==0) and (flag_metals > 0):
-        metal=np.zeros([Ntrunc,flag_metals],dtype=float)
+        metal=np.zeros([Ntrunc,2],dtype=float)
     if (ptype==4) and (flag_sfr>0) and (flag_stellarage>0):
         stellage=np.copy(mass)
 
@@ -270,20 +270,8 @@ def readsnap_trunc(sdir,snum,ptype,truncMask,
                     del tmp
              if (ptype==0) and (flag_metals > 0):
                 print("Reading Metallicity",i_file+1,"/",numfiles)
-                #tmp = np.zeros((nR0-nL0,Nmetals))
-                tmp=np.array(input_struct[bname+"Metallicity"])
-                print("Shape of Metallicity File is:",np.shape(tmp))
-                #if (flag_metals > 1):
-                #    if (metal_t.shape[0] != npart[ptype]): 
-                #        metal_t=np.transpose(metal_t)
-                #else:
-                #    metal_t=np.reshape(np.array(metal_t),(np.array(metal_t).size,1))
-                #tmp = np.zeros(np.shape(metal_t))
-                #if np.size(np.shape(metal_t))>1:
-                #    tmp[:,:] = metal_t
-                #else:
-                #    tmp[:] = metal_t
-                metal[nL:nR,:]=tmp[truncMask[nL0:nR0]]
+                tmp=np.array(input_struct[bname+"Metallicity"][:,0:2])
+                metal[nL:nR,:]=tmp[truncMask[nL0:nR0],0:2] #Only get metallicity and helium fraction
                 del tmp
              if (ptype==4) and (flag_sfr>0) and (flag_stellarage>0):
                 print("Reading Stellar Age",i_file+1,"/",numfiles)
