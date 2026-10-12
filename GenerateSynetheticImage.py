@@ -82,7 +82,7 @@ def GenerateSyntheticImage(config, fileDir, statsDir, Nsnap, output, inclination
     hf = h5py.File(output+'_fullSpectra.hdf5','w')
     hf.create_dataset('spectra',data=noisy_image)
     hf.create_dataset('ideal_image',data=ideal_image)
-    hf.create_dataset('smooth_image',data=smooth_image)
+    #hf.create_dataset('smooth_image',data=smooth_image)
     hf.attrs['fov_kpc'] = 2*maxRadius
     hf.attrs['observer_distance_kpc'] = observerDistance
     hf.attrs['beam_arcsec'] = targetBeamSize / arcsec
