@@ -155,6 +155,7 @@ def DepositParticles(gPos,gVel,gKernel,gMas,gTemp,speciesMassFrac,Nsightlines_1d
     out_map = np.zeros((N, N, Nch))
 
     if rows_l:
+        print("Depositing small groups via direct stenciling...")
         P = coo_matrix((np.concatenate(vals_l),
                         (np.concatenate(rows_l), np.concatenate(cols_l))),
                        shape=(Npix, len(dx_s))).tocsr()
@@ -170,6 +171,7 @@ def DepositParticles(gPos,gVel,gKernel,gMas,gTemp,speciesMassFrac,Nsightlines_1d
         #linear (non-wraparound) convolution via the circular convolution that FFT multiplication computes --
         #the standard requirement for that is pad_length >= signal_length + kernel_length - 1 = N + 2*dmax.
         #next_fast_len rounds that minimum up to a length that keeps the FFT itself fast.
+        print("Depositing large groups via FFT convolution...")
         L = next_fast_len(N + 2*dmax, real=True)
         acc = None
         for d, s, n, k in conv_groups:
