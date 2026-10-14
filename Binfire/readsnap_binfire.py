@@ -188,7 +188,6 @@ def readsnap_trunc(sdir,snum,ptype,truncMask,
     if (ptype==0):
         ugas=np.copy(mass)
         hsml=np.copy(mass) 
-        fH2 = np.copy(mass)
         if (flag_cooling>0): 
             nume=np.copy(mass)
             numh=np.copy(mass)
@@ -248,10 +247,6 @@ def readsnap_trunc(sdir,snum,ptype,truncMask,
                 tmp[:]=(input_struct[bname+"InternalEnergy"])
                 ugas[nL:nR]=tmp[truncMask[nL0:nR0]]
                 del tmp
-                try:
-                    fH2[nL:nR] = (input_struct[bname+"MolecularMassFraction"])[truncMask[nL0:nR0]]
-                except:
-                    fH2[nL:nR]-=1
                 print("Reading SmoothingLength",i_file+1,"/",numfiles)
                 tmp = np.zeros((nR0-nL0))
                 tmp[:]=(input_struct[bname+"SmoothingLength"])
@@ -295,7 +290,7 @@ def readsnap_trunc(sdir,snum,ptype,truncMask,
 
     file.close();
     if (ptype==0):
-        return {'k':1,'v':vel,'m':mass,'u':ugas,'h':hsml,'ne':nume,'nh':numh,'z':metal, 'fH2':fH2, 'header':newheader};
+        return {'k':1,'v':vel,'m':mass,'u':ugas,'h':hsml,'ne':nume,'nh':numh,'z':metal, 'header':newheader};
     if (ptype==4):
         return {'k':1,'v':vel,'m':mass,'age':stellage, 'header':newheader}
     return {'k':1,'m':mass, 'v':vel, 'header':newheader}

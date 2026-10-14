@@ -98,6 +98,8 @@ def LoadGas(snapdir,statsFile,Nsnap,maxima,maskCenter=None,maskRadius=None,rshri
     G0['rho'] = G0['rho'][truncMask]
     G = readsnap_trunc(snapdir, Nsnapstring, 0, truncMask, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load truncated data
 
+    G['temp'] = calcTemps(G['u'],G['ne'],G['z']) #Precompute once here; reused by RunBinfire/LoadMaskedDataForImageGen instead of recomputing
+
     return G | G0 #Return all data
 
 def RunBinfire(snapdir,statsFile,particles,Nsnap,output,maxima,Nbins,tempMin=[None],tempMax=[None],densMin=[None],densMax=[None],phasetag=['AG'],rshrinksphere=5000,rminsphere=10,shrinkfactor=0.7,inclination=None,position_angle=None,maskCenter=None,maskRadius=None,project_gas_properties=False):
@@ -212,7 +214,10 @@ def RunBinfire(snapdir,statsFile,particles,Nsnap,output,maxima,Nbins,tempMin=[No
     Gvel = particles['v']#Velocities
     Gmas = particles['m'] #masses
     Gz = particles['z'] #metallicities
-    Gtemp = calcTemps(particles['u'],particles['ne'],Gz)
+    if 'temp' in particles:
+        Gtemp = particles['temp']
+    else:
+        Gtemp = calcTemps(particles['u'],particles['ne'],Gz)
     N = np.size(Gmas) #Number of Gas Particles
     Gloaded = True
     #del G
