@@ -1,6 +1,6 @@
 import numpy as np
 import time
-import sys
+import argparse
 
 from MakeDataset import MakeDataset
 from EmissionSpecies import GetEmissionSpeciesParameters
@@ -10,6 +10,7 @@ from LoadParamFile import LoadParams
 ####Also creates corresponding projected and deprojected maps of radial mass flux, rotational velocity, and mass for the purposes of neural network training
 ####To use, modify param_template.param and pass the path to it as the first argument.
 ####    e.g. python VeryObservableFIRE.py param_template.param
+####Optional overrides (any order): --galName, --minSnap, --maxSnap, --inclination (see --help)
 ####
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 ####Updated 12/08/2023
@@ -22,32 +23,23 @@ c_km_s = 3*10**5 #speed of light in km/s
 h = 4.135667696*np.power(10.,-15.) #eV * s
 startTime=time.time()
 
-paramFile = sys.argv[1]
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run VeryObservableFIRE to generate synthetic images/annotations from a parameter file.")
+    parser.add_argument("paramFile", help="Path to the .param file (e.g. param_template.param)")
+    parser.add_argument("--galName", default=None, help="Override galName from the parameter file")
+    parser.add_argument("--minSnap", type=int, default=None, help="Override the starting snapshot number")
+    parser.add_argument("--maxSnap", type=int, default=None, help="Override the ending snapshot number (defaults to minSnap if omitted)")
+    parser.add_argument("--inclination", type=int, default=None, help="Restrict to a single inclination, overriding the inclinations list in the parameter file")
+    return parser.parse_args()
 
-try:
-    galName = sys.argv[2]
-except:
-    galName=None
-
-try:
-    minSnap = int(sys.argv[3])
-except:
-    minSnap=None
-
-try:
-    maxSnap = int(sys.argv[4])
-except:
-    maxSnap=minSnap
-
-try:
-    inclination = int(sys.argv[5])
-except:
-    inclination=None
+args = parse_args()
+if args.maxSnap is None:
+    args.maxSnap = args.minSnap
 
 #`config` is passed down through MakeDataset/GenerateSyntheticImage/ProjectImage as a single dict;
 #each of those functions only takes the (snapshot, inclination, position_angle, ...) identity/loop
 #arguments explicitly and reads everything else out of config.
-config = LoadParams(paramFile, galName=galName, minSnap=minSnap, maxSnap=maxSnap, inclination=inclination)
+config = LoadParams(args.paramFile, galName=args.galName, minSnap=args.minSnap, maxSnap=args.maxSnap, inclination=args.inclination)
 
 galName = config['galName']
 minSnap = config['minSnap']
