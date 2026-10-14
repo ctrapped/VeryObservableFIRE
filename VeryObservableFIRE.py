@@ -68,8 +68,10 @@ print("f0 = ",f0)
 print("Bandwidth = ",config['bandwidth'])
 print("###########################################################################")
 
+initialSavePng = config['savePng'] #MakeDataset may turn this off partway through a snapshot (onlySaveFirstPng); restore it for the next one
 for Nsnap in range(minSnap,maxSnap+1,snapStep):
     print(Nsnap)
     MakeDataset(config, fileDir, statsDir, Nsnap, output, galName)
+    config['savePng'] = initialSavePng
 
 print("Time to finish: ",time.time()-startTime)
