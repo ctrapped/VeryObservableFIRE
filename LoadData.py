@@ -153,7 +153,10 @@ def LoadMaskedDataForImageGen(snapdir,Nsnapstring,ptype,mask,gKernel,species,bui
         z = particles['z'][:,0]
 
 
-    temp = calcTemps(particles['u'],particles['ne'],particles['z']) ##Can potentially more efficiently deal with how metallicity is read in
+    if 'temp' in particles:
+        temp = particles['temp'] #Precomputed by LoadGas when available, rather than recalculating here
+    else:
+        temp = calcTemps(particles['u'],particles['ne'],particles['z']) ##Can potentially more efficiently deal with how metallicity is read in
 
     if (species=="HI_21cm"):
         speciesMassFrac=CalcMolecularFraction(particles['nh'],gKernel,particles['rho'],fHe,z,to_return="fH1")
