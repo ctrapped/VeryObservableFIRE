@@ -33,7 +33,7 @@ runBinfire = False               #[True]=Generate Annotation Files
 runVOF = True                    #[True]=Generate Spectral Datacubes
 
 savePng = True                   #[True]=Generate images showing annotations+images
-onlySaveFirstPng = true          #[True]=Only generate png files for the first orientation
+onlySaveFirstPng = True          #[True]=Only generate png files for the first orientation
 
 createMaskFromExistingStatsDir = False   #Mask the previously run galaxy to find satellites/other galaxies in snapshot
 num_cores = 1                    #Set the number of cores to use in parallel sightline generation. Defaults to all available if None
