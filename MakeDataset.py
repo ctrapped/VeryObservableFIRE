@@ -25,6 +25,27 @@ def ParticlesForBinfire(particles):
     shielded['v'] = np.copy(particles['v'])
     return shielded
 
+def MaskParticleData(particles, pos_center, rMax, extraArrays=()):
+    #Apply mask to particle data when more data was loaded for shrinking sphere calculation
+    N = np.shape(particles['p'])[0]
+    mask = np.linalg.norm(particles['p'] - pos_center, axis=1) < rMax
+    print("Trimming gas particles to r <",rMax,"kpc:",N,"->",np.count_nonzero(mask))
+
+    trimmed = {}
+    for key, value in particles.items():
+        if isinstance(value, np.ndarray) and value.ndim > 0 and np.shape(value)[0] == N:
+            trimmed[key] = value[mask]
+        else:
+            trimmed[key] = value #header and other non-per-particle entries
+
+    trimmedExtras = []
+    for arr in extraArrays:
+        if np.shape(arr)[0] != N:
+            raise ValueError(f"Per-particle array has length {np.shape(arr)[0]}, expected {N}; cannot apply radial trim consistently.")
+        trimmedExtras.append(arr[mask])
+
+    return trimmed, trimmedExtras
+
 def MakeDataset(config, fileDir, statsDir, Nsnap, output, galName, writeRadialVelocity=True):
 
     #Config values this function's own body needs. Values only needed by GenerateSyntheticImage/ProjectImage
@@ -106,6 +127,13 @@ def MakeDataset(config, fileDir, statsDir, Nsnap, output, galName, writeRadialVe
         snapdir = fileDir+Nsnapstring #Directory containing the actual snapshots
 
         print("snapdir=",snapdir)
+
+        #Restrict preloaded particles to the same radius used when loading from scratch below
+        if particles is not None:
+            if projectGasProperties:
+                particles, (Gmom_r, Gmom_s, Gmom_phi) = MaskParticleData(particles, pos_center, maxRadius*1.5, extraArrays=(Gmom_r, Gmom_s, Gmom_phi))
+            else:
+                particles, _ = MaskParticleData(particles, pos_center, maxRadius*1.5)
 
         #Load the gas particles if not loaded previously
         gPos,gKernel,gVel = LoadDataForImageGen(snapdir,Nsnapstring,0,maxRadius,pos_center,vel_center,particles=particles)
