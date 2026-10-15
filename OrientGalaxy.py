@@ -1,21 +1,18 @@
-import numpy as np
-import h5py as h5py
-import os.path
-import scipy.interpolate as interpolate
-import scipy.optimize as optimize
 import math
-import sys
-import time
-import scipy.stats as stats
 
+import h5py as h5py
+import numpy as np
+from scipy import interpolate
 
-unit_M = 10**10 * 1.98855 *10**33 #10^10 solar masses / h !!in grams!! #h accounted for in readsnap
-unit_L = 3.086*10**21 #1 kpc / h !!in cm!!
-unit_V = 1.0*10.0**5 # 1 km/s !!in cm/s!! Converted by factor of sqrt(a) in readsnap
-unit_T = unit_L/unit_V
+unit_M = (
+    10**10 * 1.98855 * 10**33
+)  # 10^10 solar masses / h !!in grams!! #h accounted for in readsnap
+unit_L = 3.086 * 10**21  # 1 kpc / h !!in cm!!
+unit_V = 1.0 * 10.0**5  # 1 km/s !!in cm/s!! Converted by factor of sqrt(a) in readsnap
+unit_T = unit_L / unit_V
 unit_rho = unit_M / unit_L**3
 
-proton_mass = 1.6726219*10**(-27)*(1000.0/unit_M) ##appropriate units
+proton_mass = 1.6726219 * 10 ** (-27) * (1000.0 / unit_M)  ##appropriate units
 
 pi = np.pi
 eps = 0.00000000000000000000000000000000000000000000001
@@ -26,75 +23,103 @@ eps = 0.00000000000000000000000000000000000000000000001
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 ####Updated 12/08/2023
 
-def CenterOnObserver(observer_position,observer_velocity=None,rotationCurve=None,max_r=None):
-    #Observer position and velocity in (pseudo)cylindrical coordinates?
-    r, phi, z = observer_position
-    pos_observer = [r * np.cos(phi) , r * np.sin(phi), z ]
 
-    #Define Observer Velocity from RC if not provided
+def CenterOnObserver(
+    observer_position, observer_velocity=None, rotationCurve=None, max_r=None
+):
+    # Observer position and velocity in (pseudo)cylindrical coordinates?
+    r, phi, z = observer_position
+    pos_observer = [r * np.cos(phi), r * np.sin(phi), z]
+
+    # Define Observer Velocity from RC if not provided
     if observer_velocity is None:
-        #Assume only moving azimuthally
-        rInterp = np.linspace(0,max_r,np.size(rotationCurve),endpoint=True)
-        f = interpolate.interp1d(rInterp , rotationCurve)
+        # Assume only moving azimuthally
+        rInterp = np.linspace(0, max_r, np.size(rotationCurve), endpoint=True)
+        f = interpolate.interp1d(rInterp, rotationCurve)
         observer_velocity = [0, f(r), 0]
 
-    vel_observer = np.zeros((3))
-    vr,vphi,vz = observer_velocity
+    vel_observer = np.zeros(3)
+    vr, vphi, vz = observer_velocity
     vel_observer[0] = vr * math.cos(phi) - vphi * math.sin(phi)
     vel_observer[1] = vr * math.sin(phi) + vphi * math.cos(phi)
     vel_observer[2] = vz
 
-    return pos_observer , vel_observer
+    return pos_observer, vel_observer
 
-   
-def OrientGalaxy(pos,vel,Lhat,r0,returnRotationalVelocity=False):
-    #Rotate galaxy with Lhat defined as the z direction and r0 as the x direction
-    #Does not modify pos/vel; always returns new arrays.
+
+def OrientGalaxy(pos, vel, Lhat, r0, returnRotationalVelocity=False):
+    # Rotate galaxy with Lhat defined as the z direction and r0 as the x direction
+    # Does not modify pos/vel; always returns new arrays.
     xhat = r0
     zhat = Lhat
-    yhat = np.cross(zhat,xhat)
+    yhat = np.cross(zhat, xhat)
 
     new_pos = np.empty_like(pos)
-    new_pos[:,0] = np.multiply(pos[:,0],xhat[0]) + np.multiply(pos[:,1],xhat[1]) + np.multiply(pos[:,2],xhat[2]);
-    new_pos[:,1] = np.multiply(pos[:,0],yhat[0]) + np.multiply(pos[:,1],yhat[1]) + np.multiply(pos[:,2],yhat[2]);
-    new_pos[:,2] = np.multiply(pos[:,0],zhat[0]) + np.multiply(pos[:,1],zhat[1]) + np.multiply(pos[:,2],zhat[2]);
-
+    new_pos[:, 0] = (
+        np.multiply(pos[:, 0], xhat[0])
+        + np.multiply(pos[:, 1], xhat[1])
+        + np.multiply(pos[:, 2], xhat[2])
+    )
+    new_pos[:, 1] = (
+        np.multiply(pos[:, 0], yhat[0])
+        + np.multiply(pos[:, 1], yhat[1])
+        + np.multiply(pos[:, 2], yhat[2])
+    )
+    new_pos[:, 2] = (
+        np.multiply(pos[:, 0], zhat[0])
+        + np.multiply(pos[:, 1], zhat[1])
+        + np.multiply(pos[:, 2], zhat[2])
+    )
     if vel is not None:
         new_vel = np.empty_like(vel)
-        new_vel[:,0] = np.multiply(vel[:,0],xhat[0]) + np.multiply(vel[:,1],xhat[1]) + np.multiply(vel[:,2],xhat[2]);
-        new_vel[:,1] = np.multiply(vel[:,0],yhat[0]) + np.multiply(vel[:,1],yhat[1]) + np.multiply(vel[:,2],yhat[2]);
-        new_vel[:,2] = np.multiply(vel[:,0],zhat[0]) + np.multiply(vel[:,1],zhat[1]) + np.multiply(vel[:,2],zhat[2]);
-
+        new_vel[:, 0] = (
+            np.multiply(vel[:, 0], xhat[0])
+            + np.multiply(vel[:, 1], xhat[1])
+            + np.multiply(vel[:, 2], xhat[2])
+        )
+        new_vel[:, 1] = (
+            np.multiply(vel[:, 0], yhat[0])
+            + np.multiply(vel[:, 1], yhat[1])
+            + np.multiply(vel[:, 2], yhat[2])
+        )
+        new_vel[:, 2] = (
+            np.multiply(vel[:, 0], zhat[0])
+            + np.multiply(vel[:, 1], zhat[1])
+            + np.multiply(vel[:, 2], zhat[2])
+        )
         if returnRotationalVelocity:
             j = np.cross(pos, vel)
-            jz = np.multiply(j[:,0],zhat[0]) + np.multiply(j[:,1],zhat[1]) + np.multiply(j[:,2],zhat[2])
-            rmag = np.linalg.norm(pos,axis=1)
-            rotVel = np.divide(jz , rmag)
-            return new_pos,new_vel,rotVel
+            jz = (
+                np.multiply(j[:, 0], zhat[0])
+                + np.multiply(j[:, 1], zhat[1])
+                + np.multiply(j[:, 2], zhat[2])
+            )
+            rmag = np.linalg.norm(pos, axis=1)
+            rotVel = np.divide(jz, rmag)
+            return new_pos, new_vel, rotVel
 
-        return new_pos,new_vel
+        return new_pos, new_vel
     else:
         return new_pos
- 
-def GetRadialVelocity(pos,vel,rObs):
-    N,dim = np.shape(pos)
 
-    rMag =  np.linalg.norm(pos,axis=1)
+
+def GetRadialVelocity(pos, vel, rObs):
+    N, dim = np.shape(pos)
+
+    rMag = np.linalg.norm(pos, axis=1)
     rHat = np.copy(pos)
-    rHat[:,0] = np.divide(pos[:,0],rMag)
-    rHat[:,1] = np.divide(pos[:,1],rMag)
-    rHat[:,2] = np.divide(pos[:,2],rMag)
+    rHat[:, 0] = np.divide(pos[:, 0], rMag)
+    rHat[:, 1] = np.divide(pos[:, 1], rMag)
+    rHat[:, 2] = np.divide(pos[:, 2], rMag)
 
-    rVel = np.multiply(vel[:,0],rHat[:,0]) + np.multiply(vel[:,1],rHat[:,1]) + np.multiply(vel[:,2],rHat[:,2])
-    
-    rVel = np.add( rVel , (rMag-rObs) * 0.07) #kpc * km/s /kpc, Hubble flow but still centered on galaxy
-    
+    rVel = (
+        np.multiply(vel[:, 0], rHat[:, 0])
+        + np.multiply(vel[:, 1], rHat[:, 1])
+        + np.multiply(vel[:, 2], rHat[:, 2])
+    )
+
+    rVel = np.add(
+        rVel, (rMag - rObs) * 0.07
+    )  # kpc * km/s /kpc, Hubble flow but still centered on galaxy
+
     return rVel
-
-
-
-
-
-
-
-
