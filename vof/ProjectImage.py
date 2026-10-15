@@ -349,7 +349,7 @@ def ProjectImage(
     if defineRotationCurve:
         # Load the star particles
         sPos, sVel, sMass = LoadData(
-            snapdir, Nsnapstring, 1, max_r, pos_center, vel_center
+            snapdir, Nsnapstring, 4, max_r, pos_center, vel_center
         )
         # Transform into previously defined coordinate system
         sPos, sVel = OrientGalaxy(sPos, sVel, Lhat_rot, r0_rot)
