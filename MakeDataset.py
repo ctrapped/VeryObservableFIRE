@@ -164,15 +164,15 @@ def MakeDataset(config, fileDir, statsDir, Nsnap, output, galName, writeRadialVe
                 rotation_axis = np.copy(Lhat)
                 rotation_vector = float(position_angle)*np.pi/180.*rotation_axis
                 rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
-                r0 = rotation.apply(r0)
+                r0_rot = rotation.apply(r0)
         
                 #Rotate the vectors Lhat and r0 that define the z and x unit vectors respectively. Effectively rotates the entire galaxy
-                rotation_axis = np.cross(Lhat,r0)
+                rotation_axis = np.cross(Lhat,r0_rot)
                 rotation_vector = float(inclination)*np.pi/180.*rotation_axis
                 rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
 
                 Lhat_rot = rotation.apply(Lhat)
-                r0_rot =   rotation.apply(r0)
+                r0_rot =   rotation.apply(r0_rot)
             else:
                 Lhat_rot = np.copy(Lhat)
                 r0_rot = np.copy(r0)
