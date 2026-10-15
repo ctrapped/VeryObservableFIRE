@@ -1,6 +1,6 @@
 import os.path
 
-import h5py as h5py
+import h5py
 import numpy as np
 
 ####Legacy io functions to read in FIRE snapshots
@@ -50,7 +50,7 @@ def readsnap_initial(
         header_master = file["Header"]  # Load header dictionary (to parse below)
         header_toparse = header_master.attrs
     else:
-        file = open(fname)  # Open binary snapshot file
+        file = open(fname)  # noqa: SIM115 - binary snapshot; handle is closed manually with file.close()
         header_toparse = load_gadget_binary_header(file)
 
     npart = header_toparse["NumPart_ThisFile"]
@@ -129,7 +129,7 @@ def readsnap_initial(
             if fname_ext == ".hdf5":
                 file = h5py.File(fname, "r")  # Open hdf5 snapshot file
             else:
-                file = open(fname)  # Open binary snapshot file
+                file = open(fname)  # noqa: SIM115 - binary snapshot; handle is closed manually with file.close()
                 header_toparse = load_gadget_binary_header(file)
 
         if fname_ext == ".hdf5":
@@ -213,7 +213,7 @@ def readsnap_trunc(
         header_master = file["Header"]  # Load header dictionary (to parse below)
         header_toparse = header_master.attrs
     else:
-        file = open(fname)  # Open binary snapshot file
+        file = open(fname)  # noqa: SIM115 - binary snapshot; handle is closed manually with file.close()
         header_toparse = load_gadget_binary_header(file)
 
     npart = header_toparse["NumPart_ThisFile"]
@@ -314,7 +314,7 @@ def readsnap_trunc(
             if fname_ext == ".hdf5":
                 file = h5py.File(fname, "r")  # Open hdf5 snapshot file
             else:
-                file = open(fname)  # Open binary snapshot file
+                file = open(fname)  # noqa: SIM115 - binary snapshot; handle is closed manually with file.close()
                 header_toparse = load_gadget_binary_header(file)
 
         if fname_ext == ".hdf5":
@@ -697,31 +697,27 @@ def load_gadget_binary_particledat(f, header, ptype, skip_bh=0):
                 gas_SFR.fromfile(f, Npart[0])
                 f.read(4 + 4)  # Read block size fields.
 
-        if Npart[4] > 0:
-            if header["Flag_Sfr"] > 0:
-                if header["Flag_StellarAge"] > 0:
-                    ### Star formation time (in code units) or scale factor ###
-                    star_age = array.array("f")
-                    star_age.fromfile(f, Npart[4])
-                    f.read(4 + 4)  # Read block size fields.
+        if Npart[4] > 0 and header["Flag_Sfr"] > 0 and header["Flag_StellarAge"] > 0:
+            ### Star formation time (in code units) or scale factor ###
+            star_age = array.array("f")
+            star_age.fromfile(f, Npart[4])
+            f.read(4 + 4)  # Read block size fields.
 
-        if Npart[0] + Npart[4] > 0:
-            if header["Flag_Metals"] > 0:
-                ## Metallicity block (species tracked = Flag_Metals)
-                if Npart[0] > 0:
-                    gas_z = array.array("f")
-                    gas_z.fromfile(f, header["Flag_Metals"] * Npart[0])
-                if Npart[4] > 0:
-                    star_z = array.array("f")
-                    star_z.fromfile(f, header["Flag_Metals"] * Npart[4])
-                f.read(4 + 4)  # Read block size fields.
-                if ptype == 0:
-                    zmet = np.reshape(gas_z, (-1, header["Flag_Metals"]))
-                if ptype == 4:
-                    zmet = np.reshape(star_z, (-1, header["Flag_Metals"]))
+        if Npart[0] + Npart[4] > 0 and header["Flag_Metals"] > 0:
+            ## Metallicity block (species tracked = Flag_Metals)
+            if Npart[0] > 0:
+                gas_z = array.array("f")
+                gas_z.fromfile(f, header["Flag_Metals"] * Npart[0])
+            if Npart[4] > 0:
+                star_z = array.array("f")
+                star_z.fromfile(f, header["Flag_Metals"] * Npart[4])
+            f.read(4 + 4)  # Read block size fields.
+            if ptype == 0:
+                zmet = np.reshape(gas_z, (-1, header["Flag_Metals"]))
+            if ptype == 4:
+                zmet = np.reshape(star_z, (-1, header["Flag_Metals"]))
 
-        if Npart[5] > 0:
-            if skip_bh > 0:
+        if Npart[5] > 0 and skip_bh > 0:
                 ## BH mass (same as code units, but this is the separately-tracked BH mass from particle mass)
                 bh_mass = array.array("f")
                 bh_mass.fromfile(f, Npart[5])

@@ -1,7 +1,7 @@
 import os
 import time
 
-import h5py as h5py
+import h5py
 import numpy as np
 import scipy
 from scipy import stats
@@ -43,7 +43,6 @@ def LoadGas(
     Nsnapstring = str(Nsnap)
 
     max_x = maxima[0]
-    max_y = maxima[1]
 
     G0 = readsnap_initial(
         snapdir,
@@ -63,9 +62,9 @@ def LoadGas(
 
     shrinking_sphere_flag = 0
     if statsFile is not None:
-        try:
-            pos_center, vel_center, Lhat, r_0, _ = ReadStats(statsFile)
-        except:
+        if os.path.isfile(statsFile):
+            pos_center, _vel_center, _Lhat, _r_0, _ = ReadStats(statsFile)
+        else:
             pos_center = None
             shrinking_sphere_flag = 1
             print("Ssf=1")
@@ -151,11 +150,11 @@ def RunBinfire(
     output,
     maxima,
     Nbins,
-    tempMin=[None],
-    tempMax=[None],
-    densMin=[None],
-    densMax=[None],
-    phasetag=["AG"],
+    tempMin=None,
+    tempMax=None,
+    densMin=None,
+    densMax=None,
+    phasetag=None,
     rshrinksphere=5000,
     rminsphere=10,
     shrinkfactor=0.7,
@@ -169,14 +168,26 @@ def RunBinfire(
     shrinking_sphere_flag = 0
     writeStatsFile = False
 
+    # Analyze All Gas by Default
+    if tempMin is None:
+        tempMin = [None]
+    if tempMax is None:
+        tempMax = [None]
+    if densMin is None:
+        densMin = [None]
+    if densMax is None:
+        densMax = [None]
+    if phasetag is None:
+        phasetag = ["AG"]
+
     if statsFile is not None:
-        try:
+        if os.path.isfile(statsFile):
             pos_center, vel_center, Lhat, r_0, _ = ReadStats(statsFile)
             print("From Stats:")
             print("    pos_center=", pos_center)
             print("    vel_center=", vel_center)
             print("    Lhat=", Lhat)
-        except:
+        else:
             writeStatsFile = True
             r_0 = None
             pos_center = None
@@ -184,7 +195,6 @@ def RunBinfire(
             Lhat = None
             shrinking_sphere_flag = 1
 
-    t0 = time.time()  # for keeping track of efficiency
     # Resolution Information
     max_x = maxima[0]
     max_y = maxima[1]
@@ -218,7 +228,6 @@ def RunBinfire(
         header_only=1,
     )
     ascale = header["time"]
-    h = header["hubble"]
 
     # Read the Snapshots#################################################
     # Already accounts for factors of h, but not the hubble flow
@@ -344,7 +353,6 @@ def RunBinfire(
         )  # Dark Matter, only load truncated data
         DMmas = DM["m"]
         DMvel = DM["v"]
-        NDM = np.size(DMmas)  # Number of Dark Matter Particles
         del DM
         DMloaded = True
         print("Time to load dark matter:", time.time() - t1)
@@ -384,7 +392,6 @@ def RunBinfire(
             Svel = S["v"]
         Smas = S["m"]
 
-        NSt = np.size(Smas)  # Number of star particles
         del S
         del truncMask
         Sloaded = True
@@ -392,7 +399,6 @@ def RunBinfire(
 
         t1 = time.time()
 
-        starMask = None
         if maskCenter is not None and maskRadius is not None:
             maskRmag = np.linalg.norm(np.subtract(Spos, maskCenter), axis=1)
             Smas = Smas[(maskRmag > maskRadius)]
@@ -549,8 +555,6 @@ def RunBinfire(
     phi0[phi0 < 0] = phi0[phi0 < 0] + 2 * pi  # make all values range from 0 to pi
 
     if inclination is not None:
-        r_0_original = r_0.copy()
-
         rotation_axis = -Lhat
         rotation_vector = (np.pi + position_angle * np.pi / 180.0) * rotation_axis
         rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
@@ -652,8 +656,6 @@ def RunBinfire(
 
     N = np.size(smag_rot)
 
-    Gvel_r = np.divide(Gmom_r, Gmas)
-
     sample_cart = np.zeros((N, 2))
     sample_cart[:, 0] = xmag
     sample_cart[:, 1] = ymag
@@ -670,40 +672,20 @@ def RunBinfire(
     binRange = [[-max_x, max_x], [-max_y, max_y]]
 
     heightMask = np.where(np.abs(zmag) < max_z)[0]
-    print(
-        "Masking height for |z|<",
-        max_z,
-        " (",
-        np.size(heightMask),
-        "/",
-        np.size(zmag),
-        ")",
-    )
-    radMask = np.where(rmag < 1.5 * max_x)[0]
 
-    binned_mass_3d_cart, binedge, binnum = stats.binned_statistic_dd(
+    binned_mass_3d_cart, _binedge, _binnum = stats.binned_statistic_dd(
         sample_cart[heightMask, :], Gmas[heightMask], op, [nx, ny], range=binRange
     )
-    binned_mom_r_cart, binedge, binnum = stats.binned_statistic_dd(
+    binned_mom_r_cart, _binedge, _binnum = stats.binned_statistic_dd(
         sample_cart[heightMask, :], Gmom_r[heightMask], op, [nx, ny], range=binRange
     )
-    binned_mom_s_cart, binedge, binnum = stats.binned_statistic_dd(
+    binned_mom_s_cart, _binedge, _binnum = stats.binned_statistic_dd(
         sample_cart[heightMask, :], Gmom_s[heightMask], op, [nx, ny], range=binRange
     )
-    binned_mom_phi_cart, binedge, binnum = stats.binned_statistic_dd(
+    binned_mom_phi_cart, _binedge, _binnum = stats.binned_statistic_dd(
         sample_cart[heightMask, :], Gmom_phi[heightMask], op, [nx, ny], range=binRange
     )
-
-    binned_inclination, binedge, binnum = stats.binned_statistic_dd(
-        sample_cart[heightMask, :],
-        np.multiply(gInc[heightMask], Gmas[heightMask]),
-        op,
-        [nx, ny],
-        range=binRange,
-    )
-    binned_inclination = np.divide(binned_inclination, binned_mass_3d_cart + eps)
-
-    binned_mom_s_curve, binedge, binnum = stats.binned_statistic_dd(
+    binned_mom_s_curve, _binedge, _binnum = stats.binned_statistic_dd(
         rmag[heightMask], Gmom_s[heightMask], op, [nx], range=[[0, max_x]]
     )
 
@@ -713,7 +695,6 @@ def RunBinfire(
         binned_mom_phi_cart,
         binned_mom_s_cart,
         binned_mom_s_curve,
-        binned_inclination,
     )
 
 

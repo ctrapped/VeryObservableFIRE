@@ -1,6 +1,5 @@
 import math
 
-import h5py as h5py
 import numpy as np
 from scipy import interpolate
 
@@ -93,8 +92,6 @@ def OrientGalaxy(pos, vel, Lhat, r0, returnRotationalVelocity=False):
 
 
 def GetRadialVelocity(pos, vel, rObs):
-    N, dim = np.shape(pos)
-
     rMag = np.linalg.norm(pos, axis=1)
     rHat = np.copy(pos)
     rHat[:, 0] = np.divide(pos[:, 0], rMag)

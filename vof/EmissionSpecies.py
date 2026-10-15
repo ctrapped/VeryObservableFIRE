@@ -101,8 +101,7 @@ def GetEmissionSpeciesParameters(speciesName):
 
 
 def ReadNistEnergyLevels(filedir):
-    fid = open(filedir, "r")
-    fullFile = fid.read()
+    fullFile = Path(filedir).read_text()
     lines = fullFile.split("\n")
 
     Elevels = np.zeros(np.size(lines) - 1)

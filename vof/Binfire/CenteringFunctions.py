@@ -44,8 +44,7 @@ def FindCenter(
     #### ascale : scale factor of this snapshot
     #### mask_centers : list of positions to mask. Use to ignore halos
     #### mask_radius : list of mask radii. Use to ignore halos
-    N = np.size(Gdens)
-    NS = np.size(Smas)
+
     if (mask_centers is not None) and (
         mask_radius is not None
     ):  # Mask data to ignore a certain halo/galaxy
@@ -138,7 +137,6 @@ def FindAngularMomentum(nh, Gpos, Gmom, Gtemp, r2):
     L = np.zeros((N, 3))  # Initialize Angular Momentum Vector
 
     print("Finding orientation of disk...")
-    L_total = np.zeros(3)  # sum of momentums in center
     L_avg = np.zeros(3)  # average momentum of central disk
 
     T_cutoff_L = 8000  # Kelvin

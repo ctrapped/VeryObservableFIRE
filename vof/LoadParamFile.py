@@ -1,9 +1,12 @@
 import ast
+import logging
 import os
 
 import numpy as np
 
 from vof.Constants import arcsec, pi
+
+logger = logging.getLogger(__name__)
 
 ####Reads a plain-text "key = value" parameter file into a dict, instead of importing a .py module.
 ####Values are parsed top-to-bottom and may reference earlier keys in the same file, e.g.:
@@ -43,8 +46,15 @@ def _parse_value(raw, namespace):
         pass
     try:
         return eval(raw, {"__builtins__": {}}, namespace)
-    except Exception:
-        pass
+    except (NameError, SyntaxError) as err:
+        # Expected for plain strings: bare words (m12m -> NameError) and paths (/a/b -> SyntaxError).
+        # Any other error means the value is an expression that failed, and is raised to the caller.
+        logger.debug(
+            "Not an expression, keeping as string: %r (%s: %s)",
+            raw,
+            type(err).__name__,
+            err,
+        )
     try:
         return raw.format(**namespace)
     except (KeyError, IndexError):
@@ -74,7 +84,13 @@ def LoadParamFile(path, overrides=None):
             if key in overrides and overrides[key] is not None:
                 value = overrides[key]
             else:
-                value = _parse_value(raw_value, namespace)
+                try:
+                    value = _parse_value(raw_value, namespace)
+                except (TypeError, ArithmeticError, LookupError, AttributeError) as err:
+                    raise ValueError(
+                        f"{path}:{lineno}: could not evaluate {key} = {raw_value.strip()!r} "
+                        f"({type(err).__name__}: {err})"
+                    ) from err
 
             params[key] = value
             namespace[key] = value

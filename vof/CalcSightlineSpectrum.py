@@ -33,7 +33,7 @@ def CalcSightlineSpectrum(
     zHat = sightline / np.linalg.norm(
         sightline
     )  # orient cylindrical coordinate system along the sightline
-    N, dim = np.shape(testPositions)
+    N, _dim = np.shape(testPositions)
     r_z = np.zeros((N, 3))  # vector for the z component in the old coord system
 
     zmag = np.zeros(N)
@@ -77,7 +77,7 @@ def CalcSightlineSpectrum(
     indices = np.argsort(zmag)  # start with the closest particles
 
     # Calculate the spectrum and emission from these particles
-    spectrum, emission, optical_depth, nu = GenerateSpectra(
+    spectrum, emission, _optical_depth, _nu = GenerateSpectra(
         testMass[indices],
         testSpeciesMassFrac[indices],
         dopplerVelocity[indices],

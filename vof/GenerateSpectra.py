@@ -1,4 +1,3 @@
-import time
 
 import numpy as np
 
@@ -52,10 +51,10 @@ def GenerateSpectra(
         E_lower,
         A_ul,
         gamma_ul,
-        Glevels,
-        Elevels,
-        n_u_fraction,
-        n_l_fraction,
+        _Glevels,
+        _Elevels,
+        _n_u_fraction,
+        _n_l_fraction,
     ) = GetEmissionSpeciesParameters(
         species
     )  # Load the emission/absorption parameters for this species
@@ -68,11 +67,10 @@ def GenerateSpectra(
 
     beamRadiusPhysical = distance * np.sin(beamSize) / 2.0  # sim units (kpc)
 
-    t0 = time.time()
-    colDens, pathLength = GetColumnDensityAlongLOS(
+    colDens, _pathLength = GetColumnDensityAlongLOS(
         particleSize, impact, N_molecules, beamRadiusPhysical, calcChordLength
     )  # kpc^-2
-    t1 = time.time()
+
     upperToLowerRate, attenuationCrossSection = GenEmissionAndAbsorptionRates(
         colDens, temp, species, beamRadiusPhysical, calcThermalLevels
     )  # Units of Hz
@@ -88,8 +86,6 @@ def GenerateSpectra(
     nu_0 = nu_ul
     spectralRange = [nu_0 - bandwidth / 2.0, nu_0 + bandwidth / 2.0]
 
-    # Define min/max frequency of spectra somehow
-    beamAreaPhysical = pi * np.power(beamRadiusPhysical, 2)
     Nparticles = np.size(upperToLowerRate)
     spectra = np.zeros(Nspec)
     emission = np.copy(spectra)
@@ -110,11 +106,9 @@ def GenerateSpectra(
             Nspec,
         )
         phi_nu = sigma_nu * m_e * c / pi / (e**2) / f_lu
-        # print("Shape of sigma_nu=",np.shape(sigma_nu))
-        try:
-            distance[distance == 0] = eps
-        except:
-            xx = 0
+
+        distance[distance == 0] = eps
+
         emission = np.divide(
             np.multiply(upperToLowerRate[:, np.newaxis] * h, np.multiply(nu, phi_nu)),
             np.power(distance, 2)[:, np.newaxis],
@@ -222,13 +216,11 @@ def GenLineProfile(
     # Defines line profile with a gaussian core and damping wings. Following Draine "Physics of the Interstellar and Intergalactic Medium"
     nu = np.linspace(spectralRange[0], spectralRange[1], Nspec)
 
-    spectral_resolution = np.abs(spectralRange[1] - spectralRange[0]) / Nspec
     dopplerBeta = dopplerVelocity / (3.0 * np.power(10, 5))  # both in km/s
 
     doppler_freq_shift = nu_ul * (
         np.sqrt(np.divide(-dopplerBeta + 1, dopplerBeta + 1)) - 1
     )
-    doppler_index_shift = int(np.round(doppler_freq_shift / spectral_resolution))
 
     v = (
         np.divide(
@@ -276,7 +268,6 @@ def GenLineProfileMat(
     # Defines line profile with a gaussian core and damping wings. Following Draine "Physics of the Interstellar and Intergalactic Medium"
     nu = np.linspace(spectralRange[0], spectralRange[1], Nspec)
 
-    spectral_resolution = np.abs(spectralRange[1] - spectralRange[0]) / Nspec
     dopplerBeta = dopplerVelocity / (3.0 * np.power(10, 5))  # both in km/s
 
     doppler_freq_shift = nu_ul * (
@@ -349,13 +340,13 @@ def GenEmissionAndAbsorptionRates(
 ):
     # Find rates of emission and attenuation cross section. Following Draine "Physics of the Interstellar and Intergalactic Medium"
     (
-        mass_species,
+        _mass_species,
         g_u,
         g_l,
         E_u,
         E_l,
         A_ul,
-        gamma_ul,
+        _gamma_ul,
         glevels,
         Elevels,
         n_u_fraction,
@@ -387,12 +378,6 @@ def GenEmissionAndAbsorptionRates(
         )  # For species not in thermal equilibrium with entire particle
 
     if n_l_fraction is None or calcThermalLevels:
-        n_l = np.multiply(
-            n_total,
-            np.divide(
-                np.exp(np.divide(-(E_l - Elevels[0]), kb * T)) * g_l, partitionFunction
-            ),
-        )  # unitless
         colDensLower = np.multiply(
             colDens,
             np.divide(
@@ -400,7 +385,6 @@ def GenEmissionAndAbsorptionRates(
             ),
         ) / np.power(kpc2cm, 2)  # units cm^-2
     else:
-        n_l = n_l_fraction * n_total
         colDensLower = n_l_fraction * colDens / np.power(kpc2cm, 2)  # units cm^-2
 
     nu_ul = (E_u - E_l) / h  # in Hz

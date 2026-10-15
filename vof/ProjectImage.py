@@ -3,7 +3,6 @@ import multiprocessing
 import time
 from functools import partial
 
-import h5py as h5py
 import numpy as np
 import scipy
 from joblib import Parallel, delayed
@@ -52,7 +51,7 @@ def GenSightline(
     ix = thread_id % Nsightlines_1d  # Thread pixel coordinates
     iy = int(np.floor(thread_id / Nsightlines_1d))
     t0 = time.time()
-    spectrum, emission = CalcSightlineSpectrum(
+    _spectrum, emission = CalcSightlineSpectrum(
         sightlines[ix, iy, :],
         gPos,
         gVel,
@@ -138,7 +137,7 @@ def DepositParticles(
     distance = np.copy(zmag[mask])
     distance[distance == 0] = eps
 
-    spectrum, emission, tau, nu = GenerateSpectra(
+    _spectrum, emission, _tau, _nu = GenerateSpectra(
         gMas[mask],
         speciesMassFrac[mask],
         dopplerVelocity,
@@ -313,7 +312,7 @@ def ProjectImage(
 
     max_r, maxPhi, maxTheta = maxima
     rObserver = np.abs(observer_position[0])
-    pos_center, vel_center, Lhat, r0, orientation_maxima = ReadStats(statsDir)
+    pos_center, vel_center, _Lhat, _r0, _orientation_maxima = ReadStats(statsDir)
 
     gPos = particleData["pos"]
     gVel = particleData["vel"]
@@ -342,7 +341,7 @@ def ProjectImage(
         sPos, sVel = OrientGalaxy(sPos, sVel, Lhat_rot, r0_rot)
 
         rBinSize = 0.1
-        nr = int(math.ceil(max_r / rBinSize))
+        nr = math.ceil(max_r / rBinSize)
         rotationCurve = CalcRotationCurve(sPos, sVel, sMass, nr, max_r)
 
     pos_observer, vel_observer = CenterOnObserver(
@@ -361,8 +360,6 @@ def ProjectImage(
     tStart = time.time()
 
     if runAsOpticallyThinProjection:
-        Npart = np.size(gMas)
-        ppt = int(np.ceil(Npart / num_cores))
         if projectGasProperties:
             image, mass_map, rMom_map, sMom_map, rotMom_map = DepositParticles(
                 gPos,
@@ -423,7 +420,6 @@ def ProjectImage(
                 -(indices[1, :, :] * thetaRes - pi / 2 + theta0)
             )
 
-        t0 = time.time()
         # For each sightline get the particles that overlap with the beam and their offset from the beam. Assumes particles are spheres (they aren't, this can be improved)
         sightline_indices = range(Nsightlines)
         print("Working with ", num_cores, " cores")

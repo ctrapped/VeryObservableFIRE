@@ -1,7 +1,7 @@
 import os.path
 import time
 
-import h5py as h5py
+import h5py
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
@@ -66,9 +66,7 @@ def GenerateSyntheticImage(
         2 * maxRadius / observerDistance
     )  # Convert physical size of observation to radians on the sky
 
-    maxTheta = maxPhi
-    if maxTheta > pi:  # You probably shouldn't ever look at an image this big anyway...
-        maxTheta = pi
+    maxTheta = min(maxPhi,pi)
 
     maxima = [maxRadius, maxPhi, maxTheta]
     print("Pixel size set to: ", beamSize / arcsec, " ''")
@@ -77,7 +75,7 @@ def GenerateSyntheticImage(
     if projectGasProperties:
         (
             ideal_image,
-            smooth_image,
+            _smooth_image,
             noisy_image,
             mass_map,
             rMom_map,
@@ -96,7 +94,7 @@ def GenerateSyntheticImage(
             particleData=particleData,
         )
     else:
-        ideal_image, smooth_image, noisy_image = ProjectImage(
+        ideal_image, _smooth_image, noisy_image = ProjectImage(
             config,
             snapDir,
             Nsnapstring,

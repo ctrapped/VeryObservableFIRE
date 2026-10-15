@@ -81,20 +81,15 @@ def MakeDataset(
         maskCenter = None
         maskRadius = None
         if createMaskFromExistingStatsDir:
-            try:
-                pos_center, vel_center, Lhat, r_0, _ = ReadStats(
-                    statsDir + str(Nsnap).zfill(4) + ".hdf5"
-                )
-                maskCenter = pos_center
-                maskRadius = 100
-                statsDir += "masked_"
-                outputSuffix = "_masked"
-                # output += "masked_"
-                print("Set mask center...")
-            except:
-                print(
-                    "Warning, could not mask data as no previous stats file exists..."
-                )
+            pos_center, vel_center, Lhat, _r_0, _ = ReadStats(
+                statsDir + str(Nsnap).zfill(4) + ".hdf5"
+            )
+            maskCenter = pos_center
+            maskRadius = 100
+            statsDir += "masked_"
+            outputSuffix = "_masked"
+            print("Set mask center...")
+
 
         particles = LoadGas(  # Load gas particles
             fileDir + str(Nsnap),
@@ -132,7 +127,6 @@ def MakeDataset(
                         binnedPhiMassFlux,
                         binnedCylRadMassFlux,
                         binnedCylRadMassFluxCurve,
-                        binnedInclination,
                     ) = RunBinfire(
                         fileDir + str(Nsnap),
                         statsDir + str(Nsnap).zfill(4) + ".hdf5",

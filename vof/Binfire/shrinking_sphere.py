@@ -1,4 +1,3 @@
-import h5py as h5py
 import numpy as np
 
 ####Functions to perform the shrinking sphere fit

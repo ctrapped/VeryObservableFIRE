@@ -20,7 +20,6 @@ def RotateAnnotation(hf, phi, npix):
     )
 
 
-
 def Denoise(
     spectra,
     fov,
@@ -50,7 +49,6 @@ def Denoise(
 
     sofia_filedir = "temp_mask.fits"
     with fits.open(sofia_filedir) as hdul:
-        header = hdul[0].header
         mask = hdul[0].data  # This is a NumPy array
 
     sofia_mask = np.transpose(mask, (1, 2, 0))
@@ -111,7 +109,7 @@ def RotateData(
     Nsnap,
     tag,
     masked,
-    angles=[0, 90, 180, 270],
+    angles=(0, 90, 180, 270),
     SavePNGs=False,
     denoise=False,
     DoTimeAveraging=False,
@@ -119,6 +117,7 @@ def RotateData(
     sofia_dir=None,
     sofia_base_path=None,
 ):
+
     print("Rotating data...")
     tsave = 0
     for base in (imageDirBase, annotationDirBase):
@@ -126,9 +125,7 @@ def RotateData(
         if base_dir:
             os.makedirs(base_dir, exist_ok=True)
     saveSpectra = True
-    fov = observer_distance = obs_spatial_res_arcseconds = dnu_kmps = bandwidth_km_s = (
-        None
-    )
+    fov = observer_distance = obs_spatial_res_arcseconds = dnu_kmps = None
     try:
         hfImage = h5py.File(imageDirBase + ".hdf5", "r")
         spectra = np.array(hfImage["spectra"])
@@ -137,11 +134,10 @@ def RotateData(
         observer_distance = hfImage.attrs["observer_distance_kpc"]
         obs_spatial_res_arcseconds = hfImage.attrs["beam_arcsec"]
         dnu_kmps = hfImage.attrs["dnu_kmps"]
-        bandwidth_km_s = dnu_kmps * np.shape(spectra)[2]
         hfImage.close()
         print("Found image...")
-    except:
-        # print("Warning!!! No synthetic image for this inclination...")
+    except (OSError, KeyError):
+        print("Warning!!! No synthetic image for this inclination...")
         spectra = np.zeros((1, 1, 1))
         saveSpectra = False
 
@@ -155,13 +151,6 @@ def RotateData(
         + galName
         + tag
     )
-
-    csv_suffix = "_i" + str(inclination) + "_pa" + str(position_angle) + masked
-    csv_MF = annotationDirBase + "_MassFlux" + csv_suffix + ".csv"
-    csv_Mass = annotationDirBase + "_Mass" + csv_suffix + ".csv"
-    csv_RC = annotationDirBase + "_RC" + csv_suffix + ".csv"
-    csv_rVel = annotationDirBase + "_rVel" + csv_suffix + ".csv"
-    csv_sMF = annotationDirBase + "_sMassFlux" + csv_suffix + ".csv"
 
     hfMF = h5py.File(
         annotationDirBase + "_MassFlux" + suffix + "_MF_" + str(Nsnap) + ".hdf5", "r"
@@ -180,7 +169,7 @@ def RotateData(
     )
 
     # Annotation grid resolution, read from the annotation files themselves rather than the (possibly missing) image
-    npix = int(round(np.sqrt(np.size(np.array(hfMF["annotation"])))))
+    npix = round(np.sqrt(np.size(np.array(hfMF["annotation"]))))
 
     ####################################################
 
@@ -217,14 +206,12 @@ def RotateData(
                 spectra_rot = spectra_rot[rot_mask > 0]
                 hf_out = h5py.File(imageDirBase + rotString + "_dn.hdf5", "w")
                 hf_out.create_dataset("spectra", data=spectra_rot)
-                # hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_rot,bandwidth_km_s))
                 hf_out.close()
             elif phi != 0:
                 print("Saving Rotations")
                 t1 = time.time()
                 hf_out = h5py.File(imageDirBase + rotString + ".hdf5", "w")
                 hf_out.create_dataset("spectra", data=spectra_rot)
-                # hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_rot,bandwidth_km_s))
                 hf_out.close()
                 tsave += time.time() - t1
 
@@ -234,7 +221,6 @@ def RotateData(
             t1 = time.time()
             hf_out = h5py.File(imageDirBase + rotString + dn_tag + "_lr.hdf5", "w")
             hf_out.create_dataset("spectra", data=spectra_lr)
-            # hf_out.create_dataset('moments',data=ConvertSpectraToMomentMaps(spectra_lr,bandwidth_km_s))
             hf_out.close()
             tsave += time.time() - t1
 

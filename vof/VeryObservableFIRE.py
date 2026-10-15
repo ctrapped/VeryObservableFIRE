@@ -1,4 +1,5 @@
 import argparse
+import logging
 import time
 
 import numpy as np
@@ -51,12 +52,22 @@ def parse_args():
         default=None,
         help="Restrict to a single inclination, overriding the inclinations list in the parameter file",
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Show debug messages (e.g. how each parameter file value was parsed)",
+    )
     return parser.parse_args()
 
 
 def main():
     startTime = time.time()
     args = parse_args()
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(levelname)s %(name)s: %(message)s",
+    )
     if args.maxSnap is None:
         args.maxSnap = args.minSnap
 
@@ -90,17 +101,17 @@ def main():
     )
 
     (
-        mass_species,
-        g_upper,
-        g_lower,
+        _mass_species,
+        _g_upper,
+        _g_lower,
         E_upper,
         E_lower,
-        A_ul,
-        gamma_ul,
-        Glevels,
-        Elevels,
-        n_u_fraction,
-        n_l_fraction,
+        _A_ul,
+        _gamma_ul,
+        _Glevels,
+        _Elevels,
+        _n_u_fraction,
+        _n_l_fraction,
     ) = GetEmissionSpeciesParameters(config["speciesToRun"])
     f0 = (E_upper - E_lower) / h  # in Hz
     config["Nspec"] = int(np.ceil(config["bandwidth_km_s"] / config["res_km_s"]))

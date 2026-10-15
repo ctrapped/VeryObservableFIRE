@@ -1,8 +1,5 @@
-import h5py as h5py
 import numpy as np
 from scipy import stats
-
-eps = 0.00000000000000000000000000000000000000000000001
 
 ####Function to calculate the rotational velocity curve of a galaxy. Used for placing a mock observer within a galaxy
 ####
@@ -21,10 +18,10 @@ def CalcRotationCurve(pos, vel, mass, nr, max_r):
     )  # Don't count radial velocity
 
     # Calculate mass weighted average
-    binned_mom, binedge1d, binnum1d = stats.binned_statistic_dd(
+    binned_mom, _binedge1d, _binnum1d = stats.binned_statistic_dd(
         rMag, np.multiply(vMag, mass), "sum", nr, range=[[0, max_r]]
     )
-    binned_mass, binedge1d, binnum1d = stats.binned_statistic_dd(
+    binned_mass, _binedge1d, _binnum1d = stats.binned_statistic_dd(
         rMag, mass, "sum", nr, range=[[0, max_r]]
     )
 

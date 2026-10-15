@@ -1,4 +1,4 @@
-import h5py as h5py
+import h5py
 import numpy as np
 
 from vof.Constants import (
@@ -169,12 +169,9 @@ def CalcMolecularFraction(
     fHe,
     fMetals,
     to_return="fH1",
-    buildShieldLengths=False,
-    sph_shieldLength=None,
 ):
     # Inputs = Mass, number density, Kernel Length, density, metallicity
     Z = fMetals  # metal mass (everything not H, He)
-    M_H = 1.67353269159582103 * 10 ** (-27) * (1000.0 / unit_M)  ##kg to g to unit mass
     mu_H = (
         2.3 * np.power(10.0, -27.0) * (1000.0 / unit_M)
     )  #'average' mass of hydrogen nucleus from Krumholz&Gnedin 2011
@@ -208,11 +205,6 @@ def CalcMolecularFraction(
     )  # Fraction of Molecular Hydrogen from Krumholz & Knedin
 
     lowerApproxLimit = 0.1
-    Zprime = np.divide(Z, Z_solar)
-    sigma0 = sobColDens * np.power(10.0, 4.0)  # Surface column density to Msolar/pc^2
-    fc = np.divide(tau, 0.066 * Zprime * sigma0)  # should be~1
-    SFR_0 = 0.25 * np.power(10.0, -3.0)  # Unit_m * kpc^-2 * Gyr -1
-    # denom = np.multiply( sobColDens , np.multiply(2.3*np.multiply(fc,Zprime) , np.divide(4.1,1+3.1*np.power(Zprime,0.365))))
     denom = 7.2 * tau
     denom[denom == 0] = eps
     fH2[fH2 < lowerApproxLimit] = (
