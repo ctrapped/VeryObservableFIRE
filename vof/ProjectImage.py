@@ -105,8 +105,6 @@ def DepositParticles(
     Nspec,
     bandwidth,
     rObserver,
-    Lhat,
-    r_0,
     max_r,
     projectGasProperties=False,
     gRmom=None,
@@ -307,8 +305,8 @@ def ProjectImage(
     observer_position,
     maxima,
     Nsightlines,
-    inclination,
-    position_angle,
+    Lhat_rot,
+    r0_rot,
     particleData=None,
     sightlines=None,
 ):
@@ -329,21 +327,6 @@ def ProjectImage(
     max_r, maxPhi, maxTheta = maxima
     rObserver = np.abs(observer_position[0])
     pos_center, vel_center, Lhat, r0, orientation_maxima = ReadStats(statsDir)
-
-    if inclination > 0:
-        # Rotate r0 first to set the position angle
-        rotation_axis = np.copy(Lhat)
-        rotation_vector = float(position_angle) * np.pi / 180.0 * rotation_axis
-        rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
-        r0 = rotation.apply(r0)
-
-        # Rotate the vectors Lhat and r0 that define the z and x unit vectors respectively. Effectively rotates the entire galaxy
-        rotation_axis = np.cross(Lhat, r0)
-        rotation_vector = float(inclination) * np.pi / 180.0 * rotation_axis
-        rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
-
-        Lhat = rotation.apply(Lhat)
-        r0 = rotation.apply(r0)
 
     gPos = particleData["pos"]
     gVel = particleData["vel"]
@@ -369,7 +352,7 @@ def ProjectImage(
             snapdir, Nsnapstring, 1, max_r, pos_center, vel_center
         )
         # Transform into previously defined coordinate system
-        sPos, sVel = OrientGalaxy(sPos, sVel, Lhat, r0)
+        sPos, sVel = OrientGalaxy(sPos, sVel, Lhat_rot, r0_rot)
 
         rBinSize = 0.1
         nr = int(math.ceil(max_r / rBinSize))
@@ -407,8 +390,6 @@ def ProjectImage(
                 Nspec,
                 bandwidth,
                 rObserver,
-                Lhat,
-                r0,
                 max_r,
                 projectGasProperties=projectGasProperties,
                 gRmom=gRmom,
@@ -429,8 +410,6 @@ def ProjectImage(
                 Nspec,
                 bandwidth,
                 rObserver,
-                Lhat,
-                r0,
                 max_r,
                 projectGasProperties=projectGasProperties,
             )

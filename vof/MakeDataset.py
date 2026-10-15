@@ -252,29 +252,26 @@ def MakeDataset(
                         "already exists. Overwriting...",
                     )
 
-                if inclination > 0 or position_angle > 0:
-                    # Rotate r0 first to set the position angle
-                    rotation_axis = np.copy(Lhat)
-                    rotation_vector = (
-                        float(position_angle) * np.pi / 180.0 * rotation_axis
-                    )
-                    rotation = scipy.spatial.transform.Rotation.from_rotvec(
-                        rotation_vector
-                    )
-                    r0_rot = rotation.apply(r0)
+                # Rotate r0 first to set the position angle
+                rotation_axis = np.copy(Lhat)
+                rotation_vector = (
+                    float(position_angle) * np.pi / 180.0 * rotation_axis
+                )
+                rotation = scipy.spatial.transform.Rotation.from_rotvec(
+                    rotation_vector
+                )
+                r0_rot = rotation.apply(r0)
 
-                    # Rotate the vectors Lhat and r0 that define the z and x unit vectors respectively. Effectively rotates the entire galaxy
-                    rotation_axis = np.cross(Lhat, r0_rot)
-                    rotation_vector = float(90-inclination) * np.pi / 180.0 * rotation_axis
-                    rotation = scipy.spatial.transform.Rotation.from_rotvec(
-                        rotation_vector
-                    )
+                # Rotate the vectors Lhat and r0 that define the z and x unit vectors respectively. Effectively rotates the entire galaxy
+                rotation_axis = np.cross(Lhat, r0_rot)
+                rotation_vector = float(90-inclination) * np.pi / 180.0 * rotation_axis
+                rotation = scipy.spatial.transform.Rotation.from_rotvec(
+                    rotation_vector
+                )
 
-                    Lhat_rot = rotation.apply(Lhat)
-                    r0_rot = rotation.apply(r0_rot)
-                else:
-                    Lhat_rot = np.copy(Lhat)
-                    r0_rot = np.copy(r0)
+                Lhat_rot = rotation.apply(Lhat)
+                r0_rot = rotation.apply(r0_rot)
+
 
                 gPos_rot, gVel_rot = OrientGalaxy(gPos, gVel, Lhat_rot, r0_rot)
 
@@ -299,8 +296,8 @@ def MakeDataset(
                     statsDir,
                     Nsnap,
                     image_name,
-                    inclination,
-                    position_angle,
+                    Lhat_rot,
+                    r0_rot,
                     particleData=particleData,
                 )
 

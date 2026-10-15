@@ -34,8 +34,8 @@ def GenerateSyntheticImage(
     statsDir,
     Nsnap,
     output,
-    inclination,
-    position_angle,
+    Lhat_rot,
+    r0_rot,
     particleData=None,
 ):
 
@@ -94,8 +94,8 @@ def GenerateSyntheticImage(
             observer_position,
             maxima,
             Nsightlines,
-            inclination,
-            position_angle,
+            Lhat_rot,
+            r0_rot,
             particleData=particleData,
         )
     else:
@@ -107,8 +107,8 @@ def GenerateSyntheticImage(
             observer_position,
             maxima,
             Nsightlines,
-            inclination,
-            position_angle,
+            Lhat_rot,
+            r0_rot,
             particleData=particleData,
         )
 
