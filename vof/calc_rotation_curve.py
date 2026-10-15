@@ -7,7 +7,7 @@ from scipy import stats
 ####Updated 12/08/2023
 
 
-def CalcRotationCurve(pos, vel, mass, nr, max_r):
+def calc_rotation_curve(pos, vel, mass, nr, max_r):
     rMag = np.linalg.norm(pos, axis=1)
     rHat = np.copy(pos)
     rHat[:, 0] = np.divide(pos[:, 0], rMag)

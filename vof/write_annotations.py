@@ -9,7 +9,7 @@ from matplotlib.colors import LogNorm
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 
 
-def WriteAnnotations(
+def write_annotations(
     output,
     galName,
     inclination,
@@ -32,7 +32,7 @@ def WriteAnnotations(
     binnedCylRadMassFlux = np.flipud(binnedCylRadMassFlux)
 
     angle_str = "i" + str(inclination) + "_pa" + str(position_angle)
-    # Matches the datacube filename GenerateSyntheticImage.py actually writes in MakeDataset's createImages loop (image_name+"_fullSpectra.hdf5" there)
+    # Matches the datacube filename generate_synthetic_image.py actually writes in make_dataset's createImages loop (image_name+"_fullSpectra.hdf5" there)
     image_name = (
         output
         + "i"

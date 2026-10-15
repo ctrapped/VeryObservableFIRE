@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 
-from vof.Constants import arcsec, pi
+from vof.constants import arcsec, pi
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def _parse_value(raw, namespace):
         return raw
 
 
-def LoadParamFile(path, overrides=None):
+def load_param_file(path, overrides=None):
     # Parse the file, applying any given overrides inline (so later lines that reference
     # an overridden key, e.g. a path using "{galName}", see the overridden value)
     overrides = overrides or {}
@@ -103,12 +103,12 @@ def LoadParamFile(path, overrides=None):
     return params
 
 
-def LoadParams(path, galName=None, minSnap=None, maxSnap=None, inclination=None):
+def load_params(path, galName=None, minSnap=None, maxSnap=None, inclination=None):
     # Read a parameter file, applying galName/minSnap/maxSnap/inclination as overrides on top of it.
     if not os.path.isfile(path) and os.path.isfile(path + ".param"):
         path = path + ".param"
 
-    params = LoadParamFile(
+    params = load_param_file(
         path, overrides={"galName": galName, "minSnap": minSnap, "maxSnap": maxSnap}
     )
 

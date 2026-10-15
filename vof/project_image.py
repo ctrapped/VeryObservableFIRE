@@ -9,14 +9,14 @@ from joblib import Parallel, delayed
 from scipy.fft import irfft2, next_fast_len, rfft2
 from scipy.sparse import coo_matrix, csr_matrix
 
-from vof.CalcRotationCurve import CalcRotationCurve
-from vof.CalcSightlineSpectrum import CalcSightlineSpectrum
-from vof.Constants import (
+from vof.calc_rotation_curve import calc_rotation_curve
+from vof.calc_sightline_spectrum import calc_sightline_spectrum
+from vof.constants import (
     pi,
 )
-from vof.GenerateSpectra import GenerateSpectra
-from vof.io.LoadData import LoadData, ReadStats
-from vof.OrientGalaxy import CenterOnObserver, OrientGalaxy
+from vof.generate_spectra import generate_spectra
+from vof.io.load_data import load_data, read_stats
+from vof.orient_galaxy import center_on_observer, orient_galaxy
 
 # J*s^-1*m^-2*Hz-1
 
@@ -32,7 +32,7 @@ eps = 1e-20
 ####Updated 03-10-2023
 
 
-def GenSightline(
+def gen_sightline(
     thread_id,
     Nsightlines_1d,
     sightlines,
@@ -51,7 +51,7 @@ def GenSightline(
     ix = thread_id % Nsightlines_1d  # Thread pixel coordinates
     iy = int(np.floor(thread_id / Nsightlines_1d))
     t0 = time.time()
-    _spectrum, emission = CalcSightlineSpectrum(
+    _spectrum, emission = calc_sightline_spectrum(
         sightlines[ix, iy, :],
         gPos,
         gVel,
@@ -78,7 +78,7 @@ def sphere_kernel(d):
     return np.sqrt(np.clip(d**2 - (c[:, None] ** 2 + c[None, :] ** 2), 0, None)) / d
 
 
-def DepositParticles(
+def deposit_particles(
     gPos,
     gVel,
     gKernel,
@@ -137,7 +137,7 @@ def DepositParticles(
     distance = np.copy(zmag[mask])
     distance[distance == 0] = eps
 
-    _spectrum, emission, _tau, _nu = GenerateSpectra(
+    _spectrum, emission, _tau, _nu = generate_spectra(
         gMas[mask],
         speciesMassFrac[mask],
         dopplerVelocity,
@@ -283,7 +283,7 @@ def DepositParticles(
     return emission_map
 
 
-def ProjectImage(
+def project_image(
     config,
     snapdir,
     Nsnapstring,
@@ -296,7 +296,7 @@ def ProjectImage(
     particleData=None,
     sightlines=None,
 ):
-    # Config values this function (and the DepositParticles/GenSightline/CalcSightlineSpectrum/GenerateSpectra
+    # Config values this function (and the deposit_particles/gen_sightline/calc_sightline_spectrum/generate_spectra
     # helpers it calls) need, read out of the single shared config dict.
     observer_velocity = config["observerVelocity"]
     beamSize = config["beamSize"]
@@ -312,7 +312,7 @@ def ProjectImage(
 
     max_r, maxPhi, maxTheta = maxima
     rObserver = np.abs(observer_position[0])
-    pos_center, vel_center, _Lhat, _r0, _orientation_maxima = ReadStats(statsDir)
+    pos_center, vel_center, _Lhat, _r0, _orientation_maxima = read_stats(statsDir)
 
     gPos = particleData["pos"]
     gVel = particleData["vel"]
@@ -334,17 +334,17 @@ def ProjectImage(
 
     if defineRotationCurve:
         # Load the star particles
-        sPos, sVel, sMass = LoadData(
+        sPos, sVel, sMass = load_data(
             snapdir, Nsnapstring, 4, max_r, pos_center, vel_center
         )
         # Transform into previously defined coordinate system
-        sPos, sVel = OrientGalaxy(sPos, sVel, Lhat_rot, r0_rot)
+        sPos, sVel = orient_galaxy(sPos, sVel, Lhat_rot, r0_rot)
 
         rBinSize = 0.1
         nr = math.ceil(max_r / rBinSize)
-        rotationCurve = CalcRotationCurve(sPos, sVel, sMass, nr, max_r)
+        rotationCurve = calc_rotation_curve(sPos, sVel, sMass, nr, max_r)
 
-    pos_observer, vel_observer = CenterOnObserver(
+    pos_observer, vel_observer = center_on_observer(
         observer_position, observer_velocity, rotationCurve=rotationCurve, max_r=max_r
     )
     print("vel_observer=", vel_observer)
@@ -361,7 +361,7 @@ def ProjectImage(
 
     if runAsOpticallyThinProjection:
         if projectGasProperties:
-            image, mass_map, rMom_map, sMom_map, rotMom_map = DepositParticles(
+            image, mass_map, rMom_map, sMom_map, rotMom_map = deposit_particles(
                 gPos,
                 gVel,
                 gKernel,
@@ -381,7 +381,7 @@ def ProjectImage(
                 gRotMom=gRotMom,
             )
         else:
-            image = DepositParticles(
+            image = deposit_particles(
                 gPos,
                 gVel,
                 gKernel,
@@ -426,7 +426,7 @@ def ProjectImage(
 
         # Define partial function to parallelize
         GenSightline_ = partial(
-            GenSightline,
+            gen_sightline,
             Nsightlines_1d=Nsightlines_1d,
             sightlines=sightlines,
             gPos=gPos,

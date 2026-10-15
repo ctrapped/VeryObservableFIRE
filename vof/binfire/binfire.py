@@ -6,17 +6,17 @@ import numpy as np
 import scipy
 from scipy import stats
 
-from vof.Binfire.CenteringFunctions import (
-    FindAngularMomentum,
-    FindCenter,
+from vof.binfire.centering_functions import (
     center_of_mass_velocity,
+    find_angular_momentum,
+    find_center,
 )
-from vof.Constants import (
+from vof.constants import (
     pi,
     proton_mass,
 )
-from vof.io.LoadData import ReadStats, calcTemps
-from vof.io.readsnap_VOF import readsnap_initial, readsnap_trunc
+from vof.io.load_data import calc_temps, read_stats
+from vof.io.readsnap_vof import readsnap_initial, readsnap_trunc
 
 eps = 1e-10
 
@@ -31,7 +31,7 @@ eps = 1e-10
 ####Updated 12/14/2023
 
 
-def LoadGas(
+def load_gas(
     snapdir,
     statsFile,
     Nsnap,
@@ -63,7 +63,7 @@ def LoadGas(
     shrinking_sphere_flag = 0
     if statsFile is not None:
         if os.path.isfile(statsFile):
-            pos_center, _vel_center, _Lhat, _r_0, _ = ReadStats(statsFile)
+            pos_center, _vel_center, _Lhat, _r_0, _ = read_stats(statsFile)
         else:
             pos_center = None
             shrinking_sphere_flag = 1
@@ -135,14 +135,14 @@ def LoadGas(
         load_ids=False,
     )  # Gas, only load truncated data
 
-    G["temp"] = calcTemps(
+    G["temp"] = calc_temps(
         G["u"], G["ne"], G["z"]
-    )  # Precompute once here; reused by RunBinfire/LoadMaskedDataForImageGen instead of recomputing
+    )  # Precompute once here; reused by run_binfire/load_masked_data_for_image_gen instead of recomputing
 
     return G | G0  # Return all data
 
 
-def RunBinfire(
+def run_binfire(
     snapdir,
     statsFile,
     particles,
@@ -182,7 +182,7 @@ def RunBinfire(
 
     if statsFile is not None:
         if os.path.isfile(statsFile):
-            pos_center, vel_center, Lhat, r_0, _ = ReadStats(statsFile)
+            pos_center, vel_center, Lhat, r_0, _ = read_stats(statsFile)
             print("From Stats:")
             print("    pos_center=", pos_center)
             print("    vel_center=", vel_center)
@@ -311,7 +311,7 @@ def RunBinfire(
     if "temp" in particles:
         Gtemp = particles["temp"]
     else:
-        Gtemp = calcTemps(particles["u"], particles["ne"], Gz)
+        Gtemp = calc_temps(particles["u"], particles["ne"], Gz)
     N = np.size(Gmas)  # Number of Gas Particles
     Gloaded = True
     # del G
@@ -405,7 +405,7 @@ def RunBinfire(
             Spos = Spos[(maskRmag > maskRadius), :]
             Svel = Svel[(maskRmag > maskRadius), :]
 
-        pos_center = FindCenter(
+        pos_center = find_center(
             pos_center,
             Gdens,
             Gpos,
@@ -473,10 +473,10 @@ def RunBinfire(
     Gmom[:, 2] = np.multiply(Gmas, Gvel[:, 2])
     del Gvel  # Delete for memory, work only in momentum from here out
 
-    nh = findDensities(Gz, Gdens)  # Calculate Density
+    nh = find_densities(Gz, Gdens)  # Calculate Density
     if Lhat is None:
         t1 = time.time()
-        Lhat = FindAngularMomentum(
+        Lhat = find_angular_momentum(
             nh, Gpos, Gmom, Gtemp, r2
         )  # Find orientation of the Disk
         print("Time to find Lhat:", time.time() - t1)
@@ -701,7 +701,7 @@ def RunBinfire(
 ###################################################################################################################################################################################################
 
 
-def findDensities(Gz, Gdens):
+def find_densities(Gz, Gdens):
     N = np.size(Gz[:, 0])
     # Find particle densities
     nh = np.zeros(N)

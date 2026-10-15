@@ -2,13 +2,13 @@ from pathlib import Path
 
 import numpy as np
 
-from vof.Constants import (
+from vof.constants import (
     atomsPerMol,
     unit_M,
 )
 
 NAI_ENERGY_LEVELS_FILE = (
-    Path(__file__).parent / "EnergyLevels" / "NIST_NaI_EnergyLevels.txt"
+    Path(__file__).parent / "energy_levels" / "NIST_NaI_EnergyLevels.txt"
 )
 
 
@@ -20,7 +20,7 @@ eps = 0.00000000000000000000000000000000000000000000001
 ####Updated 12/08/2023
 
 
-def GetEmissionSpeciesParameters(speciesName):
+def get_emission_species_parameters(speciesName):
     n_u_fraction = None
     n_l_fraction = None
     if speciesName == "h_alpha":
@@ -68,7 +68,7 @@ def GetEmissionSpeciesParameters(speciesName):
 
         gamma_ul = A_ps  # s is ground state, p is first excited state
         A_ul = A_ps
-        Elevels, Glevels = ReadNistEnergyLevels(NAI_ENERGY_LEVELS_FILE)
+        Elevels, Glevels = read_nist_energy_levels(NAI_ENERGY_LEVELS_FILE)
     elif speciesName == "NaI_D2":
         # 2p^6 3p - > 2p^6 3s 5889.9
         species_mass = 22.98977 / atomsPerMol / unit_M  # amu to g to unit mass
@@ -80,7 +80,7 @@ def GetEmissionSpeciesParameters(speciesName):
 
         gamma_ul = A_ps  # s is ground state, p is first excited state
         A_ul = A_ps
-        Elevels, Glevels = ReadNistEnergyLevels(NAI_ENERGY_LEVELS_FILE)
+        Elevels, Glevels = read_nist_energy_levels(NAI_ENERGY_LEVELS_FILE)
     else:
         print("Error: Parameters for " + speciesName + " have not been defined.")
         return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -100,7 +100,7 @@ def GetEmissionSpeciesParameters(speciesName):
     )
 
 
-def ReadNistEnergyLevels(filedir):
+def read_nist_energy_levels(filedir):
     fullFile = Path(filedir).read_text()
     lines = fullFile.split("\n")
 

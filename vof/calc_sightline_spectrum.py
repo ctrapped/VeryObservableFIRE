@@ -1,19 +1,19 @@
 import numpy as np
 
-from vof.GenerateSpectra import GenerateSpectra
+from vof.generate_spectra import generate_spectra
 
 eps = 1e-10
 
 ####Function to find all particles that intersect with a given sightline of finite beam size
 ####Sorts particles by distance, such that the full spectrum can be built up by accounting for emission then absorption starting with the furthest particle
 ####
-####Calls GenerateSpectra to determine the emission and full spectra from all particles in the given sightline
+####Calls generate_spectra to determine the emission and full spectra from all particles in the given sightline
 ####
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 ####Updated 03-10-2023
 
 
-def CalcSightlineSpectrum(
+def calc_sightline_spectrum(
     sightline,
     testPositions,
     testVel,
@@ -77,7 +77,7 @@ def CalcSightlineSpectrum(
     indices = np.argsort(zmag)  # start with the closest particles
 
     # Calculate the spectrum and emission from these particles
-    spectrum, emission, _optical_depth, _nu = GenerateSpectra(
+    spectrum, emission, _optical_depth, _nu = generate_spectra(
         testMass[indices],
         testSpeciesMassFrac[indices],
         dopplerVelocity[indices],

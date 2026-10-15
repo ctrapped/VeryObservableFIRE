@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run the SoFiA-2 source finder on a FITS cube produced by ConvertToFits.py (vof-to-fits)
+# Run the SoFiA-2 source finder on a FITS cube produced by convert_to_fits.py (vof-to-fits)
 
 set -euo pipefail
 

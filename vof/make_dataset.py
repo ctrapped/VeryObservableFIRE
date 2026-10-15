@@ -3,11 +3,15 @@ import os
 import numpy as np
 import scipy
 
-from vof.Binfire.Binfire import LoadGas, RunBinfire
-from vof.GenerateSyntheticImage import GenerateSyntheticImage
-from vof.io.LoadData import LoadDataForImageGen, LoadMaskedDataForImageGen, ReadStats
-from vof.OrientGalaxy import OrientGalaxy
-from vof.WriteAnnotations import WriteAnnotations
+from vof.binfire.binfire import load_gas, run_binfire
+from vof.generate_synthetic_image import generate_synthetic_image
+from vof.io.load_data import (
+    load_data_for_image_gen,
+    load_masked_data_for_image_gen,
+    read_stats,
+)
+from vof.orient_galaxy import orient_galaxy
+from vof.write_annotations import write_annotations
 
 ####Function converts a FIRE snapshot to an image dataset usable with CoNNGaFit.
 ####Based on given options will first generate annotation files in the form of a .csv file for the mass flux, mass, and/or rotational velocities
@@ -17,15 +21,15 @@ from vof.WriteAnnotations import WriteAnnotations
 ####Updated 12/08/2023
 
 
-def ParticlesForBinfire(particles):
-    # RunBinfire subtracts vel_center from particles['v'] in place; give it a shallow copy of the dict
+def particles_for_binfire(particles):
+    # run_binfire subtracts vel_center from particles['v'] in place; give it a shallow copy of the dict
     # with its own copy of just that array, so repeated calls don't re-subtract into the same buffer.
     shielded = dict(particles)
     shielded["v"] = np.copy(particles["v"])
     return shielded
 
 
-def MaskParticleData(particles, pos_center, rMax, extraArrays=()):
+def mask_particle_data(particles, pos_center, rMax, extraArrays=()):
     # Apply mask to particle data when more data was loaded for shrinking sphere calculation
     N = np.shape(particles["p"])[0]
     mask = np.linalg.norm(particles["p"] - pos_center, axis=1) < rMax
@@ -51,11 +55,11 @@ def MaskParticleData(particles, pos_center, rMax, extraArrays=()):
     return trimmed, trimmedExtras
 
 
-def MakeDataset(
+def make_dataset(
     config, fileDir, statsDir, Nsnap, output, galName, writeRadialVelocity=True
 ):
 
-    # Config values this function's own body needs. Values only needed by GenerateSyntheticImage/ProjectImage
+    # Config values this function's own body needs. Values only needed by generate_synthetic_image/project_image
     # (e.g. observerDistance, beamSize, num_cores, ...) are read directly out of config there instead.
     maxRadius = config["maxRadius"]
     maxHeight = config["maxHeight"]
@@ -81,7 +85,7 @@ def MakeDataset(
         maskCenter = None
         maskRadius = None
         if createMaskFromExistingStatsDir:
-            pos_center, vel_center, Lhat, _r_0, _ = ReadStats(
+            pos_center, vel_center, Lhat, _r_0, _ = read_stats(
                 statsDir + str(Nsnap).zfill(4) + ".hdf5"
             )
             maskCenter = pos_center
@@ -91,7 +95,7 @@ def MakeDataset(
             print("Set mask center...")
 
 
-        particles = LoadGas(  # Load gas particles
+        particles = load_gas(  # Load gas particles
             fileDir + str(Nsnap),
             statsDir + str(Nsnap).zfill(4) + ".hdf5",
             Nsnap,
@@ -101,10 +105,10 @@ def MakeDataset(
         )
 
         if projectGasProperties:
-            Gmom_r, Gmom_s, Gmom_phi = RunBinfire(
+            Gmom_r, Gmom_s, Gmom_phi = run_binfire(
                 fileDir + str(Nsnap),
                 statsDir + str(Nsnap).zfill(4) + ".hdf5",
-                ParticlesForBinfire(particles),
+                particles_for_binfire(particles),
                 Nsnap,
                 output,
                 [maxRadius, maxRadius, maxHeight],
@@ -127,10 +131,10 @@ def MakeDataset(
                         binnedPhiMassFlux,
                         binnedCylRadMassFlux,
                         binnedCylRadMassFluxCurve,
-                    ) = RunBinfire(
+                    ) = run_binfire(
                         fileDir + str(Nsnap),
                         statsDir + str(Nsnap).zfill(4) + ".hdf5",
-                        ParticlesForBinfire(particles),
+                        particles_for_binfire(particles),
                         Nsnap,
                         output,
                         [maxRadius, maxRadius, maxHeight],
@@ -141,7 +145,7 @@ def MakeDataset(
                         maskRadius=maskRadius,
                     )
 
-                    WriteAnnotations(
+                    write_annotations(
                         output,
                         galName,
                         inclination,
@@ -161,7 +165,7 @@ def MakeDataset(
         print("Creating Synthetic Images...")
 
         Nsnapstring = str(Nsnap)
-        pos_center, vel_center, Lhat, r0, _ = ReadStats(
+        pos_center, vel_center, Lhat, r0, _ = read_stats(
             statsDir + Nsnapstring.zfill(4) + ".hdf5"
         )
         snapdir = fileDir + Nsnapstring  # Directory containing the actual snapshots
@@ -170,27 +174,27 @@ def MakeDataset(
 
         if particles is None:
             # Not already loaded for Binfire above. The stats file exists by now (read just above),
-            # so LoadGas only loads the region around the galaxy.
-            particles = LoadGas(
+            # so load_gas only loads the region around the galaxy.
+            particles = load_gas(
                 snapdir,
                 statsDir + Nsnapstring.zfill(4) + ".hdf5",
                 Nsnap,
                 [maxRadius, maxRadius, maxHeight],
             )
 
-        # LoadGas loads a box around the galaxy (a ~5 Mpc one if it had to find the center first); trim to the imaged radius
+        # load_gas loads a box around the galaxy (a ~5 Mpc one if it had to find the center first); trim to the imaged radius
         if projectGasProperties:
-            particles, (Gmom_r, Gmom_s, Gmom_phi) = MaskParticleData(
+            particles, (Gmom_r, Gmom_s, Gmom_phi) = mask_particle_data(
                 particles,
                 pos_center,
                 maxRadius * 1.5,
                 extraArrays=(Gmom_r, Gmom_s, Gmom_phi),
             )
         else:
-            particles, _ = MaskParticleData(particles, pos_center, maxRadius * 1.5)
+            particles, _ = mask_particle_data(particles, pos_center, maxRadius * 1.5)
 
-        gPos, gKernel, gVel = LoadDataForImageGen(particles, pos_center, vel_center)
-        gMas, gTemp, speciesMassFrac = LoadMaskedDataForImageGen(
+        gPos, gKernel, gVel = load_data_for_image_gen(particles, pos_center, vel_center)
+        gMas, gTemp, speciesMassFrac = load_masked_data_for_image_gen(
             particles, gKernel, speciesToRun
         )
 
@@ -248,7 +252,7 @@ def MakeDataset(
                 r0_rot = rotation.apply(r0_rot)
 
 
-                gPos_rot, gVel_rot = OrientGalaxy(gPos, gVel, Lhat_rot, r0_rot)
+                gPos_rot, gVel_rot = orient_galaxy(gPos, gVel, Lhat_rot, r0_rot)
 
                 particleData = {}
                 particleData["pos"] = gPos_rot
@@ -265,7 +269,7 @@ def MakeDataset(
                     particleData["sMom"] = Gmom_s
                     particleData["rotMom"] = Gmom_phi
 
-                GenerateSyntheticImage(
+                generate_synthetic_image(
                     config,
                     fileDir,
                     statsDir,

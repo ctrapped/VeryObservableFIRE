@@ -20,7 +20,7 @@ amu = 1.6735575 * np.power(10.0, -24) * u.g
 arcsec_to_rad = 1.0 / 60.0 / 60.0 * np.pi / 180.0
 
 
-def ConvertToFits(
+def convert_to_fits(
     spectra,
     output_filename,
     fov,
@@ -137,7 +137,7 @@ def main():
     args = _parse_args()
     with h5py.File(args.spectra_h5, "r") as hf:
         spectra = np.array(hf["spectra"])
-    ConvertToFits(
+    convert_to_fits(
         spectra,
         args.output_fits,
         args.fov,

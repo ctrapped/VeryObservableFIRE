@@ -1,7 +1,7 @@
 import numpy as np
 
-from vof.Binfire.shrinking_sphere import shrink_sphere
-from vof.Constants import unit_L
+from vof.binfire.shrinking_sphere import shrink_sphere
+from vof.constants import unit_L
 
 eps = 1e-10
 
@@ -12,7 +12,7 @@ eps = 1e-10
 ####Updated 12/14/2023
 
 
-def FindCenter(
+def find_center(
     pos_center,
     Gdens,
     Gpos,
@@ -124,7 +124,7 @@ def FindCenter(
     return pos_center
 
 
-def FindAngularMomentum(nh, Gpos, Gmom, Gtemp, r2):
+def find_angular_momentum(nh, Gpos, Gmom, Gtemp, r2):
     # Function to find orientation of the galaxy based on the average angular momentum vector of the cold dense gas
     # Inputs
     #### nh : Hydrogen number density

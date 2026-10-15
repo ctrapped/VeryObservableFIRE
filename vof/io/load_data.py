@@ -1,13 +1,13 @@
 import h5py
 import numpy as np
 
-from vof.Constants import (
+from vof.constants import (
     proton_mass,
     unit_L,
     unit_M,
     unit_T,
 )
-from vof.io.readsnap_VOF import readsnap_initial, readsnap_trunc
+from vof.io.readsnap_vof import readsnap_initial, readsnap_trunc
 
 ####
 
@@ -20,7 +20,7 @@ eps = 1e-10
 ####Updated 12/08/2023
 
 
-def ReadStats(statsDir):
+def read_stats(statsDir):
     # Read in previously saved centering information for a galaxy
     hf = h5py.File(statsDir, "r")
     posCenter = np.zeros(3)
@@ -41,7 +41,7 @@ def ReadStats(statsDir):
     return posCenter, velCenter, Lhat, r0, orientation_maxima
 
 
-def LoadData(snapdir, Nsnapstring, ptype, rTrunc, posCenter, velCenter):
+def load_data(snapdir, Nsnapstring, ptype, rTrunc, posCenter, velCenter):
     # Load position and density to create a mask for particles in user defined region of interest
     particles = readsnap_initial(
         snapdir,
@@ -91,7 +91,7 @@ def LoadData(snapdir, Nsnapstring, ptype, rTrunc, posCenter, velCenter):
         metallicity = particles["z"]
         neutral_H_frac = particles["nh"]
         kernel_lengths = particles["h"]
-        temp = calcTemps(particles["u"], particles["ne"], metallicity)
+        temp = calc_temps(particles["u"], particles["ne"], metallicity)
 
         return pos, vel, mass, dens, metallicity, neutral_H_frac, kernel_lengths, temp
 
@@ -99,7 +99,7 @@ def LoadData(snapdir, Nsnapstring, ptype, rTrunc, posCenter, velCenter):
         return pos, vel, mass
 
 
-def calcTemps(GintE, ElectronAbundance, Gz):  # Calculate Temperatures
+def calc_temps(GintE, ElectronAbundance, Gz):  # Calculate Temperatures
     gamma = 1.6666666666666666667
     kb = (
         1.38064852
@@ -133,8 +133,8 @@ def calcTemps(GintE, ElectronAbundance, Gz):  # Calculate Temperatures
     return Gtemp
 
 
-def LoadDataForImageGen(particles, posCenter, velCenter):
-    # Center the gas particles (as loaded by Binfire.LoadGas) on the galaxy. Modifies particles["p"]/["v"] in place.
+def load_data_for_image_gen(particles, posCenter, velCenter):
+    # Center the gas particles (as loaded by binfire.load_gas) on the galaxy. Modifies particles["p"]/["v"] in place.
     pos = particles["p"]
     vel = particles["v"]
     pos -= posCenter
@@ -142,27 +142,27 @@ def LoadDataForImageGen(particles, posCenter, velCenter):
     return pos, particles["h"], vel
 
 
-def LoadMaskedDataForImageGen(particles, gKernel, species):
-    # Mass, temperature, and emitting-species mass fraction for the gas particles (as loaded by Binfire.LoadGas)
+def load_masked_data_for_image_gen(particles, gKernel, species):
+    # Mass, temperature, and emitting-species mass fraction for the gas particles (as loaded by binfire.load_gas)
     fHe = particles["z"][:, 1]
     z = particles["z"][:, 0]
 
     if "temp" in particles:
         temp = particles[
             "temp"
-        ]  # Precomputed by LoadGas when available, rather than recalculating here
+        ]  # Precomputed by load_gas when available, rather than recalculating here
     else:
-        temp = calcTemps(particles["u"], particles["ne"], particles["z"])
+        temp = calc_temps(particles["u"], particles["ne"], particles["z"])
 
     if species == "HI_21cm":
-        speciesMassFrac = CalcMolecularFraction(
+        speciesMassFrac = calc_molecular_fraction(
             particles["nh"], gKernel, particles["rho"], fHe, z, to_return="fH1"
         )
 
     return particles["m"], temp, speciesMassFrac
 
 
-def CalcMolecularFraction(
+def calc_molecular_fraction(
     Gnh,
     KernelLengths,
     density,

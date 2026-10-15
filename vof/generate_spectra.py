@@ -1,7 +1,7 @@
 
 import numpy as np
 
-from vof.Constants import (
+from vof.constants import (
     amu,
     arcsec2rad,
     c,
@@ -12,7 +12,7 @@ from vof.Constants import (
     m_e,
     pi,
 )
-from vof.EmissionSpecies import GetEmissionSpeciesParameters
+from vof.emission_species import get_emission_species_parameters
 
 ####Functions to generate emission/absorption for particles along a sightline in order to construct the mock spectra
 ####
@@ -26,7 +26,7 @@ eps = 1e-10
 defaultRes = 1.0 * arcsec2rad  # default beamsize of 1 arcsec
 
 
-def GenerateSpectra(
+def generate_spectra(
     gMass,
     speciesMassFrac,
     dopplerVelocity,
@@ -55,7 +55,7 @@ def GenerateSpectra(
         _Elevels,
         _n_u_fraction,
         _n_l_fraction,
-    ) = GetEmissionSpeciesParameters(
+    ) = get_emission_species_parameters(
         species
     )  # Load the emission/absorption parameters for this species
     N_molecules = np.multiply(gMass, speciesMassFrac) / mass_species
@@ -67,11 +67,11 @@ def GenerateSpectra(
 
     beamRadiusPhysical = distance * np.sin(beamSize) / 2.0  # sim units (kpc)
 
-    colDens, _pathLength = GetColumnDensityAlongLOS(
+    colDens, _pathLength = get_column_density_along_los(
         particleSize, impact, N_molecules, beamRadiusPhysical, calcChordLength
     )  # kpc^-2
 
-    upperToLowerRate, attenuationCrossSection = GenEmissionAndAbsorptionRates(
+    upperToLowerRate, attenuationCrossSection = gen_emission_and_absorption_rates(
         colDens, temp, species, beamRadiusPhysical, calcThermalLevels
     )  # Units of Hz
     nu_ul = (E_upper - E_lower) / h  # in Hz
@@ -95,7 +95,7 @@ def GenerateSpectra(
     assume_optically_thin = True
 
     if assume_optically_thin:
-        sigma_nu = GenLineProfileMat(
+        sigma_nu = gen_line_profile_mat(
             nu_ul,
             f_lu,
             gamma_ul,
@@ -128,7 +128,7 @@ def GenerateSpectra(
         for p in range(
             Nparticles
         ):  # This form must be executed sequentially, as absorption is built up. Particles are sorted based on distance along sightline
-            sigma_nu = GenLineProfile(
+            sigma_nu = gen_line_profile(
                 nu_ul,
                 f_lu,
                 gamma_ul,
@@ -167,14 +167,14 @@ def GenerateSpectra(
     return spectra, emission, optical_depth, nu
 
 
-def GetColumnDensityAlongLOS(
+def get_column_density_along_los(
     r, impact, N_mol_in_particle, beamRadiusPhysical, calcChordLength=True
 ):
     # calculate an effect path length through the material (i.e. the particles are spheres and the beam is of finite size, so each part of the beam will not pass through the same length)
     # This can be improved upon, as it is an approximation of what the FIRE simulations actually represent
     vol = 4 / 3 * pi * np.power(r, 3)
     if calcChordLength:
-        chordLength = CalcEffectiveChordLength(r, impact, beamRadiusPhysical)
+        chordLength = calc_effective_chord_length(r, impact, beamRadiusPhysical)
     else:
         chordLength = 2 * r
     colDensParticle = np.multiply(np.divide(N_mol_in_particle, vol), chordLength)
@@ -186,7 +186,7 @@ def GetColumnDensityAlongLOS(
     return colDensParticle, chordLength
 
 
-def CalcEffectiveChordLength(r, impact, beamRadiusPhysical):
+def calc_effective_chord_length(r, impact, beamRadiusPhysical):
     # Finds an average chord length through the sphere for a given beam width
     Nsample = 100
 
@@ -210,7 +210,7 @@ def CalcEffectiveChordLength(r, impact, beamRadiusPhysical):
     return chordLength
 
 
-def GenLineProfile(
+def gen_line_profile(
     nu_ul, f_lu, gamma_ul, dopplerVelocity, spectralRange, temp, mass_species, Nspec
 ):
     # Defines line profile with a gaussian core and damping wings. Following Draine "Physics of the Interstellar and Intergalactic Medium"
@@ -262,7 +262,7 @@ def GenLineProfile(
     return sigma
 
 
-def GenLineProfileMat(
+def gen_line_profile_mat(
     nu_ul, f_lu, gamma_ul, dopplerVelocity, spectralRange, temp, mass_species, Nspec
 ):
     # Defines line profile with a gaussian core and damping wings. Following Draine "Physics of the Interstellar and Intergalactic Medium"
@@ -335,7 +335,7 @@ def GenLineProfileMat(
     return sigma
 
 
-def GenEmissionAndAbsorptionRates(
+def gen_emission_and_absorption_rates(
     colDens, T, species, beamRadiusPhysical, calcThermalLevels
 ):
     # Find rates of emission and attenuation cross section. Following Draine "Physics of the Interstellar and Intergalactic Medium"
@@ -351,7 +351,7 @@ def GenEmissionAndAbsorptionRates(
         Elevels,
         n_u_fraction,
         n_l_fraction,
-    ) = GetEmissionSpeciesParameters(species)
+    ) = get_emission_species_parameters(species)
 
     n_total = pi * np.multiply(colDens, np.power(beamRadiusPhysical, 2))  # unitless
 

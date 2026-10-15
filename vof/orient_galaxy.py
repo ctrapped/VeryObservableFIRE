@@ -12,7 +12,7 @@ eps = 0.00000000000000000000000000000000000000000000001
 ####Updated 12/08/2023
 
 
-def CenterOnObserver(
+def center_on_observer(
     observer_position, observer_velocity=None, rotationCurve=None, max_r=None
 ):
     # Observer position and velocity in (pseudo)cylindrical coordinates?
@@ -35,7 +35,7 @@ def CenterOnObserver(
     return pos_observer, vel_observer
 
 
-def OrientGalaxy(pos, vel, Lhat, r0, returnRotationalVelocity=False):
+def orient_galaxy(pos, vel, Lhat, r0, returnRotationalVelocity=False):
     # Rotate galaxy with Lhat defined as the z direction and r0 as the x direction
     # Does not modify pos/vel; always returns new arrays.
     xhat = r0
@@ -91,7 +91,7 @@ def OrientGalaxy(pos, vel, Lhat, r0, returnRotationalVelocity=False):
         return new_pos
 
 
-def GetRadialVelocity(pos, vel, rObs):
+def get_radial_velocity(pos, vel, rObs):
     rMag = np.linalg.norm(pos, axis=1)
     rHat = np.copy(pos)
     rHat[:, 0] = np.divide(pos[:, 0], rMag)

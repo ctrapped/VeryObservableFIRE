@@ -9,18 +9,18 @@ import numpy as np
 from astropy.io import fits
 from scipy.ndimage import rotate
 
-from vof.ConvertToFits import ConvertToFits
+from vof.convert_to_fits import convert_to_fits
 
-RUN_SOFIA_SCRIPT = Path(__file__).parent / "RunSofiaForVOF.sh"
+RUN_SOFIA_SCRIPT = Path(__file__).parent / "run_sofia_for_vof.sh"
 
 
-def RotateAnnotation(hf, phi, npix):
+def rotate_annotation(hf, phi, npix):
     return rotate(
         np.reshape(np.array(hf["annotation"]), [npix, npix]), angle=phi, reshape=False
     )
 
 
-def Denoise(
+def denoise_with_sofia(
     spectra,
     fov,
     observer_distance,
@@ -32,7 +32,7 @@ def Denoise(
 ):
     # Convert to Fits
     fits_filedir = "temp.fits"
-    ConvertToFits(
+    convert_to_fits(
         spectra,
         fits_filedir,
         fov,
@@ -56,20 +56,20 @@ def Denoise(
     return sofia_mask
 
 
-def WriteDataset(hf, annotation, imageDirBase):
+def write_dataset(hf, annotation, imageDirBase):
     hf.create_dataset("annotation", data=annotation)
     hf.create_dataset("imageName", data=imageDirBase + "_r0.hdf5")
     hf.create_dataset("imageName_dn", data=imageDirBase + "_r0_dn.hdf5")
 
 
-def WriteAnnotation(hf, annotation, imageName, imageName_dn):
+def write_annotation(hf, annotation, imageName, imageName_dn):
     hf.create_dataset("annotation", data=annotation.flatten())
     hf.create_dataset("imageName", data=imageName)
     hf.create_dataset("imageName_dn", data=imageName_dn)
     hf.close()
 
 
-def ConvertSpectraToMomentMaps(spectra, bandwidth_km_s):
+def convert_spectra_to_moment_maps(spectra, bandwidth_km_s):
     t0 = time.time()
     Nspec = np.shape(spectra)[2]
     dv = bandwidth_km_s / Nspec
@@ -100,7 +100,7 @@ def ConvertSpectraToMomentMaps(spectra, bandwidth_km_s):
     return momentMap
 
 
-def RotateData(
+def rotate_data(
     imageDirBase,
     annotationDirBase,
     galName,
@@ -175,7 +175,7 @@ def RotateData(
 
     if denoise:
         print("Denoising...")
-        sofia_mask = Denoise(
+        sofia_mask = denoise_with_sofia(
             spectra,
             fov,
             observer_distance,
@@ -225,11 +225,11 @@ def RotateData(
             tsave += time.time() - t1
 
         print("Rotating Annotations...")
-        MF = RotateAnnotation(hfMF, phi, npix)
-        Mass = RotateAnnotation(hfMass, phi, npix)
-        RC = RotateAnnotation(hfRC, phi, npix)
-        rVel = RotateAnnotation(hfrVel, phi, npix)
-        sMF = RotateAnnotation(hfsMF, phi, npix)
+        MF = rotate_annotation(hfMF, phi, npix)
+        Mass = rotate_annotation(hfMass, phi, npix)
+        RC = rotate_annotation(hfRC, phi, npix)
+        rVel = rotate_annotation(hfrVel, phi, npix)
+        sMF = rotate_annotation(hfsMF, phi, npix)
 
         newImageName_dn = imageDirBase + rotString + "_dn.hdf5"
         newImageName = imageDirBase + rotString + ".hdf5"
@@ -286,11 +286,11 @@ def RotateData(
                 "w",
             )
             print("Saving annotations...")
-            WriteAnnotation(hfMF_o, MF, newImageName, newImageName_dn)
-            WriteAnnotation(hfMass_o, Mass, newImageName, newImageName_dn)
-            WriteAnnotation(hfRC_o, RC, newImageName, newImageName_dn)
-            WriteAnnotation(hfrVel_o, rVel, newImageName, newImageName_dn)
-            WriteAnnotation(hfsMF_o, sMF, newImageName, newImageName_dn)
+            write_annotation(hfMF_o, MF, newImageName, newImageName_dn)
+            write_annotation(hfMass_o, Mass, newImageName, newImageName_dn)
+            write_annotation(hfRC_o, RC, newImageName, newImageName_dn)
+            write_annotation(hfrVel_o, rVel, newImageName, newImageName_dn)
+            write_annotation(hfsMF_o, sMF, newImageName, newImageName_dn)
 
             # print("Appending annotation files...")
             # AppendToAnnotationsFile(csv_MF,newImageName,MF.flatten())
@@ -353,11 +353,15 @@ def RotateData(
         newImageName_dn = imageDirBase + rotString + "_dn_lr.hdf5"
         newImageName = imageDirBase + rotString + "_lr.hdf5"
         print("Flipping and saving annotations...")
-        WriteAnnotation(hfMF_lr, np.flip(MF, axis=0), newImageName, newImageName_dn)
-        WriteAnnotation(hfMass_lr, np.flip(Mass, axis=0), newImageName, newImageName_dn)
-        WriteAnnotation(hfRC_lr, np.flip(RC, axis=0), newImageName, newImageName_dn)
-        WriteAnnotation(hfrVel_lr, np.flip(rVel, axis=0), newImageName, newImageName_dn)
-        WriteAnnotation(hfsMF_lr, np.flip(sMF, axis=0), newImageName, newImageName_dn)
+        write_annotation(hfMF_lr, np.flip(MF, axis=0), newImageName, newImageName_dn)
+        write_annotation(
+            hfMass_lr, np.flip(Mass, axis=0), newImageName, newImageName_dn
+        )
+        write_annotation(hfRC_lr, np.flip(RC, axis=0), newImageName, newImageName_dn)
+        write_annotation(
+            hfrVel_lr, np.flip(rVel, axis=0), newImageName, newImageName_dn
+        )
+        write_annotation(hfsMF_lr, np.flip(sMF, axis=0), newImageName, newImageName_dn)
 
         # print("Appending flipped annotation files...")
         # AppendToAnnotationsFile(csv_MF,newImageName,np.flip(MF,axis=0).flatten())
@@ -474,7 +478,7 @@ def main():
                                 + "_fullSpectra"
                             )
                             annotationDirBase = rootDir + "training_annotations"
-                            RotateData(
+                            rotate_data(
                                 imageDirBase,
                                 annotationDirBase,
                                 galName,

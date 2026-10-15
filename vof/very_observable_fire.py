@@ -4,14 +4,14 @@ import time
 
 import numpy as np
 
-from vof.Constants import (
+from vof.constants import (
     arcsec,
     c_km_s,
     h,
 )
-from vof.EmissionSpecies import GetEmissionSpeciesParameters
-from vof.LoadParamFile import LoadParams
-from vof.MakeDataset import MakeDataset
+from vof.emission_species import get_emission_species_parameters
+from vof.load_param_file import load_params
+from vof.make_dataset import make_dataset
 
 ####Runs VeryObservableFIRE to create synthetic images from given observational parameters.
 ####Also creates corresponding projected and deprojected maps of radial mass flux, rotational velocity, and mass for the purposes of neural network training
@@ -71,10 +71,10 @@ def main():
     if args.maxSnap is None:
         args.maxSnap = args.minSnap
 
-    # `config` is passed down through MakeDataset/GenerateSyntheticImage/ProjectImage as a single dict;
+    # `config` is passed down through make_dataset/generate_synthetic_image/project_image as a single dict;
     # each of those functions only takes the (snapshot, inclination, position_angle, ...) identity/loop
     # arguments explicitly and reads everything else out of config.
-    config = LoadParams(
+    config = load_params(
         args.paramFile,
         galName=args.galName,
         minSnap=args.minSnap,
@@ -112,7 +112,7 @@ def main():
         _Elevels,
         _n_u_fraction,
         _n_l_fraction,
-    ) = GetEmissionSpeciesParameters(config["speciesToRun"])
+    ) = get_emission_species_parameters(config["speciesToRun"])
     f0 = (E_upper - E_lower) / h  # in Hz
     config["Nspec"] = int(np.ceil(config["bandwidth_km_s"] / config["res_km_s"]))
     config["bandwidth"] = (
@@ -132,10 +132,10 @@ def main():
 
     initialSavePng = config[
         "savePng"
-    ]  # MakeDataset may turn this off partway through a snapshot (onlySaveFirstPng); restore it for the next one
+    ]  # make_dataset may turn this off partway through a snapshot (onlySaveFirstPng); restore it for the next one
     for Nsnap in range(minSnap, maxSnap + 1, snapStep):
         print(Nsnap)
-        MakeDataset(config, fileDir, statsDir, Nsnap, output, galName)
+        make_dataset(config, fileDir, statsDir, Nsnap, output, galName)
         config["savePng"] = initialSavePng
 
     print("Time to finish: ", time.time() - startTime)

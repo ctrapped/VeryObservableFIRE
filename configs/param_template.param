@@ -38,4 +38,4 @@ onlySaveFirstPng = True          #[True]=Only generate png files for the first o
 createMaskFromExistingStatsDir = False   #Mask the previously run galaxy to find satellites/other galaxies in snapshot
 num_cores = 1                    #Set the number of cores to use in parallel sightline generation. Defaults to all available if None
 projectGasProperties = True
-runAsOpticallyThinProjection = True   #[True]=Fast optically-thin column-density projection (DepositParticles). [False]=Full per-sightline spectral synthesis.
+runAsOpticallyThinProjection = True   #[True]=Fast optically-thin column-density projection (deposit_particles). [False]=Full per-sightline spectral synthesis.

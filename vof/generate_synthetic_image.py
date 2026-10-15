@@ -6,11 +6,11 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 
-from vof.Constants import (
+from vof.constants import (
     arcsec,
     pi,
 )
-from vof.ProjectImage import ProjectImage
+from vof.project_image import project_image
 
 image = 0
 
@@ -25,7 +25,7 @@ image = 0
 ####Updated 03-10-2023
 
 
-def GenerateSyntheticImage(
+def generate_synthetic_image(
     config,
     fileDir,
     statsDir,
@@ -36,7 +36,7 @@ def GenerateSyntheticImage(
     particleData=None,
 ):
 
-    # Config values this function's own body needs. Everything else ProjectImage needs
+    # Config values this function's own body needs. Everything else project_image needs
     # is read directly out of config there instead of being passed through here.
     observerDistance = config["observerDistance"]
     maxRadius = config["maxRadius"]
@@ -81,7 +81,7 @@ def GenerateSyntheticImage(
             rMom_map,
             sMom_map,
             rotMom_map,
-        ) = ProjectImage(
+        ) = project_image(
             config,
             snapDir,
             Nsnapstring,
@@ -94,7 +94,7 @@ def GenerateSyntheticImage(
             particleData=particleData,
         )
     else:
-        ideal_image, _smooth_image, noisy_image = ProjectImage(
+        ideal_image, _smooth_image, noisy_image = project_image(
             config,
             snapDir,
             Nsnapstring,
