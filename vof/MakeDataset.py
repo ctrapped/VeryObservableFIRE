@@ -3,12 +3,12 @@ import os
 import numpy as np
 import scipy
 
-from vof.binfire.core import LoadGas, RunBinfire
-from vof.binfire.readsnap import ReadStats
-from vof.synthetic_image import GenerateSyntheticImage
-from vof.io.load_data import LoadDataForImageGen, LoadMaskedDataForImageGen
-from vof.orientation import OrientGalaxy
-from vof.annotations import WriteAnnotations
+from vof.Binfire.Binfire import LoadGas, RunBinfire
+from vof.Binfire.readsnap_binfire import ReadStats
+from vof.GenerateSyntheticImage import GenerateSyntheticImage
+from vof.io.LoadData import LoadDataForImageGen, LoadMaskedDataForImageGen
+from vof.OrientGalaxy import OrientGalaxy
+from vof.WriteAnnotations import WriteAnnotations
 
 ####Function converts a FIRE snapshot to an image dataset usable with CoNNGaFit.
 ####Based on given options will first generate annotation files in the form of a .csv file for the mass flux, mass, and/or rotational velocities
@@ -115,7 +115,7 @@ def MakeDataset(
                 output,
                 [maxRadius, maxRadius, maxHeight],
                 [Nsightlines1d, Nsightlines1d, Nspec],
-                inclination=inclinations[0],
+                inclination=90-inclinations[0],
                 position_angle=position_angles[0],
                 maskCenter=maskCenter,
                 maskRadius=maskRadius,
@@ -142,7 +142,7 @@ def MakeDataset(
                         output,
                         [maxRadius, maxRadius, maxHeight],
                         [Nsightlines1d, Nsightlines1d, Nspec],
-                        inclination=inclination,
+                        inclination=90-inclination,
                         position_angle=position_angle,
                         maskCenter=maskCenter,
                         maskRadius=maskRadius,
@@ -252,7 +252,7 @@ def MakeDataset(
                         "already exists. Overwriting...",
                     )
 
-                if inclination > 0:
+                if inclination > 0 or position_angle > 0:
                     # Rotate r0 first to set the position angle
                     rotation_axis = np.copy(Lhat)
                     rotation_vector = (
@@ -265,7 +265,7 @@ def MakeDataset(
 
                     # Rotate the vectors Lhat and r0 that define the z and x unit vectors respectively. Effectively rotates the entire galaxy
                     rotation_axis = np.cross(Lhat, r0_rot)
-                    rotation_vector = float(inclination) * np.pi / 180.0 * rotation_axis
+                    rotation_vector = float(90-inclination) * np.pi / 180.0 * rotation_axis
                     rotation = scipy.spatial.transform.Rotation.from_rotvec(
                         rotation_vector
                     )

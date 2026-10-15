@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-NAI_ENERGY_LEVELS_FILE = Path(__file__).parent / "data" / "NIST_NaI_EnergyLevels.txt"
+NAI_ENERGY_LEVELS_FILE = Path(__file__).parent / "EnergyLevels" / "NIST_NaI_EnergyLevels.txt"
 
 unit_M = (
     10**10 * 1.98855 * 10**33

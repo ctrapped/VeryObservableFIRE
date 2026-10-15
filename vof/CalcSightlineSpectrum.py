@@ -1,6 +1,6 @@
 import numpy as np
 
-from vof.spectra import GenerateSpectra
+from vof.GenerateSpectra import GenerateSpectra
 
 unit_M = (
     10**10 * 1.98855 * 10**33
@@ -24,7 +24,7 @@ eps = 1e-10
 ####Updated 03-10-2023
 
 
-def CalculateSightlineSpectrum(
+def CalcSightlineSpectrum(
     sightline,
     testPositions,
     testVel,

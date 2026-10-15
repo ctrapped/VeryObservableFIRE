@@ -9,9 +9,9 @@ import numpy as np
 from astropy.io import fits
 from scipy.ndimage import rotate
 
-from vof.fits_export import convert_to_fits
+from vof.ConvertToFits import ConvertToFits
 
-RUN_SOFIA_SCRIPT = Path(__file__).parent / "run_sofia.sh"
+RUN_SOFIA_SCRIPT = Path(__file__).parent / "RunSofiaForVOF.sh"
 
 
 def RotateAnnotation(hf, phi, npix):
@@ -33,7 +33,7 @@ def Denoise(
 ):
     # Convert to Fits
     fits_filedir = "temp.fits"
-    convert_to_fits(
+    ConvertToFits(
         spectra,
         fits_filedir,
         fov,

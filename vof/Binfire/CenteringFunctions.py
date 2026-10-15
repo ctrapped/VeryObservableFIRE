@@ -1,6 +1,6 @@
 import numpy as np
 
-from vof.binfire.shrinking_sphere import shrink_sphere
+from vof.Binfire.shrinking_sphere import shrink_sphere
 
 unit_L = 3.086 * 10**21  # 1 kpc / h !!in cm!!
 eps = 1e-10

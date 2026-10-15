@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 
-from vof.emission_species import GetEmissionSpeciesParameters
+from vof.EmissionSpecies import GetEmissionSpeciesParameters
 
 ####Functions to generate emission/absorption for particles along a sightline in order to construct the mock spectra
 ####

@@ -23,16 +23,15 @@ fits = ["astropy", "unyt"]
 dev = ["ruff", "pytest"]
 
 [project.scripts]
-vof = "vof.cli:main"
-vof-to-fits = "vof.fits_export:main"
-vof-augment = "vof.augmentation:main"
+vof = "vof.VeryObservableFIRE:main"
+vof-to-fits = "vof.ConvertToFits:main"
+vof-augment = "vof.DataAugmentation:main"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+include = ["vof*"]
 
 [tool.setuptools.package-data]
-vof = ["data/*.txt", "run_sofia.sh"]
+vof = ["EnergyLevels/*.txt", "RunSofiaForVOF.sh"]
 
 [tool.ruff]
-src = ["src"]
 target-version = "py39"

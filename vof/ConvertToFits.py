@@ -20,7 +20,7 @@ amu = 1.6735575 * np.power(10.0, -24) * u.g
 arcsec_to_rad = 1.0 / 60.0 / 60.0 * np.pi / 180.0
 
 
-def convert_to_fits(
+def ConvertToFits(
     spectra,
     output_filename,
     fov,
@@ -54,7 +54,7 @@ def convert_to_fits(
 
     observer_distance = (z * c / H0).in_units("kpc")
 
-    fov_deg = fov_kpc / observer_distance.in_units("kpc").v * 180.0 / np.pi
+    fov_deg = (fov_kpc / observer_distance).to_value("dimensionless") * 180.0 / np.pi
 
     print("Fov_kpc=", fov_kpc)
     print("fov_deg=", fov_deg)
@@ -137,7 +137,7 @@ def main():
     args = _parse_args()
     with h5py.File(args.spectra_h5, "r") as hf:
         spectra = np.array(hf["spectra"])
-    convert_to_fits(
+    ConvertToFits(
         spectra,
         args.output_fits,
         args.fov,

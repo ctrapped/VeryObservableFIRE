@@ -16,7 +16,20 @@ pip install -e ".[fits]"    # + FITS export and data augmentation (astropy, unyt
 pip install -e ".[dev]"     # + development tools (ruff, pytest)
 ```
 
-This installs the `vof` package and three commands: `vof`, `vof-to-fits`, and `vof-augment`.
+This installs the `vof` package and three commands: `vof`, `vof-to-fits`, and `vof-augment`. The `-e` (editable) install links to this folder rather than copying it, so code changes and `git pull`s take effect without reinstalling.
+
+### Running without installing
+
+If you can't (or would rather not) `pip install`, install the dependencies listed in `pyproject.toml` yourself and run the package as a module from the repository root:
+
+```bash
+cd /path/to/VeryObservableFIRE
+python -m vof param_myrun.param                    # instead of: vof
+python -m vof.ConvertToFits ...                    # instead of: vof-to-fits
+python -m vof.DataAugmentation ...                 # instead of: vof-augment
+```
+
+To run from a different directory, add the repository root to `PYTHONPATH` first (`export PYTHONPATH=/path/to/VeryObservableFIRE`). Running a file directly (e.g. `python vof/VeryObservableFIRE.py`) won't work, because the modules import each other as `vof.<module>`.
 
 ## Repository layout
 
@@ -24,33 +37,33 @@ This installs the `vof` package and three commands: `vof`, `vof-to-fits`, and `v
 configs/
   param_template.param        Starting point for a run's parameter file
   examples/                   Parameter files from real runs
-src/vof/
-  cli.py                      `vof` entry point: loads the config, derives observation parameters, loops over snapshots
-  config.py                   Parser for the plain-text .param format
-  dataset.py                  Per-snapshot driver: loads gas, runs Binfire, loops over inclination x position angle
-  orientation.py              Centering and rotating the galaxy into the observer's frame
-  synthetic_image.py          Builds one mock observation and writes HDF5/PNG outputs
-  projection.py               Image formation: optically thin particle deposition (sparse stamping + FFT convolution)
+vof/
+  VeryObservableFIRE.py       `vof` entry point: loads the config, derives observation parameters, loops over snapshots
+  LoadParamFile.py            Parser for the plain-text .param format
+  MakeDataset.py              Per-snapshot driver: loads gas, runs Binfire, loops over inclination x position angle
+  OrientGalaxy.py             Centering and rotating the galaxy into the observer's frame
+  GenerateSyntheticImage.py   Builds one mock observation and writes HDF5/PNG outputs
+  ProjectImage.py             Image formation: optically thin particle deposition (sparse stamping + FFT convolution)
                               or full per-sightline spectral synthesis (parallel via joblib), then beam smoothing + noise
-  sightline_spectrum.py,
-  spectra.py                  Emission/absorption spectrum along a sightline
-  emission_species.py         Line parameters (HI 21cm, H-alpha, Na I D1/D2)
-  rotation_curve.py           Rotation curve, for observers placed inside the galaxy
-  annotations.py              Writes Binfire annotation files and previews
-  fits_export.py              `vof-to-fits`: HDF5 datacube -> FITS cube
-  augmentation.py             `vof-augment`: rotation/flip augmentation, optional SoFiA-2 denoising
-  run_sofia.sh                Wrapper used by augmentation to run SoFiA-2
-  io/                         FIRE snapshot readers and loaders
-  binfire/                    Binfire: centering (shrinking sphere), disk orientation, and binned
+  CalcSightlineSpectrum.py,
+  GenerateSpectra.py          Emission/absorption spectrum along a sightline
+  EmissionSpecies.py          Line parameters (HI 21cm, H-alpha, Na I D1/D2)
+  CalcRotationCurve.py        Rotation curve, for observers placed inside the galaxy
+  WriteAnnotations.py         Writes Binfire annotation files and previews
+  ConvertToFits.py            `vof-to-fits`: HDF5 datacube -> FITS cube
+  DataAugmentation.py         `vof-augment`: rotation/flip augmentation, optional SoFiA-2 denoising
+  RunSofiaForVOF.sh           Wrapper used by augmentation to run SoFiA-2
+  io/                         FIRE snapshot readers and loaders (LoadData.py, readsnap_VOF.py)
+  Binfire/                    Binfire: centering (shrinking sphere), disk orientation, and binned
                               ground-truth maps (mass, radial/azimuthal mass flux, rotation)
-  data/                       NIST Na I energy levels
+  EnergyLevels/               NIST Na I energy levels
 ```
 
 ## How it works
 
-1. **`vof.cli`** loads a parameter file (`vof.config.LoadParams`), computes derived observation quantities (beam size, line frequency, bandwidth), and calls `vof.dataset.MakeDataset` for each snapshot in the requested range.
-2. **`vof.dataset.MakeDataset`** loads the gas particles. If `runBinfire`/`projectGasProperties` is set, it runs Binfire, which also centers the galaxy and writes the stats file the first time a snapshot is processed. It then loops over every inclination x position angle pair, rotates the galaxy into the observer's frame (`vof.orientation`), and calls `vof.synthetic_image.GenerateSyntheticImage`.
-3. **`vof.projection.ProjectImage`** forms the image cube, either with the fast optically thin projection (`DepositParticles`) or with full per-sightline spectral synthesis (`vof.sightline_spectrum` -> `vof.spectra`, using line parameters from `vof.emission_species`). The cube is then smoothed to the target beam size and has noise added.
+1. **`vof.VeryObservableFIRE`** loads a parameter file (`vof.LoadParamFile.LoadParams`), computes derived observation quantities (beam size, line frequency, bandwidth), and calls `vof.MakeDataset.MakeDataset` for each snapshot in the requested range.
+2. **`vof.MakeDataset.MakeDataset`** loads the gas particles. If `runBinfire`/`projectGasProperties` is set, it runs Binfire, which also centers the galaxy and writes the stats file the first time a snapshot is processed. It then loops over every inclination x position angle pair, rotates the galaxy into the observer's frame (`vof.OrientGalaxy`), and calls `vof.GenerateSyntheticImage.GenerateSyntheticImage`.
+3. **`vof.ProjectImage.ProjectImage`** forms the image cube, either with the fast optically thin projection (`DepositParticles`) or with full per-sightline spectral synthesis (`vof.CalcSightlineSpectrum` -> `vof.GenerateSpectra`, using line parameters from `vof.EmissionSpecies`). The cube is then smoothed to the target beam size and has noise added.
 4. The output is written as HDF5 (`*_fullSpectra.hdf5`). It holds the `spectra` and `ideal_image` datasets, plus the projected `*_annotation` maps when `projectGasProperties` is set. The `fov_kpc`/`observer_distance_kpc`/`beam_arcsec`/`dnu_kmps` attributes record the observation setup used. Zeroth/first-moment PNG previews are optional.
 
 ## Usage
@@ -86,13 +99,13 @@ vof <param_file> [--galName NAME] [--minSnap N] [--maxSnap N] [--inclination DEG
 - `--maxSnap` overrides the ending snapshot number. If omitted it defaults to `--minSnap`, i.e. a single snapshot.
 - `--inclination` restricts the run to this one inclination instead of the `inclinations` list in the file.
 
-Any flag left off falls back to the value in the parameter file. These overrides are implemented in `vof.config.LoadParams(path, galName=..., minSnap=..., maxSnap=..., inclination=...)`, which other scripts can also call directly to read a `.param` file into a plain `dict`.
+Any flag left off falls back to the value in the parameter file. These overrides are implemented in `vof.LoadParamFile.LoadParams(path, galName=..., minSnap=..., maxSnap=..., inclination=...)`, which other scripts can also call directly to read a `.param` file into a plain `dict`.
 
 ### Optional post-processing
 
 These require the `fits` extra (`pip install -e ".[fits]"`).
 
-`vof-to-fits` converts a VOF spectra datacube to a FITS cube, using an existing FITS file as a header template. It is also available as a library function (`vof.fits_export.convert_to_fits(...)`):
+`vof-to-fits` converts a VOF spectra datacube to a FITS cube, using an existing FITS file as a header template. It is also available as a library function (`vof.ConvertToFits.ConvertToFits(...)`):
 
 ```bash
 vof-to-fits <spectra.hdf5> <template.fits> <output.fits> \
@@ -101,7 +114,7 @@ vof-to-fits <spectra.hdf5> <template.fits> <output.fits> \
 
 `<spectra.hdf5>` is a VOF output file (e.g. `*_fullSpectra.hdf5`, read from its `spectra` dataset); `<template.fits>` supplies the header keywords not otherwise set from the arguments above.
 
-`vof-augment` batch-augments a set of runs' outputs, writing rotations/flips of each datacube and its Binfire annotations. It can optionally denoise each cube with the SoFiA-2 source finder first, via `src/vof/run_sofia.sh`. It reads `fov_kpc`/`observer_distance_kpc`/`beam_arcsec`/`dnu_kmps` back off each `*_fullSpectra.hdf5` rather than hardcoding them:
+`vof-augment` batch-augments a set of runs' outputs, writing rotations/flips of each datacube and its Binfire annotations. It can optionally denoise each cube with the SoFiA-2 source finder first, via `vof/RunSofiaForVOF.sh`. It reads `fov_kpc`/`observer_distance_kpc`/`beam_arcsec`/`dnu_kmps` back off each `*_fullSpectra.hdf5` rather than hardcoding them:
 
 ```bash
 vof-augment --data-root <dir> --gal-names m12m m12i --inclinations 50 60 --position-angles 0 45 90 135 180 225 270 315 --snapshots 600 \

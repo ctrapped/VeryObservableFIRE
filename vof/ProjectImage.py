@@ -10,11 +10,11 @@ from joblib import Parallel, delayed
 from scipy.fft import irfft2, next_fast_len, rfft2
 from scipy.sparse import coo_matrix, csr_matrix
 
-from vof.rotation_curve import CalcRotationCurve
-from vof.sightline_spectrum import CalculateSightlineSpectrum
-from vof.spectra import GenerateSpectra
-from vof.io.load_data import LoadData, ReadStats
-from vof.orientation import CenterOnObserver, OrientGalaxy
+from vof.CalcRotationCurve import CalcRotationCurve
+from vof.CalcSightlineSpectrum import CalcSightlineSpectrum
+from vof.GenerateSpectra import GenerateSpectra
+from vof.io.LoadData import LoadData, ReadStats
+from vof.OrientGalaxy import CenterOnObserver, OrientGalaxy
 
 unit_M = (
     10**10 * 1.98855 * 10**33
@@ -65,7 +65,7 @@ def GenSightline(
     ix = thread_id % Nsightlines_1d  # Thread pixel coordinates
     iy = int(np.floor(thread_id / Nsightlines_1d))
     t0 = time.time()
-    spectrum, emission = CalculateSightlineSpectrum(
+    spectrum, emission = CalcSightlineSpectrum(
         sightlines[ix, iy, :],
         gPos,
         gVel,
@@ -312,7 +312,7 @@ def ProjectImage(
     particleData=None,
     sightlines=None,
 ):
-    # Config values this function (and the DepositParticles/GenSightline/CalculateSightlineSpectrum/GenerateSpectra
+    # Config values this function (and the DepositParticles/GenSightline/CalcSightlineSpectrum/GenerateSpectra
     # helpers it calls) need, read out of the single shared config dict.
     observer_velocity = config["observerVelocity"]
     beamSize = config["beamSize"]

@@ -6,12 +6,12 @@ import numpy as np
 import scipy
 from scipy import stats
 
-from vof.binfire.centering import (
+from vof.Binfire.CenteringFunctions import (
     FindAngularMomentum,
     FindCenter,
     center_of_mass_velocity,
 )
-from vof.binfire.readsnap import ReadStats, readsnap_initial, readsnap_trunc
+from vof.Binfire.readsnap_binfire import ReadStats, readsnap_initial, readsnap_trunc
 
 unit_M = (
     10**10 * 1.98855 * 10**33

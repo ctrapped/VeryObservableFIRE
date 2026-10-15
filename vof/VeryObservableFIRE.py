@@ -3,9 +3,9 @@ import time
 
 import numpy as np
 
-from vof.emission_species import GetEmissionSpeciesParameters
-from vof.config import LoadParams
-from vof.dataset import MakeDataset
+from vof.EmissionSpecies import GetEmissionSpeciesParameters
+from vof.LoadParamFile import LoadParams
+from vof.MakeDataset import MakeDataset
 
 ####Runs VeryObservableFIRE to create synthetic images from given observational parameters.
 ####Also creates corresponding projected and deprojected maps of radial mass flux, rotational velocity, and mass for the purposes of neural network training

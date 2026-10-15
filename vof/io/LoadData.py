@@ -1,7 +1,7 @@
 import h5py as h5py
 import numpy as np
 
-from vof.io.readsnap import (
+from vof.io.readsnap_VOF import (
     readsnap_initial,
     readsnap_sightline_gen,
     readsnap_sightline_itr,
