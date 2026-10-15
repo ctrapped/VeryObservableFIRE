@@ -1,6 +1,6 @@
 import numpy as np
 
-from GenerateSpectra import GenerateSpectra
+from vof.spectra import GenerateSpectra
 
 unit_M = (
     10**10 * 1.98855 * 10**33

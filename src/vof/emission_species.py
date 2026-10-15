@@ -1,4 +1,8 @@
+from pathlib import Path
+
 import numpy as np
+
+NAI_ENERGY_LEVELS_FILE = Path(__file__).parent / "data" / "NIST_NaI_EnergyLevels.txt"
 
 unit_M = (
     10**10 * 1.98855 * 10**33
@@ -68,9 +72,7 @@ def GetEmissionSpeciesParameters(speciesName):
 
         gamma_ul = A_ps  # s is ground state, p is first excited state
         A_ul = A_ps
-        Elevels, Glevels = ReadNistEnergyLevels(
-            "EnergyLevels/NIST_NaI_EnergyLevels.txt"
-        )
+        Elevels, Glevels = ReadNistEnergyLevels(NAI_ENERGY_LEVELS_FILE)
     elif speciesName == "NaI_D2":
         # 2p^6 3p - > 2p^6 3s 5889.9
         species_mass = 22.98977 / atomsPerMol / unit_M  # amu to g to unit mass
@@ -82,9 +84,7 @@ def GetEmissionSpeciesParameters(speciesName):
 
         gamma_ul = A_ps  # s is ground state, p is first excited state
         A_ul = A_ps
-        Elevels, Glevels = ReadNistEnergyLevels(
-            "EnergyLevels/NIST_NaI_EnergyLevels.txt"
-        )
+        Elevels, Glevels = ReadNistEnergyLevels(NAI_ENERGY_LEVELS_FILE)
     else:
         print("Error: Parameters for " + speciesName + " have not been defined.")
         return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0

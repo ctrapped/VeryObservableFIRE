@@ -1,3 +1,4 @@
+import argparse
 import os
 
 import h5py
@@ -17,8 +18,6 @@ e = 4.8032 * np.power(10.0, -10.0) * u.statC  # cm^(3/2) * g^(1/2) * s^(-1)
 amu = 1.6735575 * np.power(10.0, -24) * u.g
 
 arcsec_to_rad = 1.0 / 60.0 / 60.0 * np.pi / 180.0
-
-import argparse
 
 
 def convert_to_fits(
@@ -134,7 +133,7 @@ def _parse_args():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
+def main():
     args = _parse_args()
     with h5py.File(args.spectra_h5, "r") as hf:
         spectra = np.array(hf["spectra"])
@@ -148,3 +147,7 @@ if __name__ == "__main__":
         args.template_fits,
         observer_name=args.observer_name,
     )
+
+
+if __name__ == "__main__":
+    main()

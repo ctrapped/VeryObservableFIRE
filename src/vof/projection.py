@@ -10,11 +10,11 @@ from joblib import Parallel, delayed
 from scipy.fft import irfft2, next_fast_len, rfft2
 from scipy.sparse import coo_matrix, csr_matrix
 
-from CalcRotationCurve import CalcRotationCurve
-from CalculateSightlineSpectrum import CalculateSightlineSpectrum
-from GenerateSpectra import GenerateSpectra
-from LoadData import LoadData, ReadStats
-from OrientGalaxy import CenterOnObserver, OrientGalaxy
+from vof.rotation_curve import CalcRotationCurve
+from vof.sightline_spectrum import CalculateSightlineSpectrum
+from vof.spectra import GenerateSpectra
+from vof.io.load_data import LoadData, ReadStats
+from vof.orientation import CenterOnObserver, OrientGalaxy
 
 unit_M = (
     10**10 * 1.98855 * 10**33

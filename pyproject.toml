@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "veryobservablefire"
+version = "0.1.0"
+description = "Generate synthetic telescope observations (spectral datacubes) and matched training labels from FIRE galaxy simulations."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Cameron Trapp", email = "ctrapped@gmail.com" }]
+dependencies = [
+    "numpy>=1.22",
+    "scipy>=1.11",
+    "h5py",
+    "matplotlib",
+    "joblib",
+]
+
+[project.optional-dependencies]
+# FITS export and data augmentation (vof-to-fits, vof-augment)
+fits = ["astropy", "unyt"]
+dev = ["ruff", "pytest"]
+
+[project.scripts]
+vof = "vof.cli:main"
+vof-to-fits = "vof.fits_export:main"
+vof-augment = "vof.augmentation:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+vof = ["data/*.txt", "run_sofia.sh"]
+
+[tool.ruff]
+src = ["src"]
+target-version = "py39"

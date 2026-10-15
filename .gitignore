@@ -1,5 +1,17 @@
 __pycache__/
 *.pyc
 *.pyo
-
 .DS_Store
+
+# Packaging / tooling
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.ruff_cache/
+.pytest_cache/
+
+# Pipeline outputs
+*.hdf5
+*.fits

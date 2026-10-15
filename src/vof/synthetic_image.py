@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 
-from ProjectImage import ProjectImage
+from vof.projection import ProjectImage
 
 pi = np.pi
 arcsec = (1.0 / 60.0 / 60.0) * pi / 180.0

@@ -3,12 +3,12 @@ import os
 import numpy as np
 import scipy
 
-from Binfire.Binfire import LoadGas, RunBinfire
-from Binfire.readsnap_binfire import ReadStats
-from GenerateSynetheticImage import GenerateSyntheticImage
-from LoadData import LoadDataForImageGen, LoadMaskedDataForImageGen
-from OrientGalaxy import OrientGalaxy
-from WriteAnnotations import WriteAnnotations
+from vof.binfire.core import LoadGas, RunBinfire
+from vof.binfire.readsnap import ReadStats
+from vof.synthetic_image import GenerateSyntheticImage
+from vof.io.load_data import LoadDataForImageGen, LoadMaskedDataForImageGen
+from vof.orientation import OrientGalaxy
+from vof.annotations import WriteAnnotations
 
 ####Function converts a FIRE snapshot to an image dataset usable with CoNNGaFit.
 ####Based on given options will first generate annotation files in the form of a .csv file for the mass flux, mass, and/or rotational velocities
