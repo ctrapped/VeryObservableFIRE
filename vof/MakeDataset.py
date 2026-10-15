@@ -3,9 +3,9 @@ import os
 import numpy as np
 import scipy
 
-from vof.Binfire.Binfire import LoadGas, ReadStats, RunBinfire
+from vof.Binfire.Binfire import LoadGas, RunBinfire
 from vof.GenerateSyntheticImage import GenerateSyntheticImage
-from vof.io.LoadData import LoadDataForImageGen, LoadMaskedDataForImageGen
+from vof.io.LoadData import LoadDataForImageGen, LoadMaskedDataForImageGen, ReadStats
 from vof.OrientGalaxy import OrientGalaxy
 from vof.WriteAnnotations import WriteAnnotations
 
@@ -82,7 +82,7 @@ def MakeDataset(
         maskRadius = None
         if createMaskFromExistingStatsDir:
             try:
-                r_0, pos_center, Lhat, vel_center = ReadStats(
+                pos_center, vel_center, Lhat, r_0, _ = ReadStats(
                     statsDir + str(Nsnap).zfill(4) + ".hdf5"
                 )
                 maskCenter = pos_center
@@ -167,7 +167,7 @@ def MakeDataset(
         print("Creating Synthetic Images...")
 
         Nsnapstring = str(Nsnap)
-        r0, pos_center, Lhat, vel_center = ReadStats(
+        pos_center, vel_center, Lhat, r0, _ = ReadStats(
             statsDir + Nsnapstring.zfill(4) + ".hdf5"
         )
         snapdir = fileDir + Nsnapstring  # Directory containing the actual snapshots

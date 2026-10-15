@@ -11,19 +11,13 @@ from vof.Binfire.CenteringFunctions import (
     FindCenter,
     center_of_mass_velocity,
 )
+from vof.Constants import (
+    pi,
+    proton_mass,
+)
+from vof.io.LoadData import ReadStats, calcTemps
 from vof.io.readsnap_VOF import readsnap_initial, readsnap_trunc
 
-unit_M = (
-    10**10 * 1.98855 * 10**33
-)  # 10^10 solar masses / h !!in grams!! #h accounted for in readsnap
-unit_L = 3.086 * 10**21  # 1 kpc / h !!in cm!!
-unit_V = 1.0 * 10.0**5  # 1 km/s !!in cm/s!! Converted by factor of sqrt(a) in readsnap
-unit_T = unit_L / unit_V
-unit_rho = unit_M / unit_L**3
-
-proton_mass = 1.6726219 * 10 ** (-27) * (1000.0 / unit_M)  ##appropriate units
-
-pi = np.pi
 eps = 1e-10
 
 ####Functions to read in FIRE snapshots, bin data on a cartesian grid, and return relevant parameters (mass, radial mass flux, and rotational mass flux)
@@ -35,28 +29,6 @@ eps = 1e-10
 ####
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 ####Updated 12/14/2023
-
-
-def ReadStats(statsDir):
-    hf = h5py.File(statsDir, "r")
-    posCenter = np.zeros(3)
-    velCenter = np.zeros(3)
-    Lhat = np.zeros(3)
-    r0 = np.zeros(3)
-    orientation_maxima = np.zeros(3)
-
-    posCenter[:] = np.array(hf["pos_center"])
-    velCenter[:] = np.array(hf["vel_center"])
-    Lhat[:] = np.array(hf["Lhat"])
-    r0[:] = np.array(hf["r0"])
-    orientation_maxima[0] = np.array(hf["max_x"])
-    orientation_maxima[1] = np.array(hf["max_y"])
-    orientation_maxima[2] = np.array(hf["max_z"])
-
-    print("In readstats for:" + statsDir)
-
-    hf.close()
-    return r0, posCenter, Lhat, velCenter
 
 
 def LoadGas(
@@ -92,7 +64,7 @@ def LoadGas(
     shrinking_sphere_flag = 0
     if statsFile is not None:
         try:
-            r_0, pos_center, Lhat, vel_center = ReadStats(statsFile)
+            pos_center, vel_center, Lhat, r_0, _ = ReadStats(statsFile)
         except:
             pos_center = None
             shrinking_sphere_flag = 1
@@ -199,7 +171,7 @@ def RunBinfire(
 
     if statsFile is not None:
         try:
-            r_0, pos_center, Lhat, vel_center = ReadStats(statsFile)
+            pos_center, vel_center, Lhat, r_0, _ = ReadStats(statsFile)
             print("From Stats:")
             print("    pos_center=", pos_center)
             print("    vel_center=", vel_center)
@@ -746,39 +718,6 @@ def RunBinfire(
 
 
 ###################################################################################################################################################################################################
-
-
-def calcTemps(GintE, ElectronAbundance, Gz):  # Calculate Temperatures
-    gamma = 5.0 / 3.0
-    kb = (
-        1.38064852
-        * 10 ** (-23)
-        * (100.0 / unit_L) ** 2
-        * (1000.0 / unit_M)
-        * (unit_T) ** 2
-    )  ## Boltzmann's constant, appropriate units
-    # GintE = G['u'] #internal energy
-    # ElectronAbundance = G['ne']
-    # Gz = G['z']
-    N = np.size(GintE)
-
-    helium_mass_fraction = np.zeros(N)
-    helium_mass_fraction[:] = Gz[:, 1]
-    y_helium = np.divide(
-        helium_mass_fraction, np.multiply(4, np.subtract(1, helium_mass_fraction))
-    )
-    # y_helium = helium_mass_fraction / (4*(1-helium_mass_fraction))
-    mu = np.divide(
-        np.add(1, np.multiply(4, y_helium)),
-        np.add(1, np.add(y_helium, ElectronAbundance)),
-    )
-    # mu = (1 + 4*y_helium) / (1+y_helium+ElectronAbundance)
-    mean_molecular_weight = np.multiply(mu, proton_mass)
-    # mean_molecular_weight = mu*proton_mass
-    Gtemp = np.multiply(mean_molecular_weight, np.multiply(((gamma - 1) / kb), GintE))
-    # Gtemp = mean_molecular_weight * (gamma-1) * GintE / kb
-
-    return Gtemp
 
 
 def findDensities(Gz, Gdens):
