@@ -3,8 +3,7 @@ import os
 import numpy as np
 import scipy
 
-from vof.Binfire.Binfire import LoadGas, RunBinfire
-from vof.Binfire.readsnap_binfire import ReadStats
+from vof.Binfire.Binfire import LoadGas, ReadStats, RunBinfire
 from vof.GenerateSyntheticImage import GenerateSyntheticImage
 from vof.io.LoadData import LoadDataForImageGen, LoadMaskedDataForImageGen
 from vof.OrientGalaxy import OrientGalaxy
@@ -175,48 +174,30 @@ def MakeDataset(
 
         print("snapdir=", snapdir)
 
-        # Restrict preloaded particles to the same radius used when loading from scratch below
-        if particles is not None:
-            if projectGasProperties:
-                particles, (Gmom_r, Gmom_s, Gmom_phi) = MaskParticleData(
-                    particles,
-                    pos_center,
-                    maxRadius * 1.5,
-                    extraArrays=(Gmom_r, Gmom_s, Gmom_phi),
-                )
-            else:
-                particles, _ = MaskParticleData(particles, pos_center, maxRadius * 1.5)
-
-        # Load the gas particles if not loaded previously
-        gPos, gKernel, gVel = LoadDataForImageGen(
-            snapdir,
-            Nsnapstring,
-            0,
-            maxRadius,
-            pos_center,
-            vel_center,
-            particles=particles,
-        )
-
         if particles is None:
-            rmag = np.linalg.norm(gPos, axis=1)
-            radMask = np.where(rmag < maxRadius * 1.5)[0]
-            gPos = gPos[radMask]
-            gKernel = gKernel[radMask]
-            gVel = gVel[radMask]
-            del rmag
-        else:
-            radMask = None
+            # Not already loaded for Binfire above. The stats file exists by now (read just above),
+            # so LoadGas only loads the region around the galaxy.
+            particles = LoadGas(
+                snapdir,
+                statsDir + Nsnapstring.zfill(4) + ".hdf5",
+                Nsnap,
+                [maxRadius, maxRadius, maxHeight],
+            )
 
-        # Load masked data if not loaded previously
+        # LoadGas loads a box around the galaxy (a ~5 Mpc one if it had to find the center first); trim to the imaged radius
+        if projectGasProperties:
+            particles, (Gmom_r, Gmom_s, Gmom_phi) = MaskParticleData(
+                particles,
+                pos_center,
+                maxRadius * 1.5,
+                extraArrays=(Gmom_r, Gmom_s, Gmom_phi),
+            )
+        else:
+            particles, _ = MaskParticleData(particles, pos_center, maxRadius * 1.5)
+
+        gPos, gKernel, gVel = LoadDataForImageGen(particles, pos_center, vel_center)
         gMas, gTemp, speciesMassFrac = LoadMaskedDataForImageGen(
-            snapdir,
-            Nsnapstring,
-            ptype=0,
-            mask=radMask,
-            gKernel=gKernel,
-            species=speciesToRun,
-            particles=particles,
+            particles, gKernel, speciesToRun
         )
 
         for inclination in inclinations:

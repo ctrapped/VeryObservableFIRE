@@ -11,7 +11,7 @@ from vof.Binfire.CenteringFunctions import (
     FindCenter,
     center_of_mass_velocity,
 )
-from vof.Binfire.readsnap_binfire import ReadStats, readsnap_initial, readsnap_trunc
+from vof.io.readsnap_VOF import readsnap_initial, readsnap_trunc
 
 unit_M = (
     10**10 * 1.98855 * 10**33
@@ -37,6 +37,28 @@ eps = 1e-10
 ####Updated 12/14/2023
 
 
+def ReadStats(statsDir):
+    hf = h5py.File(statsDir, "r")
+    posCenter = np.zeros(3)
+    velCenter = np.zeros(3)
+    Lhat = np.zeros(3)
+    r0 = np.zeros(3)
+    orientation_maxima = np.zeros(3)
+
+    posCenter[:] = np.array(hf["pos_center"])
+    velCenter[:] = np.array(hf["vel_center"])
+    Lhat[:] = np.array(hf["Lhat"])
+    r0[:] = np.array(hf["r0"])
+    orientation_maxima[0] = np.array(hf["max_x"])
+    orientation_maxima[1] = np.array(hf["max_y"])
+    orientation_maxima[2] = np.array(hf["max_z"])
+
+    print("In readstats for:" + statsDir)
+
+    hf.close()
+    return r0, posCenter, Lhat, velCenter
+
+
 def LoadGas(
     snapdir,
     statsFile,
@@ -59,6 +81,7 @@ def LoadGas(
         extension=".hdf5",
         h0=1,
         cosmological=1,
+        load_density=True,
     )  # Gas, only load position and density
 
     densityMask = None
@@ -137,6 +160,8 @@ def LoadGas(
         extension=".hdf5",
         h0=1,
         cosmological=1,
+        load_density=False,  # already loaded by readsnap_initial above
+        load_ids=False,
     )  # Gas, only load truncated data
 
     G["temp"] = calcTemps(
@@ -287,11 +312,6 @@ def RunBinfire(
     Sloaded = False
     DMloaded = False
 
-    # if not needToCenter:
-    # G = readsnap_initial(snapdir, Nsnapstring, 0, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load position and density
-    # Gpos = G0['p'] #positions
-    # Gdens = G0['rho'] #Densities for finding center
-
     t1 = time.time()
     truncMask = (
         (Gpos[:, 0] < truncMax[0])
@@ -304,7 +324,6 @@ def RunBinfire(
     Gpos = Gpos[truncMask]
     Gdens = Gdens[truncMask]
 
-    # G = readsnap_trunc(snapdir, Nsnapstring, 0, truncMask, snapshot_name='snapshot', extension='.hdf5',h0=1,cosmological=1) #Gas, only load truncated data
     Gvel = particles["v"]  # Velocities
     Gmas = particles["m"]  # masses
     Gz = particles["z"]  # metallicities

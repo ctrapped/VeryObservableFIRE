@@ -1,16 +1,7 @@
 import h5py as h5py
 import numpy as np
 
-from vof.io.readsnap_VOF import (
-    readsnap_initial,
-    readsnap_sightline_gen,
-    readsnap_sightline_itr,
-    readsnap_sightline_itr_v2,
-    readsnap_speciesMassFrac,
-    readsnap_speciesMassFrac_noMask,
-    readsnap_trunc,
-    readsnap_trunc_sightline_itr,
-)
+from vof.io.readsnap_VOF import readsnap_initial, readsnap_trunc
 
 ####
 
@@ -86,7 +77,7 @@ def LoadData(snapdir, Nsnapstring, ptype, rTrunc, posCenter, velCenter):
     particles = readsnap_trunc(
         snapdir,
         Nsnapstring,
-        0,
+        ptype,
         truncMask,
         snapshot_name="snapshot",
         extension=".hdf5",
@@ -150,133 +141,26 @@ def calcTemps(GintE, ElectronAbundance, Gz):  # Calculate Temperatures
     return Gtemp
 
 
-def LoadDataForImageGen(
-    snapdir, Nsnapstring, ptype, rTrunc, posCenter, velCenter, particles=None
-):
-    # Load position and density to create a mask for particles in user defined region of interest
-    if particles is None:
-        particles = readsnap_initial(
-            snapdir,
-            Nsnapstring,
-            ptype,
-            snapshot_name="snapshot",
-            extension=".hdf5",
-            h0=1,
-            cosmological=1,
-        )  ##!! EDIT READSNAP INITIAL TO ONLY LOAD POS
-        pos = particles["p"]  # positions
-
-        # Load the rest of the data
-        particles = readsnap_sightline_gen(
-            snapdir,
-            Nsnapstring,
-            0,
-            snapshot_name="snapshot",
-            extension=".hdf5",
-            h0=1,
-            cosmological=1,
-        )
-        vel = particles["v"]
-    else:
-        pos = particles["p"]
-        vel = particles["v"]
-
+def LoadDataForImageGen(particles, posCenter, velCenter):
+    # Center the gas particles (as loaded by Binfire.LoadGas) on the galaxy. Modifies particles["p"]/["v"] in place.
+    pos = particles["p"]
+    vel = particles["v"]
     pos -= posCenter
     vel -= velCenter
-
-    if ptype == 0:
-        kernel_lengths = particles["h"]
-        return pos, kernel_lengths, vel
-
-    else:
-        return pos
+    return pos, particles["h"], vel
 
 
-def LoadDataForSightlineIteration(
-    snapdir,
-    Nsnapstring,
-    ptype,
-    mask,
-    pos_center,
-    vel_center,
-    buildShieldLengths=False,
-    particles=None,
-):
-    if particles is None:
-        if mask is None:
-            particles = readsnap_sightline_itr(
-                snapdir,
-                Nsnapstring,
-                ptype,
-                snapshot_name="snapshot",
-                extension=".hdf5",
-                h0=1,
-                cosmological=1,
-            )
-        else:
-            particles = readsnap_trunc_sightline_itr(
-                snapdir,
-                Nsnapstring,
-                ptype,
-                mask,
-                snapshot_name="snapshot",
-                extension=".hdf5",
-                h0=1,
-                cosmological=1,
-            )
-
-    temp = calcTemps(
-        particles["u"], particles["ne"], particles["z"]
-    )  ##Can potentially more efficiently deal with how metallicity is read in
-
-    return (
-        particles["p"] - pos_center,
-        particles["v"] - vel_center,
-        particles["m"],
-        particles["h"],
-        temp,
-    )
-
-
-def LoadMaskedDataForImageGen(
-    snapdir,
-    Nsnapstring,
-    ptype,
-    mask,
-    gKernel,
-    species,
-    buildShieldLengths=False,
-    particles=None,
-):
-
-    if particles is None:
-        particles = readsnap_sightline_itr_v2(
-            snapdir,
-            Nsnapstring,
-            ptype,
-            truncMask=mask,
-            species=species,
-            snapshot_name="snapshot",
-            extension=".hdf5",
-            h0=1,
-            cosmological=1,
-        )
-
-    try:
-        fHe = particles["fHe"]
-        z = particles["z"]
-    except:
-        fHe = particles["z"][:, 1]
-        z = particles["z"][:, 0]
+def LoadMaskedDataForImageGen(particles, gKernel, species):
+    # Mass, temperature, and emitting-species mass fraction for the gas particles (as loaded by Binfire.LoadGas)
+    fHe = particles["z"][:, 1]
+    z = particles["z"][:, 0]
 
     if "temp" in particles:
         temp = particles[
             "temp"
         ]  # Precomputed by LoadGas when available, rather than recalculating here
     else:
-        temp = calcTemps(
-            particles["u"], particles["ne"], particles["z"]
-        )  ##Can potentially more efficiently deal with how metallicity is read in
+        temp = calcTemps(particles["u"], particles["ne"], particles["z"])
 
     if species == "HI_21cm":
         speciesMassFrac = CalcMolecularFraction(
@@ -284,87 +168,6 @@ def LoadMaskedDataForImageGen(
         )
 
     return particles["m"], temp, speciesMassFrac
-
-
-def LoadSpeciesMassFrac(
-    snapdir,
-    Nsnapstring,
-    ptype,
-    mask,
-    species,
-    buildShieldLengths=False,
-    Gmas=None,
-    KernelLengths=None,
-):
-    if mask is None:
-        p = readsnap_speciesMassFrac_noMask(
-            snapdir,
-            Nsnapstring,
-            ptype,
-            species,
-            snapshot_name="snapshot",
-            extension=".hdf5",
-            h0=1,
-            cosmological=1,
-        )
-    else:
-        p = readsnap_speciesMassFrac(
-            snapdir,
-            Nsnapstring,
-            ptype,
-            mask,
-            species,
-            snapshot_name="snapshot",
-            extension=".hdf5",
-            h0=1,
-            cosmological=1,
-        )
-    if species == "h_alpha":
-        return CalcMolecularFraction(
-            p["nh"], p["hsml"], p["rho"], p["fHe"], p["z"], to_return="fH1"
-        )
-    if species == "HI_21cm":
-        return CalcMolecularFraction(
-            p["nh"], p["hsml"], p["rho"], p["fHe"], p["z"], to_return="fH1"
-        )
-
-
-def LoadDataForSightlineIteration(
-    snapdir, Nsnapstring, ptype, mask, pos_center, vel_center, buildShieldLengths=False
-):
-    if mask is None:
-        particles = readsnap_sightline_itr(
-            snapdir,
-            Nsnapstring,
-            ptype,
-            snapshot_name="snapshot",
-            extension=".hdf5",
-            h0=1,
-            cosmological=1,
-        )
-    else:
-        particles = readsnap_trunc_sightline_itr(
-            snapdir,
-            Nsnapstring,
-            ptype,
-            mask,
-            snapshot_name="snapshot",
-            extension=".hdf5",
-            h0=1,
-            cosmological=1,
-        )
-
-    temp = calcTemps(
-        particles["u"], particles["ne"], particles["z"]
-    )  ##Can potentially more efficiently deal with how metallicity is read in
-
-    return (
-        particles["p"] - pos_center,
-        particles["v"] - vel_center,
-        particles["m"],
-        particles["h"],
-        temp,
-    )
 
 
 def CalcMolecularFraction(
