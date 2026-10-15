@@ -12,29 +12,16 @@ from scipy.sparse import coo_matrix, csr_matrix
 
 from vof.CalcRotationCurve import CalcRotationCurve
 from vof.CalcSightlineSpectrum import CalcSightlineSpectrum
+from vof.Constants import (
+    pi,
+)
 from vof.GenerateSpectra import GenerateSpectra
 from vof.io.LoadData import LoadData, ReadStats
 from vof.OrientGalaxy import CenterOnObserver, OrientGalaxy
 
-unit_M = (
-    10**10 * 1.98855 * 10**33
-)  # 10^10 solar masses / h !!in grams!! #h accounted for in readsnap
-unit_L = 3.086 * 10**21  # 1 kpc / h !!in cm!!
-unit_V = 1.0 * 10.0**5  # 1 km/s !!in cm/s!! Converted by factor of sqrt(a) in readsnap
-unit_T = unit_L / unit_V
-unit_rho = unit_M / unit_L**3
-
-Joules2eV = 6.241509 * np.power(10.0, 18.0)
-meters2Kpc = 3.24078 * np.power(10.0, -20.0)
-Jy2SimUnits = np.power(10.0, -26.0) * Joules2eV / meters2Kpc / meters2Kpc
 # J*s^-1*m^-2*Hz-1
-SimUnits2Jy = 1.0 / Jy2SimUnits
 
-proton_mass = 1.6726219 * 10 ** (-27) * (1000.0 / unit_M)  ##appropriate units
 
-pi = np.pi
-
-arcsec2rad = pi / (180 * 3600)
 eps = 1e-20
 
 ####Functions to generate a sightline spectra for a given set of observer parameters. Defines the vectors, overlapping particles in each sightline,

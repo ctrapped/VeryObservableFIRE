@@ -1,8 +1,9 @@
 import ast
-import math
 import os
 
 import numpy as np
+
+from vof.Constants import arcsec, pi
 
 ####Reads a plain-text "key = value" parameter file into a dict, instead of importing a .py module.
 ####Values are parsed top-to-bottom and may reference earlier keys in the same file, e.g.:
@@ -13,8 +14,6 @@ import numpy as np
 ####
 ####Written By Cameron Trapp (ctrapped@gmail.com)
 
-pi = math.pi
-arcsec = (1.0 / 60.0 / 60.0) * pi / 180.0
 
 _CONSTANTS = {"pi": pi, "arcsec": arcsec}
 

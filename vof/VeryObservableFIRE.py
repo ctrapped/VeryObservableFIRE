@@ -3,6 +3,11 @@ import time
 
 import numpy as np
 
+from vof.Constants import (
+    arcsec,
+    c_km_s,
+    h,
+)
 from vof.EmissionSpecies import GetEmissionSpeciesParameters
 from vof.LoadParamFile import LoadParams
 from vof.MakeDataset import MakeDataset
@@ -17,16 +22,10 @@ from vof.MakeDataset import MakeDataset
 ####Updated 12/08/2023
 
 
-pi = np.pi
-arcsec = (1.0 / 60.0 / 60.0) * pi / 180.0
-c_km_s = 3 * 10**5  # speed of light in km/s
-h = 4.135667696 * np.power(10.0, -15.0)  # eV * s
-
-
 def parse_args():
     parser = argparse.ArgumentParser(
         prog="vof",
-        description="Run VeryObservableFIRE to generate synthetic images/annotations from a parameter file."
+        description="Run VeryObservableFIRE to generate synthetic images/annotations from a parameter file.",
     )
     parser.add_argument(
         "paramFile", help="Path to the .param file (e.g. configs/param_template.param)"
@@ -113,7 +112,6 @@ def main():
             - 1 / (c_km_s + config["bandwidth_km_s"] / 2)
         )
     )
-
 
     print("##################    Calculated Observation Parameters    ###############")
     print("Beamsize = ", config["beamSize"])

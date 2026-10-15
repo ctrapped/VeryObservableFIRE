@@ -1,22 +1,17 @@
 import h5py as h5py
 import numpy as np
 
+from vof.Constants import (
+    proton_mass,
+    unit_L,
+    unit_M,
+    unit_T,
+)
 from vof.io.readsnap_VOF import readsnap_initial, readsnap_trunc
 
 ####
 
 
-unit_M = (
-    10**10 * 1.98855 * 10**33
-)  # 10^10 solar masses / h !!in grams!! #h accounted for in readsnap
-unit_L = 3.086 * 10**21  # 1 kpc / h !!in cm!!
-unit_V = 1.0 * 10.0**5  # 1 km/s !!in cm/s!! Converted by factor of sqrt(a) in readsnap
-unit_T = unit_L / unit_V
-unit_rho = unit_M / unit_L**3
-
-proton_mass = 1.6726219 * 10 ** (-27) * (1000.0 / unit_M)  ##appropriate units
-
-pi = np.pi
 eps = 1e-10
 
 ####Various IO functions for reading in the simulation snapshots, sightline information, and galaxy stats
@@ -118,11 +113,8 @@ def calcTemps(GintE, ElectronAbundance, Gz):  # Calculate Temperatures
     # Gz = G['z']
     N = np.size(GintE)
 
-    if np.size(np.shape(Gz)) > 1:
-        helium_mass_fraction = np.zeros(N)
-        helium_mass_fraction[:] = Gz[:, 1]
-    else:
-        helium_mass_fraction = Gz
+    helium_mass_fraction = np.zeros(N)
+    helium_mass_fraction[:] = Gz[:, 1]  # Gz columns: [total metallicity, helium, ...]
 
     y_helium = np.divide(
         helium_mass_fraction, np.multiply(4, np.subtract(1, helium_mass_fraction))

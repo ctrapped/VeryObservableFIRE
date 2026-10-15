@@ -6,18 +6,15 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 
+from vof.Constants import (
+    arcsec,
+    pi,
+)
 from vof.ProjectImage import ProjectImage
-
-pi = np.pi
-arcsec = (1.0 / 60.0 / 60.0) * pi / 180.0
 
 image = 0
 
-Joules2eV = 6.241509 * np.power(10.0, 18.0)
-meters2Kpc = 3.24078 * np.power(10.0, -20.0)
-Jy2SimUnits = np.power(10.0, -26.0) * Joules2eV / meters2Kpc / meters2Kpc
 # J*s^-1*m^-2*Hz-1
-SimUnits2Jy = 1.0 / Jy2SimUnits
 
 
 ####Each thread generates a spectra for the assigned pixel, then convolves it with a Gaussian PSF at it's location within the image.

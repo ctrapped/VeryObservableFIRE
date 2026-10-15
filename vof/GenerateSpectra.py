@@ -2,6 +2,17 @@ import time
 
 import numpy as np
 
+from vof.Constants import (
+    amu,
+    arcsec2rad,
+    c,
+    e,
+    h,
+    kb,
+    kpc2cm,
+    m_e,
+    pi,
+)
 from vof.EmissionSpecies import GetEmissionSpeciesParameters
 
 ####Functions to generate emission/absorption for particles along a sightline in order to construct the mock spectra
@@ -11,29 +22,8 @@ from vof.EmissionSpecies import GetEmissionSpeciesParameters
 
 # gamma_ul is the sum of all A_ul's and A_lu's for all possible emissions from u and all possible absorptions from l (pg 57 in Draine)
 
-unit_M = (
-    10**10 * 1.98855 * 10**33
-)  # 10^10 solar masses / h !!in grams!! #h accounted for in readsnap
-unit_L = 3.086 * 10**21  # 1 kpc / h !!in cm!!
-unit_V = 1.0 * 10.0**5  # 1 km/s !!in cm/s!! Converted by factor of sqrt(a) in readsnap
-unit_T = unit_L / unit_V
-unit_rho = unit_M / unit_L**3
 
-proton_mass = 1.6726219 * 10.0 ** (-27.0) * (1000.0 / unit_M)  ##appropriate units
-
-h = 4.135667696 * np.power(10.0, -15.0)  # eV * s
-m_e = 9.1094 * np.power(10.0, -28.0)  # grams
-c = 3.0 * np.power(10.0, 10.0)  # cm/s
-kb = 8.617333262145 * np.power(10.0, -5.0)  # eV * K-1
-pi = np.pi
-e = 4.8032 * np.power(10.0, -10.0)  # cm^(3/2) * g^(1/2) * s^(-1)
-amu = 1.6735575 * np.power(10.0, -24) / unit_M  # grams to unit mass
-
-kpc2cm = 3.086 * np.power(10.0, 21.0)
-
-pi = np.pi
 eps = 1e-10
-arcsec2rad = pi / (180.0 * 3600.0)
 defaultRes = 1.0 * arcsec2rad  # default beamsize of 1 arcsec
 
 
