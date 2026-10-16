@@ -104,3 +104,49 @@ def test_image_attributes_and_pngs(galaxy, write_param_file, monkeypatch):
 
     assert (out / "synthetic_i60_pa0_600_image_ZerothMomentMap.png").exists()
     assert not (out / "synthetic_i60_pa90_600_image_ZerothMomentMap.png").exists()
+
+
+def test_mass_annotation_is_in_solar_masses(galaxy, write_param_file, monkeypatch):
+    """The projected mass annotation is in Msun: it adds up to the gas mass in the image."""
+    param_file = write_param_file(
+        galaxy, projectGasProperties=True, position_angles=[0]
+    )
+    run_vof(param_file, monkeypatch)
+    out = param_file.parent / "output" / "i60"
+
+    gas_msun = 1e10 * galaxy.particles[0]["m"]  # simulation units are 10^10 Msun
+    with h5py.File(out / "synthetic_i60_pa0_600_image_fullSpectra.hdf5") as f:
+        assert f.attrs["annotation_mass_units"] == "Msun"
+        total = f["mass_annotation"][()].sum()
+    # Nearly all of the 9e9 Msun disk is imaged; the halo gas mostly falls outside the image
+    assert 8e9 < total <= gas_msun.sum()
+
+
+def test_binfire_training_annotations(galaxy, write_param_file, monkeypatch):
+    """runBinfire writes training annotations in Msun and km/s, zero in bins with no mass."""
+    param_file = write_param_file(
+        galaxy, runBinfire=True, runVOF=False, position_angles=[0]
+    )
+    run_vof(param_file, monkeypatch)
+    out = param_file.parent / "output" / "i60"
+
+    def annotation(kind, tag):
+        with h5py.File(
+            out / f"training_annotations_{kind}_i60_pa0_synthetic_{tag}_600.hdf5"
+        ) as f:
+            return f["annotation"][()]
+
+    mass = annotation("Mass", "Mass")
+    rotation = annotation("RC", "RC")
+    radial = annotation("rVel", "rVel")
+    assert mass.shape == rotation.shape == radial.shape == (24 * 24,)
+
+    # Nearly all of the 9e9 Msun disk lies within the binned region
+    assert 8e9 < mass.sum() <= 1e10 * galaxy.particles[0]["m"].sum()
+    empty = mass == 0
+    assert np.all(rotation[empty] == 0) and np.all(radial[empty] == 0)
+    # Mass-weighted rotation speed of the disk (rotation curve flattens at 200 km/s)
+    mean_rotation = np.sum(rotation * mass) / mass.sum()
+    assert 130 < abs(mean_rotation) < 200
+    for array in (mass, rotation, radial):
+        assert np.all(np.isfinite(array))

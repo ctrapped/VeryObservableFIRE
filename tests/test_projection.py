@@ -7,6 +7,7 @@ from vof import project_image
 from vof.calc_sightline_spectrum import calc_sightline_spectrum
 from vof.constants import c_km_s, h
 from vof.emission_species import get_emission_species_parameters
+from vof.generate_synthetic_image import annotation_maps
 from vof.project_image import deposit_particles, sphere_kernel
 
 N_PIX = 16
@@ -113,6 +114,32 @@ def test_fft_path_matches_direct_stamping(fft_calls):
     np.testing.assert_allclose(many / 300, one, rtol=1e-8, atol=1e-10 * one.max())
 
 
+def test_annotations_are_zero_where_there_is_no_mass(fft_calls):
+    """Empty pixels get zero mass and velocity, not FFT round-off divided by round-off."""
+    n = 300  # one large group, so it goes through the FFT path
+    mass = np.full(n, 1e-4)
+    zeros = np.zeros(n)
+    _emission, mass_map, rMom, sMom, rotMom = deposit(
+        np.full(n, -3.0),
+        np.full(n, -3.0),
+        np.full(n, 2.6),
+        mass,
+        projectGasProperties=True,
+        gRmom=mass * 50.0,
+        gSmom=zeros,
+        gRotMom=mass * 200.0,
+    )
+    assert fft_calls
+    mass_out, rVel, sVel, rotVel = annotation_maps(mass_map, rMom, sMom, rotMom)
+
+    filled = mass_out > 0
+    assert 0 < filled.sum() < N_PIX * N_PIX  # the particles cover part of the image
+    for annotation in (mass_out, rVel, sVel, rotVel):
+        assert np.all(annotation[~filled] == 0)
+    np.testing.assert_allclose(rVel[filled], 50.0, rtol=1e-8)
+    np.testing.assert_allclose(rotVel[filled], 200.0, rtol=1e-8)
+
+
 def test_deposit_rejects_badly_centered_data():
     """Particles that all fall outside the image raise instead of producing an empty cube."""
     with pytest.raises(ValueError, match="centering"):
@@ -125,13 +152,8 @@ def test_unknown_species_raises():
         get_emission_species_parameters("OIII_5007")
 
 
-@pytest.mark.filterwarnings("ignore::RuntimeWarning")
-@pytest.mark.xfail(
-    strict=True,
-    reason="Known bug: a sightline that hits no particles normalizes 0/0 -> NaN, which smoothing spreads over the cube",
-)
 def test_empty_sightline_gives_zero_spectrum():
-    """A sightline that misses every particle has a zero (not NaN) spectrum."""
+    """A sightline that misses every particle has a zero (not NaN) spectrum (regression test)."""
     # observer-centered; the sightline below points along +x, 7 kpc from the particle
     pos = np.array([[DISTANCE, 5.0, 5.0]])
     _spectrum, emission = calc_sightline_spectrum(

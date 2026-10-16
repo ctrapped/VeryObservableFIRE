@@ -78,16 +78,31 @@ def test_orientation_vectors_inclination(inclination, position_angle):
 
 @pytest.mark.parametrize("position_angle", [0, 45, 90, 200])
 def test_orientation_vectors_position_angle(position_angle):
-    """position_angle sets the azimuth (about the spin axis) that the line of sight comes from.
-
-    Pins the current convention: it turns the disk about its own axis, rather than rotating
-    the image on the sky.
-    """
+    """position_angle sets the azimuth (about the spin axis) that the line of sight comes from."""
     Lhat, r0, y0 = disk_axes(tilt_deg=30.0)
     _Lhat_rot, r0_rot = orientation_vectors(Lhat, r0, 60, position_angle)
     in_plane = r0_rot - np.dot(r0_rot, Lhat) * Lhat
     azimuth = np.degrees(np.arctan2(np.dot(in_plane, y0), np.dot(in_plane, r0)))
     assert (azimuth - position_angle + 180) % 360 - 180 == pytest.approx(0, abs=1e-9)
+
+
+@pytest.mark.parametrize(("inclination", "position_angle"), ANGLES[4:])  # not face-on
+def test_major_axis_is_image_x_axis(inclination, position_angle):
+    """The disk's projected major axis always lies along the image's x axis.
+
+    So for a smooth disk every position angle gives the same image, like an observed cube
+    rotated so its major axis is horizontal.
+    """
+    Lhat, r0, _y0 = disk_axes(tilt_deg=30.0)
+    Lhat_rot, r0_rot = orientation_vectors(Lhat, r0, inclination, position_angle)
+    major_axis = np.cross(
+        Lhat, r0_rot
+    )  # in the disk plane and perpendicular to the line of sight
+    major_axis /= np.linalg.norm(major_axis)
+    image_x = np.cross(
+        Lhat_rot, r0_rot
+    )  # orient_galaxy's y, the image's horizontal axis
+    assert abs(np.dot(major_axis, image_x)) == pytest.approx(1.0, abs=1e-12)
 
 
 def test_orientation_vectors_does_not_modify_inputs():

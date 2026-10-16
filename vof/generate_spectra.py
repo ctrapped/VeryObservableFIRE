@@ -125,14 +125,16 @@ def generate_spectra(
             np.multiply(upperToLowerRate[:, np.newaxis] * h, np.multiply(nu, phi_nu)),
             np.power(distance, 2)[:, np.newaxis],
         )
+        # Scale the emission to the total column density. A sightline that hits no particles has
+        # no emission; leave it as zeros rather than normalizing 0/0 into NaN.
+        total_emission = np.sum(emission)
+        scale = np.sum(colDens) / total_emission if total_emission > 0 else 0.0
         if not return_sightline:
             # Do not sum along particles
-            emission = np.multiply(
-                emission, np.sum(colDens) / np.sum(emission)
-            ) / np.power(kpc2cm, 2)
+            emission = np.multiply(emission, scale) / np.power(kpc2cm, 2)
             return emission, emission, emission * 0, nu
         emission = np.sum(emission, axis=0)
-        emission = np.multiply(emission, np.sum(colDens) / np.sum(emission)) / np.power(
+        emission = np.multiply(emission, scale) / np.power(
             kpc2cm, 2
         )  # convert to effective column density in cm^-2
         return emission, emission, emission * 0, nu
