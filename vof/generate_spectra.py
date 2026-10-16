@@ -1,0 +1,416 @@
+"""Generate emission and absorption for the particles along a sightline.
+
+Used to construct the mock spectra.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
+import logging
+
+import numpy as np
+
+from vof.constants import (
+    amu,
+    arcsec2rad,
+    c,
+    e,
+    h,
+    kb,
+    kpc2cm,
+    m_e,
+    pi,
+)
+from vof.emission_species import get_emission_species_parameters
+
+logger = logging.getLogger(__name__)
+
+
+# gamma_ul is the sum of all A_ul's and A_lu's for all possible emissions from u and all possible absorptions from l (pg 57 in Draine)
+
+
+eps = 1e-10
+defaultRes = 1.0 * arcsec2rad  # default beamsize of 1 arcsec
+
+
+def generate_spectra(
+    gMass,
+    speciesMassFrac,
+    dopplerVelocity,
+    particleSize,
+    temp,
+    distance,
+    impact,
+    species,
+    beamSize,
+    Nspec,
+    bandwidth,
+    calcThermalLevels,
+    calcChordLength=True,
+    return_sightline=True,
+):
+    """Return the spectrum, emission, optical depth, and frequencies along a sightline.
+
+    Particles must be sorted by distance; with return_sightline=False only the optically
+    thin emission is computed.
+    """
+    (
+        mass_species,
+        g_upper,
+        g_lower,
+        E_upper,
+        E_lower,
+        A_ul,
+        gamma_ul,
+        _Glevels,
+        _Elevels,
+        _n_u_fraction,
+        _n_l_fraction,
+    ) = get_emission_species_parameters(
+        species
+    )  # Load the emission/absorption parameters for this species
+    N_molecules = np.multiply(gMass, speciesMassFrac) / mass_species
+    if np.size(N_molecules) > 0 and np.min(N_molecules) < 0:
+        logger.warning(
+            "Negative species count (N_molecules < 0): min gMass=%g, min speciesMassFrac=%g, mass_species=%g",
+            np.min(gMass),
+            np.min(speciesMassFrac),
+            mass_species,
+        )
+
+    beamRadiusPhysical = distance * np.sin(beamSize) / 2.0  # sim units (kpc)
+
+    colDens, _pathLength = get_column_density_along_los(
+        particleSize, impact, N_molecules, beamRadiusPhysical, calcChordLength
+    )  # kpc^-2
+
+    upperToLowerRate, attenuationCrossSection = gen_emission_and_absorption_rates(
+        colDens, temp, species, beamRadiusPhysical, calcThermalLevels
+    )  # Units of Hz
+    nu_ul = (E_upper - E_lower) / h  # in Hz
+    f_lu = (
+        g_upper
+        / g_lower
+        * A_ul
+        * (m_e * c**3.0)
+        / (8.0 * pi**2.0 * e**2.0 * nu_ul**2.0)
+    )  # unitless
+
+    nu_0 = nu_ul
+    spectralRange = [nu_0 - bandwidth / 2.0, nu_0 + bandwidth / 2.0]
+
+    Nparticles = np.size(upperToLowerRate)
+    spectra = np.zeros(Nspec)
+    emission = np.copy(spectra)
+    optical_depth = np.copy(emission)
+    nu = np.linspace(spectralRange[0], spectralRange[1], Nspec)
+
+    assume_optically_thin = True
+
+    if assume_optically_thin:
+        sigma_nu = gen_line_profile_mat(
+            nu_ul,
+            f_lu,
+            gamma_ul,
+            dopplerVelocity,
+            spectralRange,
+            temp,
+            mass_species,
+            Nspec,
+        )
+        phi_nu = sigma_nu * m_e * c / pi / (e**2) / f_lu
+
+        distance[distance == 0] = eps
+
+        emission = np.divide(
+            np.multiply(upperToLowerRate[:, np.newaxis] * h, np.multiply(nu, phi_nu)),
+            np.power(distance, 2)[:, np.newaxis],
+        )
+        if not return_sightline:
+            # Do not sum along particles
+            emission = np.multiply(
+                emission, np.sum(colDens) / np.sum(emission)
+            ) / np.power(kpc2cm, 2)
+            return emission, emission, emission * 0, nu
+        emission = np.sum(emission, axis=0)
+        emission = np.multiply(emission, np.sum(colDens) / np.sum(emission)) / np.power(
+            kpc2cm, 2
+        )  # convert to effective column density in cm^-2
+        return emission, emission, emission * 0, nu
+    else:
+        for p in range(
+            Nparticles
+        ):  # This form must be executed sequentially, as absorption is built up. Particles are sorted based on distance along sightline
+            sigma_nu = gen_line_profile(
+                nu_ul,
+                f_lu,
+                gamma_ul,
+                dopplerVelocity[p],
+                spectralRange,
+                temp[p],
+                mass_species,
+                Nspec,
+            )
+            phi_nu = sigma_nu * m_e * c / pi / (e**2) / f_lu
+            if distance[p] == 0:
+                distance[p] = eps
+
+            power_emission = (upperToLowerRate[p] * h) * np.multiply(nu, phi_nu)
+
+            emission += power_emission / distance[p] ** 2
+            spectra = np.add(
+                spectra,
+                np.multiply(power_emission, np.exp(-optical_depth)) / distance[p] ** 2,
+            )
+
+            optical_depth_particle = phi_nu * attenuationCrossSection[p]
+            if np.min(optical_depth_particle) < 0:
+                logger.warning(
+                    "Negative optical depth (min %g, max %g): min(phi_nu)=%g, attenuationCrossSection[p]=%s",
+                    np.min(optical_depth_particle),
+                    np.max(optical_depth_particle),
+                    np.min(phi_nu),
+                    attenuationCrossSection[p],
+                )
+
+            optical_depth_particle[optical_depth_particle < 0] = 0
+            optical_depth += optical_depth_particle  # Build up optical depth as you go through particles in the sightline
+
+    return spectra, emission, optical_depth, nu
+
+
+def get_column_density_along_los(
+    r, impact, N_mol_in_particle, beamRadiusPhysical, calcChordLength=True
+):
+    """Return each particle's line-of-sight column density and the path length used.
+
+    Treats particles as spheres crossed by a finite beam, an approximation of what FIRE
+    particles represent.
+    """
+    vol = 4 / 3 * pi * np.power(r, 3)
+    if calcChordLength:
+        chordLength = calc_effective_chord_length(r, impact, beamRadiusPhysical)
+    else:
+        chordLength = 2 * r
+    colDensParticle = np.multiply(np.divide(N_mol_in_particle, vol), chordLength)
+    if np.size(colDensParticle) > 0 and np.min(colDensParticle) < 0:
+        logger.warning(
+            "Negative column density (min %g): min N_mol_in_particle=%g, min vol=%g, min chordLength=%g",
+            np.min(colDensParticle),
+            np.min(N_mol_in_particle),
+            np.min(vol),
+            np.min(chordLength),
+        )
+    return colDensParticle, chordLength
+
+
+def calc_effective_chord_length(r, impact, beamRadiusPhysical):
+    """Return the mean chord length through each spherical particle across the beam."""
+    Nsample = 100
+
+    impactMax = impact + beamRadiusPhysical
+    impactMin = impact - beamRadiusPhysical
+
+    impactMax[np.greater(impactMax, r)] = r[np.greater(impactMax, r)]
+    impactMin[np.less(impactMin, -r)] = -r[np.less(impactMin, -r)]
+
+    impactInc = (impactMax - impactMin) / Nsample
+    chordLength = np.zeros(np.size(r))
+    for i in range(Nsample):
+        impact = np.abs(impactMin + i * impactInc)
+        mask = np.where((r - impact) > 0)
+        chordLength[mask] += (
+            2
+            * np.multiply(r[mask], np.sin(np.arccos(np.divide(impact[mask], r[mask]))))
+            / Nsample
+        )  # calculates an effective path length through the particle
+
+    return chordLength
+
+
+def gen_line_profile(
+    nu_ul, f_lu, gamma_ul, dopplerVelocity, spectralRange, temp, mass_species, Nspec
+):
+    """Return a line profile with a Gaussian core and damping wings (Draine 2011)."""
+    nu = np.linspace(spectralRange[0], spectralRange[1], Nspec)
+
+    dopplerBeta = dopplerVelocity / (3.0 * np.power(10, 5))  # both in km/s
+
+    doppler_freq_shift = nu_ul * (
+        np.sqrt(np.divide(-dopplerBeta + 1, dopplerBeta + 1)) - 1
+    )
+
+    v = (
+        np.divide(
+            1 - np.power(nu / (nu_ul + doppler_freq_shift), 2),
+            1 + np.power(nu / (nu_ul + doppler_freq_shift), 2),
+        )
+        * c
+    )  # in cm/s
+
+    lamda_ul = c / nu_ul
+
+    b = (
+        12.90
+        * np.sqrt(temp * np.power(10.0, -4) / (mass_species / amu))
+        * 1000.0
+        * 100.0
+    )  # cm/s
+    b6 = b / (10.0 * 1000.0 * 100.0)  # b/10 km/s unitless
+
+    prefactor = np.sqrt(pi) * (e**2) / (m_e * c) * f_lu * lamda_ul / b
+
+    z = np.sqrt(10.31 + np.log(7616 / (gamma_ul * lamda_ul) * b6))
+    transition_v = np.abs(b * z)
+
+    coreFreqs = np.where(np.abs(v) <= transition_v)[0]
+    wingFreqs = np.where(np.abs(v) > transition_v)[0]
+
+    coreFreqs = coreFreqs[((coreFreqs < np.size(nu)) & (coreFreqs >= 0))]
+
+    wingFreqs = wingFreqs[((wingFreqs < np.size(nu)) & (wingFreqs >= 0))]
+
+    sigma = np.zeros(np.shape(nu))
+    sigma[coreFreqs] = prefactor * np.exp(-np.power(v[coreFreqs], 2) / b**2)
+    sigma[wingFreqs] = np.divide(
+        prefactor * (1 / (4 * np.power(pi, 1.5)) * gamma_ul * lamda_ul * b),
+        np.power(v[wingFreqs], 2),
+    )
+
+    return sigma
+
+
+def gen_line_profile_mat(
+    nu_ul, f_lu, gamma_ul, dopplerVelocity, spectralRange, temp, mass_species, Nspec
+):
+    """Vectorized gen_line_profile: return all particles' profiles (Npart x Nspec)."""
+    nu = np.linspace(spectralRange[0], spectralRange[1], Nspec)
+
+    dopplerBeta = dopplerVelocity / (3.0 * np.power(10, 5))  # both in km/s
+
+    doppler_freq_shift = nu_ul * (
+        np.sqrt(np.divide(-dopplerBeta + 1, dopplerBeta + 1)) - 1
+    )
+
+    Npart = np.size(dopplerVelocity)
+    v = np.zeros((Npart, Nspec))  # nparticles , nspec
+    v = (
+        np.divide(
+            1
+            - np.power(
+                nu[np.newaxis, :] / (nu_ul + doppler_freq_shift[:, np.newaxis]), 2
+            ),
+            1
+            + np.power(
+                nu[np.newaxis, :] / (nu_ul + doppler_freq_shift[:, np.newaxis]), 2
+            ),
+        )
+        * c
+    )  # in cm/s
+
+    lamda_ul = c / nu_ul
+
+    b = (
+        12.90
+        * np.sqrt(temp * np.power(10.0, -4) / (mass_species / amu))
+        * 1000.0
+        * 100.0
+    )  # cm/s
+    b6 = b / (10.0 * 1000.0 * 100.0)  # b/10 km/s unitless
+
+    prefactor = np.divide(np.sqrt(pi) * (e**2) / (m_e * c) * f_lu * lamda_ul, b)
+
+    z = np.sqrt(10.31 + np.log(7616 / (gamma_ul * lamda_ul) * b6))
+    transition_v = np.abs(b * z)
+
+    coreFreqs = np.abs(v) <= transition_v[:, np.newaxis]
+    wingFreqs = np.abs(v) > transition_v[:, np.newaxis]
+
+    bmat = np.zeros((Npart, Nspec))
+    bmat[:, :] = b[:, np.newaxis]
+    prefactor_mat = np.zeros((Npart, Nspec))
+    prefactor_mat[:, :] = prefactor[:, np.newaxis]
+
+    sigma = np.zeros((Npart, Nspec))
+
+    sigma[coreFreqs] = np.multiply(
+        prefactor_mat[coreFreqs],
+        np.exp(np.divide(-np.power(v[coreFreqs], 2), np.power(bmat[coreFreqs], 2))),
+    )
+    sigma[wingFreqs] = np.divide(
+        np.multiply(
+            prefactor_mat[wingFreqs],
+            (1 / (4 * np.power(pi, 1.5)) * gamma_ul * lamda_ul * bmat[wingFreqs]),
+        ),
+        np.power(v[wingFreqs], 2),
+    )
+
+    return sigma
+
+
+def gen_emission_and_absorption_rates(
+    colDens, T, species, beamRadiusPhysical, calcThermalLevels
+):
+    """Return each particle's emission rate and attenuation cross section (Draine)."""
+    (
+        _mass_species,
+        g_u,
+        g_l,
+        E_u,
+        E_l,
+        A_ul,
+        _gamma_ul,
+        glevels,
+        Elevels,
+        n_u_fraction,
+        n_l_fraction,
+    ) = get_emission_species_parameters(species)
+
+    n_total = pi * np.multiply(colDens, np.power(beamRadiusPhysical, 2))  # unitless
+
+    Nlevels = np.size(Elevels)
+    partitionFunction = np.zeros(np.shape(colDens))
+    for l in range(Nlevels):
+        toAdd = glevels[l] * np.exp(
+            np.divide(-(Elevels[l] - Elevels[0]), kb * T)
+        )  # Unitless
+        partitionFunction += toAdd
+
+    if n_u_fraction is None or calcThermalLevels:
+        n_u = np.multiply(
+            n_total,
+            np.divide(
+                np.exp(np.divide(-(E_u - Elevels[0]), kb * T)) * g_u, partitionFunction
+            ),
+        )  # unitless
+    else:
+        n_u = (
+            n_u_fraction * n_total
+        )  # For species not in thermal equilibrium with entire particle
+
+    if n_l_fraction is None or calcThermalLevels:
+        colDensLower = np.multiply(
+            colDens,
+            np.divide(
+                np.exp(np.divide(-(E_l - Elevels[0]), kb * T)) * g_l, partitionFunction
+            ),
+        ) / np.power(kpc2cm, 2)  # units cm^-2
+    else:
+        colDensLower = n_l_fraction * colDens / np.power(kpc2cm, 2)  # units cm^-2
+
+    nu_ul = (E_u - E_l) / h  # in Hz
+    B_ul = np.power(c, 3) / (8 * np.pi * h * np.power(nu_ul, 3)) * A_ul
+    B_lu = g_u / g_l * B_ul
+    attenuationCrossSection = (
+        h * nu_ul / c * (colDensLower * B_lu)
+    )  # - n_u * B_ul) Ignore stimulated emission for now
+    if np.size(attenuationCrossSection) > 0 and np.min(attenuationCrossSection) < 0:
+        logger.warning(
+            "Negative attenuation cross-section: min colDensLower=%g, B_lu=%s, min colDens=%g",
+            np.min(colDensLower),
+            B_lu,
+            np.min(colDens),
+        )
+
+    upperToLowerRate = n_u * A_ul  # * (1+nbar_gamma) #Hz
+
+    return upperToLowerRate, attenuationCrossSection

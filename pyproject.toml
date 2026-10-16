@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "veryobservablefire"
+version = "0.1.0"
+description = "Generate synthetic telescope observations (spectral datacubes) and matched training labels from FIRE galaxy simulations."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{ name = "Cameron Trapp", email = "ctrapped@gmail.com" }]
+dependencies = [
+    "numpy>=1.22",
+    "scipy>=1.11",
+    "h5py",
+    "matplotlib",
+    "joblib",
+]
+
+[project.optional-dependencies]
+# FITS export and data augmentation (vof-to-fits, vof-augment)
+fits = ["astropy", "unyt"]
+dev = ["ruff", "pytest", "pre-commit"]
+
+[project.scripts]
+vof = "vof.very_observable_fire:main"
+vof-to-fits = "vof.convert_to_fits:main"
+vof-augment = "vof.data_augmentation:main"
+
+[tool.setuptools.packages.find]
+include = ["vof*"]
+
+[tool.setuptools.package-data]
+vof = ["energy_levels/*.txt", "run_sofia_for_vof.sh"]
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+extend-select = [
+    "T20",  # flag print() calls: use the module logger instead (see vof/logging_setup.py)
+    "D1",   # require docstrings on public modules, classes, and functions
+]

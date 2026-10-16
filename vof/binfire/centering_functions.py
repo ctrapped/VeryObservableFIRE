@@ -1,0 +1,192 @@
+"""Centering functions used by Binfire.
+
+Finds the galaxy center (shrinking-sphere fit on the stars), the disk orientation (mean
+angular momentum of the cold, dense gas), and the center-of-mass velocity.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
+import logging
+
+import numpy as np
+
+from vof.binfire.shrinking_sphere import shrink_sphere
+from vof.constants import unit_L
+
+logger = logging.getLogger(__name__)
+
+eps = 1e-10
+
+
+def find_center(
+    pos_center,
+    Gdens,
+    Gpos,
+    Spos,
+    Smas,
+    rshrinksphere,
+    rminsphere,
+    shrinkfactor,
+    shrinking_sphere_flag,
+    old_a=None,
+    v=None,
+    ascale=None,
+    mask_centers=None,
+    mask_radius=None,
+):
+    """Find the galaxy center: densest gas, refined by a shrinking-sphere fit on stars.
+
+    Can also estimate the center by extrapolating from the next snapshot.
+
+    Parameters
+    ----------
+    pos_center : array or None
+        Initial guess of the central position. Defaults to the densest gas particle if
+        None.
+    Gdens, Gpos : array
+        Densities and positions of the gas particles.
+    Spos, Smas : array
+        Positions and masses of the star particles.
+    rshrinksphere : float
+        Initial radius of the shrinking sphere (kpc).
+    rminsphere : float
+        Minimum radius of the shrinking sphere (kpc).
+    shrinkfactor : float
+        Factor the sphere is shrunk by each iteration.
+    shrinking_sphere_flag : int
+        Set to 0 to skip the shrinking sphere and keep the density estimate.
+    old_a, v : float, array, optional
+        Scale factor and central velocity of the next snapshot, to estimate this
+        snapshot's center.
+    ascale : float, optional
+        Scale factor of this snapshot.
+    mask_centers, mask_radius : array, optional
+        Positions and radii to mask out, e.g. to ignore other halos.
+    """
+    if (mask_centers is not None) and (
+        mask_radius is not None
+    ):  # Mask data to ignore a certain halo/galaxy
+        Nmask = np.size(mask_centers) / 3  # Number of mask centers
+        logger.debug("Number of mask centers: %s", Nmask)
+        for ii in range(Nmask):  # Mask multiple positions
+            if Nmask > 1:
+                mask_center = np.zeros(3)
+                mask_center[:] = mask_centers[ii, :]
+            else:
+                mask_center = mask_centers
+            logger.debug("Masking at: %s", mask_center)
+
+            maxima = mask_center + mask_radius
+            minima = mask_center - mask_radius
+            xmax = maxima[0]
+            ymax = maxima[1]
+            zmax = maxima[2]
+            xmin = minima[0]
+            ymin = minima[1]
+            zmin = minima[2]
+            gasMask = np.where(
+                (Gpos[:, 0] < xmax)
+                & (Gpos[:, 0] > xmin)
+                & (Gpos[:, 1] < ymax)
+                & (Gpos[:, 1] > ymin)
+                & (Gpos[:, 2] < zmax)
+                & (Gpos[:, 2] > zmin)
+            )
+            starMask = np.where(
+                (Spos[:, 0] < xmax)
+                & (Spos[:, 0] > xmin)
+                & (Spos[:, 1] < ymax)
+                & (Spos[:, 1] > ymin)
+                & (Spos[:, 2] < zmax)
+                & (Spos[:, 2] > zmin)
+            )
+            Gdens[gasMask] = 0
+            Smas[starMask] = 0
+
+    if (old_a is not None) and (v is not None) and (ascale is not None):
+        delta_pos = v * (ascale - old_a)
+        pos_center = pos_center + delta_pos
+
+    if pos_center is None:
+        tmp_index = np.argmax(Gdens)
+        if not np.isscalar(tmp_index):
+            center_index = tmp_index[0]
+        else:
+            center_index = tmp_index  # in case there are degenerate max densities
+
+        pos_center = Gpos[center_index, :]  # Naive center of sim.
+        logger.debug("Center estimate from density: %s", pos_center)
+
+    r2_S = np.add(
+        np.power(np.subtract(Spos[:, 0], pos_center[0]), 2),
+        np.add(
+            np.power(np.subtract(Spos[:, 1], pos_center[1]), 2),
+            np.power(np.subtract(Spos[:, 2], pos_center[2]), 2),
+        ),
+    )
+    logger.debug("Shape of r2_S: %s", np.shape(r2_S))
+    if np.max(r2_S) < rshrinksphere**2:
+        rshrinksphere = np.sqrt(np.max(r2_S))
+
+    Sidx = np.where(r2_S < rshrinksphere**2)
+    del r2_S  # delete for now for memory, will recalculate with optimized com
+
+    if shrinking_sphere_flag == 1:
+        pos_center = shrink_sphere(
+            Smas[Sidx], Spos[Sidx, :][0], 0, rshrinksphere, rminsphere, shrinkfactor
+        )
+        logger.info("Best estimate of center: %s", pos_center)
+    else:
+        logger.debug("Skipping shrinking sphere")
+        logger.debug("Center at: %s", pos_center)
+    return pos_center
+
+
+def find_angular_momentum(nh, Gpos, Gmom, Gtemp, r2):
+    """Return the unit angular momentum vector of the inner galaxy's cold, dense gas.
+
+    Uses gas below 8000 K, above 1 cm^-3, and within 10 kpc of the center.
+
+    Parameters
+    ----------
+    nh : array
+        Hydrogen number density of the gas particles.
+    Gpos, Gmom : array
+        Positions and momentum vectors of the gas particles.
+    Gtemp : array
+        Temperatures of the gas particles.
+    r2 : array
+        Squared distance of each gas particle from the galactic center.
+    """
+    N = np.size(Gtemp)
+    L = np.zeros((N, 3))  # Initialize Angular Momentum Vector
+
+    logger.debug("Finding orientation of disk")
+    L_avg = np.zeros(3)  # average momentum of central disk
+
+    T_cutoff_L = 8000  # Kelvin
+    dens_cutoff_L = 1 * unit_L**3  # cm^-3
+    r_cutoff_L = 10.0  # kpc for finding the average velocity of the galaxy (averaged over a sphere of radius r_cutoff)
+    L = np.cross(
+        Gpos[(Gtemp < T_cutoff_L) & (nh > dens_cutoff_L) & (r2 < r_cutoff_L**2)],
+        Gmom[(Gtemp < T_cutoff_L) & (nh > dens_cutoff_L) & (r2 < r_cutoff_L**2)],
+    )
+
+    L_avg[0] = np.mean(L[:, 0])
+    L_avg[1] = np.mean(L[:, 1])
+    L_avg[2] = np.mean(L[:, 2])
+
+    L_avg_mag = np.linalg.norm(L_avg)
+    Lhat = np.zeros(3)
+    Lhat[:] = np.divide(L_avg, L_avg_mag)
+    return Lhat
+
+
+def center_of_mass_velocity(mas, vel):
+    """Return the mass-weighted mean velocity of the given particles."""
+    mtot = np.sum(mas)
+    v_com = np.zeros(3)
+    v_com[0] = np.dot(mas, vel[:, 0]) / mtot
+    v_com[1] = np.dot(mas, vel[:, 1]) / mtot
+    v_com[2] = np.dot(mas, vel[:, 2]) / mtot
+    return v_com

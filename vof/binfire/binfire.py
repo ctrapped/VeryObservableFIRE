@@ -1,0 +1,728 @@
+"""Binfire: center a FIRE galaxy and bin its gas into ground-truth maps.
+
+Loads the gas particles from a snapshot. If the snapshot has already been centered, the
+existing stats file is read; otherwise the galactic center, central velocity, and central
+angular momentum are determined and written to a new stats file. The gas is then centered,
+a Cartesian coordinate system is defined with the z-axis along the galaxy's angular
+momentum, and the mass, radial mass flux, and azimuthal mass flux (used for mass-weighted
+rotational velocities) are binned on a Cartesian grid.
+
+Primarily for use with VeryObservableFIRE and CoNNGaFit.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
+import logging
+import os
+import time
+
+import h5py
+import numpy as np
+import scipy
+from scipy import stats
+
+from vof.binfire.centering_functions import (
+    center_of_mass_velocity,
+    find_angular_momentum,
+    find_center,
+)
+from vof.constants import (
+    pi,
+    proton_mass,
+)
+from vof.io.load_data import calc_temps, read_stats
+from vof.io.readsnap_vof import readsnap_initial, readsnap_trunc
+
+logger = logging.getLogger(__name__)
+
+eps = 1e-10
+
+
+def load_gas(
+    snapdir,
+    statsFile,
+    Nsnap,
+    maxima,
+    maskCenter=None,
+    maskRadius=None,
+    rshrinksphere=5000,
+):
+    """
+    Load gas particles in a box around the galaxy center.
+    """
+    Nsnapstring = str(Nsnap)
+
+    max_x = maxima[0]
+
+    G0 = readsnap_initial(
+        snapdir,
+        Nsnapstring,
+        0,
+        snapshot_name="snapshot",
+        extension=".hdf5",
+        h0=1,
+        cosmological=1,
+        load_density=True,
+    )  # Gas, only load position and density
+
+    densityMask = None
+    if maskCenter is not None and maskRadius is not None:
+        maskRmag = np.linalg.norm(np.subtract(G0["p"], maskCenter), axis=1)
+        densityMask = np.where(maskRmag > maskRadius)[0]
+
+    shrinking_sphere_flag = 0
+    if statsFile is not None:
+        if os.path.isfile(statsFile):
+            pos_center, _vel_center, _Lhat, _r_0, _ = read_stats(statsFile)
+        else:
+            pos_center = None
+            shrinking_sphere_flag = 1
+            logger.info(
+                "No stats file for this snapshot; running shrinking-sphere centering (slow: loads a ~%d kpc region)",
+                rshrinksphere,
+            )
+
+    if shrinking_sphere_flag:
+        rTrunc = rshrinksphere  # Only load relevant data
+    else:
+        rTrunc = 1.5 * max_x
+
+    if pos_center is None:
+        if densityMask is None:
+            tmp_index = np.argmax(G0["rho"])
+            if not np.isscalar(tmp_index):
+                center_index = tmp_index[0]
+                logger.warning(
+                    "%d particles share the maximum density; using the first",
+                    np.size(tmp_index),
+                )
+            else:
+                center_index = tmp_index  # in case there are degenerate max densities
+
+            pos_center = G0["p"][center_index, :]  # Naive center of sim.
+            logger.debug("Center estimate from density: %s", pos_center)
+        else:
+            tmp_index = np.argmax(G0["rho"][densityMask])
+            if not np.isscalar(tmp_index):
+                center_index = tmp_index[0]
+                logger.warning(
+                    "%d particles share the maximum density; using the first",
+                    np.size(tmp_index),
+                )
+            else:
+                center_index = tmp_index  # in case there are degenerate max densities
+
+            pos_center = G0["p"][densityMask, :][
+                center_index, :
+            ]  # Naive center of sim.
+            logger.debug("Center estimate from density: %s", pos_center)
+
+    truncMax = np.zeros(3)
+    truncMin = np.zeros(3)
+    truncMax[0] = pos_center[0] + rTrunc
+    truncMax[1] = pos_center[1] + rTrunc
+    truncMax[2] = pos_center[2] + rTrunc
+    truncMin[0] = pos_center[0] - rTrunc
+    truncMin[1] = pos_center[1] - rTrunc
+    truncMin[2] = pos_center[2] - rTrunc
+
+    truncMask = (
+        (G0["p"][:, 0] < truncMax[0])
+        & (G0["p"][:, 0] > truncMin[0])
+        & (G0["p"][:, 1] < truncMax[1])
+        & (G0["p"][:, 1] > truncMin[1])
+        & (G0["p"][:, 2] < truncMax[2])
+        & (G0["p"][:, 2] > truncMin[2])
+    )
+    G0["p"] = G0["p"][truncMask]
+    G0["rho"] = G0["rho"][truncMask]
+    G = readsnap_trunc(
+        snapdir,
+        Nsnapstring,
+        0,
+        truncMask,
+        snapshot_name="snapshot",
+        extension=".hdf5",
+        h0=1,
+        cosmological=1,
+        load_density=False,  # already loaded by readsnap_initial above
+        load_ids=False,
+    )  # Gas, only load truncated data
+
+    G["temp"] = calc_temps(
+        G["u"], G["ne"], G["z"]
+    )  # Precompute once here; reused by run_binfire/load_masked_data_for_image_gen instead of recomputing
+
+    return G | G0  # Return all data
+
+
+def run_binfire(
+    snapdir,
+    statsFile,
+    particles,
+    Nsnap,
+    output,
+    maxima,
+    Nbins,
+    tempMin=None,
+    tempMax=None,
+    densMin=None,
+    densMax=None,
+    phasetag=None,
+    rshrinksphere=5000,
+    rminsphere=10,
+    shrinkfactor=0.7,
+    inclination=None,
+    position_angle=None,
+    maskCenter=None,
+    maskRadius=None,
+    project_gas_properties=False,
+):
+    """Center and orient the galaxy, then bin its gas into ground-truth maps.
+
+    Bins for one orientation and writes the stats file if missing. Returns the
+    per-particle momenta instead if project_gas_properties is set.
+    """
+    Nsnapstring = str(Nsnap)
+    shrinking_sphere_flag = 0
+    writeStatsFile = False
+
+    # Analyze All Gas by Default
+    if tempMin is None:
+        tempMin = [None]
+    if tempMax is None:
+        tempMax = [None]
+    if densMin is None:
+        densMin = [None]
+    if densMax is None:
+        densMax = [None]
+    if phasetag is None:
+        phasetag = ["AG"]
+
+    if statsFile is not None:
+        if os.path.isfile(statsFile):
+            pos_center, vel_center, Lhat, r_0, _ = read_stats(statsFile)
+            logger.debug(
+                "From stats file: pos_center=%s, vel_center=%s, Lhat=%s",
+                pos_center,
+                vel_center,
+                Lhat,
+            )
+        else:
+            writeStatsFile = True
+            r_0 = None
+            pos_center = None
+            vel_center = None
+            Lhat = None
+            shrinking_sphere_flag = 1
+
+    # Resolution Information
+    max_x = maxima[0]
+    max_y = maxima[1]
+    max_vel = maxima[2] / 2.0
+    max_z = maxima[2]
+    nx, ny, nvel = Nbins
+
+    if np.size(np.shape(densMin)) == 0:
+        densMin = [densMin]
+    if np.size(np.shape(densMax)) == 0:
+        densMax = [densMax]
+    if np.size(np.shape(tempMin)) == 0:
+        tempMin = [tempMin]
+    if np.size(np.shape(tempMax)) == 0:
+        tempMax = [tempMax]
+
+    needToCenter = False
+    if (pos_center is None) or (vel_center is None):
+        needToCenter = True
+
+    # Read in Header and Data
+    logger.debug("Snapshot directory: %s", snapdir)
+    header = readsnap_initial(
+        snapdir,
+        Nsnapstring,
+        0,
+        snapshot_name="snapshot",
+        extension=".hdf5",
+        h0=1,
+        cosmological=1,
+        header_only=1,
+    )
+    ascale = header["time"]
+
+    # Read the snapshots
+    # Already accounts for factors of h, but not the hubble flow
+    Gpos = particles["p"]
+    Gdens = particles["rho"]
+    if needToCenter:
+        densityMask = None
+        if maskCenter is not None and maskRadius is not None:
+            maskRmag = np.linalg.norm(np.subtract(Gpos, maskCenter), axis=1)
+            densityMask = np.where(maskRmag > maskRadius)[0]
+
+        if pos_center is None:
+            if densityMask is None:
+                tmp_index = np.argmax(Gdens)
+                if not np.isscalar(tmp_index):
+                    center_index = tmp_index[0]
+                    logger.warning(
+                        "%d particles share the maximum density; using the first",
+                        np.size(tmp_index),
+                    )
+                else:
+                    center_index = (
+                        tmp_index  # in case there are degenerate max densities
+                    )
+
+                pos_center = Gpos[center_index, :]  # Naive center of sim.
+                logger.debug("Center estimate from density: %s", pos_center)
+            else:
+                tmp_index = np.argmax(Gdens[densityMask])
+                if not np.isscalar(tmp_index):
+                    center_index = tmp_index[0]
+                    logger.warning(
+                        "%d particles share the maximum density; using the first",
+                        np.size(tmp_index),
+                    )
+                else:
+                    center_index = (
+                        tmp_index  # in case there are degenerate max densities
+                    )
+
+                pos_center = Gpos[densityMask, :][
+                    center_index, :
+                ]  # Naive center of sim.
+                logger.debug("Center estimate from density: %s", pos_center)
+
+    if shrinking_sphere_flag:
+        rTrunc = rshrinksphere  # Only load relevant data
+    else:
+        rTrunc = 1.5 * max_x
+    truncMax = np.zeros(3)
+    truncMin = np.zeros(3)
+    truncMax[0] = pos_center[0] + rTrunc
+    truncMax[1] = pos_center[1] + rTrunc
+    truncMax[2] = pos_center[2] + rTrunc
+    truncMin[0] = pos_center[0] - rTrunc
+    truncMin[1] = pos_center[1] - rTrunc
+    truncMin[2] = pos_center[2] - rTrunc
+
+    Gloaded = False
+    Sloaded = False
+    DMloaded = False
+
+    t1 = time.time()
+    truncMask = (
+        (Gpos[:, 0] < truncMax[0])
+        & (Gpos[:, 0] > truncMin[0])
+        & (Gpos[:, 1] < truncMax[1])
+        & (Gpos[:, 1] > truncMin[1])
+        & (Gpos[:, 2] < truncMax[2])
+        & (Gpos[:, 2] > truncMin[2])
+    )
+    Gpos = Gpos[truncMask]
+    Gdens = Gdens[truncMask]
+
+    Gvel = particles["v"]  # Velocities
+    Gmas = particles["m"]  # masses
+    Gz = particles["z"]  # metallicities
+    if "temp" in particles:
+        Gtemp = particles["temp"]
+    else:
+        Gtemp = calc_temps(particles["u"], particles["ne"], Gz)
+    N = np.size(Gmas)  # Number of Gas Particles
+    Gloaded = True
+    logger.debug("Time to load gas: %.2f s", time.time() - t1)
+
+    if (
+        needToCenter
+    ):  ###Load dark matter and star particles only if needed for centering
+        t1 = time.time()
+        DM = readsnap_initial(
+            snapdir,
+            Nsnapstring,
+            1,
+            snapshot_name="snapshot",
+            extension=".hdf5",
+            h0=1,
+            cosmological=1,
+        )  # Dark Matter, only load position
+        DMpos = DM["p"]
+        truncMask = (
+            (DMpos[:, 0] < truncMax[0])
+            & (DMpos[:, 0] > truncMin[0])
+            & (DMpos[:, 1] < truncMax[1])
+            & (DMpos[:, 1] > truncMin[1])
+            & (DMpos[:, 2] < truncMax[2])
+            & (DMpos[:, 2] > truncMin[2])
+        )
+        DMpos = DMpos[truncMask]
+
+        DM = readsnap_trunc(
+            snapdir,
+            Nsnapstring,
+            1,
+            truncMask,
+            snapshot_name="snapshot",
+            extension=".hdf5",
+            h0=1,
+            cosmological=1,
+        )  # Dark Matter, only load truncated data
+        DMmas = DM["m"]
+        DMvel = DM["v"]
+        del DM
+        DMloaded = True
+        logger.debug("Time to load dark matter: %.2f s", time.time() - t1)
+
+        t1 = time.time()
+        S = readsnap_initial(
+            snapdir,
+            Nsnapstring,
+            4,
+            snapshot_name="snapshot",
+            extension=".hdf5",
+            h0=1,
+            cosmological=1,
+        )  # Stars, only load position
+        Spos = S["p"]
+        truncMask = (
+            (Spos[:, 0] < truncMax[0])
+            & (Spos[:, 0] > truncMin[0])
+            & (Spos[:, 1] < truncMax[1])
+            & (Spos[:, 1] > truncMin[1])
+            & (Spos[:, 2] < truncMax[2])
+            & (Spos[:, 2] > truncMin[2])
+        )
+        Spos = Spos[truncMask]
+
+        S = readsnap_trunc(
+            snapdir,
+            Nsnapstring,
+            4,
+            truncMask,
+            snapshot_name="snapshot",
+            extension=".hdf5",
+            h0=1,
+            cosmological=1,
+        )  # Stars Matter, only load truncated data
+        Svel = S["v"]
+        Smas = S["m"]
+
+        del S
+        del truncMask
+        Sloaded = True
+        logger.debug("Time to load stars: %.2f s", time.time() - t1)
+
+        t1 = time.time()
+
+        if maskCenter is not None and maskRadius is not None:
+            maskRmag = np.linalg.norm(np.subtract(Spos, maskCenter), axis=1)
+            Smas = Smas[(maskRmag > maskRadius)]
+            Spos = Spos[(maskRmag > maskRadius), :]
+            Svel = Svel[(maskRmag > maskRadius), :]
+
+        pos_center = find_center(
+            pos_center,
+            Gdens,
+            Gpos,
+            Spos,
+            Smas,
+            rshrinksphere,
+            rminsphere,
+            shrinkfactor,
+            shrinking_sphere_flag,
+        )
+        logger.debug("Time to center: %.2f s", time.time() - t1)
+
+    if Gloaded:
+        Gpos -= pos_center  # Shift to Galactic Frame
+        r2 = np.add(
+            np.power(Gpos[:, 0], 2),
+            np.add(np.power(Gpos[:, 1], 2), np.power(Gpos[:, 2], 2)),
+        )  # find distance of particles from center
+    if DMloaded:
+        r2_DM = np.add(
+            np.power(np.subtract(DMpos[:, 0], pos_center[0]), 2),
+            np.add(
+                np.power(np.subtract(DMpos[:, 1], pos_center[1]), 2),
+                np.power(np.subtract(DMpos[:, 2], pos_center[2]), 2),
+            ),
+        )
+        del DMpos
+    if Sloaded:
+        r2_S = np.add(
+            np.power(np.subtract(Spos[:, 0], pos_center[0]), 2),
+            np.add(
+                np.power(np.subtract(Spos[:, 1], pos_center[1]), 2),
+                np.power(np.subtract(Spos[:, 2], pos_center[2]), 2),
+            ),
+        )
+
+    if vel_center is None:
+        t1 = time.time()
+        Sidx = (
+            r2_S < 15**2
+        )  # Find where the stars are within 15kpc of center to calculate velocity of center
+        DMidx = r2_DM < 15**2
+
+        vel_center = center_of_mass_velocity(
+            np.concatenate((Smas[Sidx], DMmas[DMidx]), 0),
+            np.concatenate((Svel[Sidx, :], DMvel[DMidx, :]), 0),
+        )
+        logger.debug("Time to find vel_center: %.2f s", time.time() - t1)
+
+    logger.debug("Best estimate of center velocity: %s", vel_center)
+
+    if Gloaded:
+        Gvel -= vel_center
+    if needToCenter:
+        del Smas
+        del Svel
+        del DMvel
+        del r2_DM
+        del r2_S
+
+        # Calculate momenta
+    Gmom = np.zeros((N, 3))
+    Gmom[:, 0] = np.multiply(Gmas, Gvel[:, 0])  # Calculate each Momentum component
+    Gmom[:, 1] = np.multiply(Gmas, Gvel[:, 1])
+    Gmom[:, 2] = np.multiply(Gmas, Gvel[:, 2])
+    del Gvel  # Delete for memory, work only in momentum from here out
+
+    nh = find_densities(Gz, Gdens)  # Calculate Density
+    if Lhat is None:
+        t1 = time.time()
+        Lhat = find_angular_momentum(
+            nh, Gpos, Gmom, Gtemp, r2
+        )  # Find orientation of the Disk
+        logger.debug("Time to find Lhat: %.2f s", time.time() - t1)
+
+    t1 = time.time()
+    N = np.size(Gmas)
+
+    r_z = np.zeros((N, 3))
+    r_s = np.zeros((N, 3))
+
+    smag = np.zeros(N)
+    zmag = np.zeros(N)
+
+    logger.debug("Finding velocity components")
+    Lhat_forStats = np.copy(Lhat)
+    zmag = np.dot(Gpos, Lhat_forStats)
+    r_z[:, 0] = zmag * Lhat[0]
+    r_z[:, 1] = zmag * Lhat[1]
+    r_z[:, 2] = zmag * Lhat[2]
+
+    r_s = np.subtract(Gpos, r_z)
+    smag = np.linalg.norm(r_s, axis=1)
+    smag[smag == 0] = eps  # make zero entries epsilon for division purposes
+
+    N = np.size(smag)  # Redefine number of particles we are looking at
+
+    s_hat = np.zeros((N, 3))
+    r_hat = np.zeros((N, 3))
+
+    s_hat[:, 0] = np.divide(r_s[:, 0], smag)
+    s_hat[:, 1] = np.divide(r_s[:, 1], smag)
+    s_hat[:, 2] = np.divide(r_s[:, 2], smag)
+
+    rmag = np.linalg.norm(Gpos, axis=1)
+    r_hat[:, 0] = np.divide(Gpos[:, 0], rmag)
+    r_hat[:, 1] = np.divide(Gpos[:, 1], rmag)
+    r_hat[:, 2] = np.divide(Gpos[:, 2], rmag)
+
+    # Add hubble flow
+    Gmom[:, 0] = np.add(
+        Gmom[:, 0], 0.07 * np.multiply(rmag, np.multiply(r_hat[:, 0], Gmas))
+    )
+    Gmom[:, 1] = np.add(
+        Gmom[:, 1], 0.07 * np.multiply(rmag, np.multiply(r_hat[:, 1], Gmas))
+    )
+    Gmom[:, 2] = np.add(
+        Gmom[:, 2], 0.07 * np.multiply(rmag, np.multiply(r_hat[:, 2], Gmas))
+    )
+
+    phi = np.zeros(N)
+    if r_0 is None:
+        logger.debug("Defining r0")
+        r_0 = np.zeros(3)
+        r_0[:] = r_s[0, :] / np.linalg.norm(r_s[0, :])
+    else:
+        r_0 = r_0 - np.dot(r_0, Lhat) * Lhat  # project onto current disk
+        r_0 = r_0 / np.linalg.norm(r_0)  # make unit vector
+
+    logger.debug("r0 = %s", r_0)
+    r_0_forStats = np.copy(r_0)
+    Lhat_forStats = np.copy(Lhat)
+    smag = np.linalg.norm(r_s, axis=1)
+    smag[smag == 0] = eps  # make zero entries epsilon for division purposes
+    acos_term = np.divide(np.dot(r_s, r_0), (np.linalg.norm(r_0) * smag))
+    acos_term[acos_term > 1] = (
+        1  # make sure the term isn't above magnitude 1 by a rounding error
+    )
+    acos_term[acos_term < -1] = -1
+    phi0 = np.multiply(
+        np.arccos(acos_term), np.sign(np.dot(np.cross(r_0, r_s), Lhat))
+    )  # first term gets us |phi| from 0 to pi, second term gives us the sign
+    del acos_term
+
+    Lhat = -Lhat
+
+    phi0[phi0 < 0] = phi0[phi0 < 0] + 2 * pi  # make all values range from 0 to pi
+
+    if inclination is not None:
+        rotation_axis = -Lhat
+        rotation_vector = (np.pi + position_angle * np.pi / 180.0) * rotation_axis
+        rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
+        r_0 = rotation.apply(r_0)
+
+        # Update phi0. Do before inclination rotation?
+        acos_term = np.divide(np.dot(r_s, r_0), (np.linalg.norm(r_0) * smag))
+        acos_term[acos_term > 1] = (
+            1  # make sure the term isn't above magnitude 1 by a rounding error
+        )
+        acos_term[acos_term < -1] = -1
+        phi0 = np.multiply(
+            np.arccos(acos_term), np.sign(np.dot(np.cross(r_0, r_s), Lhat))
+        )  # first term gets us |phi| from 0 to pi, second term gives us the sign
+        del acos_term
+
+        rotation_axis = np.cross(Lhat, r_0)
+
+        rotation_vector = (90.0 + inclination) * np.pi / 180.0 * rotation_axis
+        rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
+
+        Lhat = rotation.apply(Lhat)
+        r_0 = rotation.apply(r_0)
+
+        r_z[:, 0] = np.dot(Gpos, Lhat) * Lhat[0]
+        r_z[:, 1] = np.dot(Gpos, Lhat) * Lhat[1]
+        r_z[:, 2] = np.dot(Gpos, Lhat) * Lhat[2]
+
+        r_s_tmp = np.subtract(Gpos, r_z)
+        smag_rot = np.linalg.norm(r_s_tmp, axis=1)
+        smag_rot[smag_rot == 0] = eps  # make zero entries epsilon for division purposes
+
+    acos_term = np.divide(np.dot(r_s_tmp, r_0), (np.linalg.norm(r_0) * smag_rot))
+    acos_term[acos_term > 1] = (
+        1  # make sure the term isn't above magnitude 1 by a rounding error
+    )
+    acos_term[acos_term < -1] = -1
+    phi = np.multiply(
+        np.arccos(acos_term), np.sign(np.dot(np.cross(r_0, r_s_tmp), Lhat))
+    )  # first term gets us |phi| from 0 to pi, second term gives us the sign
+    del acos_term
+
+    phi[phi < 0] = phi[phi < 0] + 2 * pi  # make all values range from 0 to 2 pi
+
+    Gmom_r = np.add(
+        np.multiply(Gmom[:, 0], r_hat[:, 0]),
+        np.add(
+            np.multiply(Gmom[:, 1], r_hat[:, 1]), np.multiply(Gmom[:, 2], r_hat[:, 2])
+        ),
+    )
+    Gmom_s = np.add(
+        np.multiply(Gmom[:, 0], s_hat[:, 0]),
+        np.add(
+            np.multiply(Gmom[:, 1], s_hat[:, 1]), np.multiply(Gmom[:, 2], s_hat[:, 2])
+        ),
+    )
+
+    angMom = np.cross(Gpos, Gmom)
+    Lz = (
+        np.multiply(angMom[:, 0], Lhat_forStats[0])
+        + np.multiply(angMom[:, 1], Lhat_forStats[1])
+        + np.multiply(angMom[:, 2], Lhat_forStats[2])
+    )
+
+    Gmom_phi = np.divide(Lz, rmag)
+    del r_z
+    del r_s
+    del Lz
+    logger.debug("Time to convert to disk coordinates: %.2f s", time.time() - t1)
+
+    if writeStatsFile:
+        stats_dir = os.path.dirname(statsFile)
+        if stats_dir:
+            os.makedirs(stats_dir, exist_ok=True)
+        hf_stats = h5py.File(statsFile, "w")
+        hf_stats.create_dataset("pos_center", data=pos_center)
+        hf_stats.create_dataset("r0", data=r_0_forStats)
+        hf_stats.create_dataset("Lhat", data=Lhat_forStats)
+        hf_stats.create_dataset("vel_center", data=vel_center)
+        hf_stats.create_dataset("max_x", data=max_x)
+        hf_stats.create_dataset("max_y", data=max_y)
+        hf_stats.create_dataset("max_vel", data=max_vel)
+        hf_stats.create_dataset("max_z", data=max_z)
+        hf_stats.create_dataset("nx", data=nx)
+        hf_stats.create_dataset("ny", data=ny)
+        hf_stats.create_dataset("nvel", data=nvel)
+        hf_stats.create_dataset("ascale", data=ascale)
+        hf_stats.close()
+
+    if project_gas_properties:
+        return Gmom_r, Gmom_s, Gmom_phi
+
+    # Sort into bins
+    logger.info("Binning annotation maps")
+    xmag = np.multiply(smag_rot, np.cos(phi))
+    ymag = np.multiply(smag_rot, np.sin(phi))
+
+    N = np.size(smag_rot)
+
+    sample_cart = np.zeros((N, 2))
+    sample_cart[:, 0] = xmag
+    sample_cart[:, 1] = ymag
+
+    t1 = time.time()
+
+    op = "sum"
+
+    gInc = (
+        np.arctan2(zmag, smag + eps) * 180.0 / pi * np.sign(np.cos(phi0)) + inclination
+    )
+    gInc[smag == 0] = 0
+
+    binRange = [[-max_x, max_x], [-max_y, max_y]]
+
+    heightMask = np.where(np.abs(zmag) < max_z)[0]
+
+    binned_mass_3d_cart, _binedge, _binnum = stats.binned_statistic_dd(
+        sample_cart[heightMask, :], Gmas[heightMask], op, [nx, ny], range=binRange
+    )
+    binned_mom_r_cart, _binedge, _binnum = stats.binned_statistic_dd(
+        sample_cart[heightMask, :], Gmom_r[heightMask], op, [nx, ny], range=binRange
+    )
+    binned_mom_s_cart, _binedge, _binnum = stats.binned_statistic_dd(
+        sample_cart[heightMask, :], Gmom_s[heightMask], op, [nx, ny], range=binRange
+    )
+    binned_mom_phi_cart, _binedge, _binnum = stats.binned_statistic_dd(
+        sample_cart[heightMask, :], Gmom_phi[heightMask], op, [nx, ny], range=binRange
+    )
+    binned_mom_s_curve, _binedge, _binnum = stats.binned_statistic_dd(
+        rmag[heightMask], Gmom_s[heightMask], op, [nx], range=[[0, max_x]]
+    )
+
+    return (
+        binned_mass_3d_cart,
+        binned_mom_r_cart,
+        binned_mom_phi_cart,
+        binned_mom_s_cart,
+        binned_mom_s_curve,
+    )
+
+
+def find_densities(Gz, Gdens):
+    """Return each gas particle's hydrogen number density.
+
+    Computed from its density and its metal and helium mass fractions.
+    """
+    N = np.size(Gz[:, 0])
+    # Find particle densities
+    nh = np.zeros(N)
+    h_massfrac = np.ones(N)
+    h_massfrac = np.subtract(
+        h_massfrac, np.add(Gz[:, 0], Gz[:, 1])
+    )  # 1 - mass frac of metals - mass frac of helium
+    nh = np.divide(np.multiply(Gdens, h_massfrac), proton_mass)
+    return nh

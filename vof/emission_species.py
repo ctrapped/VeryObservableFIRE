@@ -1,0 +1,137 @@
+"""Emission-line parameters used to generate emission and absorption.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
+from pathlib import Path
+
+import numpy as np
+
+from vof.constants import (
+    atomsPerMol,
+    unit_M,
+)
+
+NAI_ENERGY_LEVELS_FILE = (
+    Path(__file__).parent / "energy_levels" / "NIST_NaI_EnergyLevels.txt"
+)
+
+
+eps = 1e-20
+
+
+def get_emission_species_parameters(speciesName):
+    """Return the line parameters for an emission species.
+
+    Mass, degeneracies, energies, transition rates, and level populations. Raises
+    ValueError for a species that isn't defined.
+    """
+    n_u_fraction = None
+    n_l_fraction = None
+    if speciesName == "h_alpha":
+        # n = 3 ---> n = 2
+        species_mass = 1.6735575 * np.power(10.0, -24) / unit_M  # grams to unit mass
+        g_upper = 9.0
+        g_lower = 4.0
+        E_upper = -1.5  # leave as eV for now
+        E_lower = -3.4
+        A_21 = 6.2649 * np.power(10.0, 8) + 4.6986 * np.power(10.0, 8)  # Hz
+        A_31 = (1.6725 + 0.55751 + 1.6725 + 6.2648) * np.power(10.0, 8)
+        A_32 = 4.410 * np.power(10, 7)  # Hz
+        gamma_ul = A_32 + A_31 + A_21
+        A_ul = A_32
+        Nlevels = 100
+        E0 = 13.6  # leave as eV for now
+        Glevels = np.power(np.array(range(1, Nlevels)), 2)
+        Elevels = np.divide(-E0, Glevels)
+
+    elif speciesName == "HI_21cm":
+        # Hyperfine splitting
+        species_mass = 1.6735575 * np.power(10.0, -24) / unit_M  # grams to unit mass
+        g_upper = 3
+        g_lower = 1
+        E_upper = -13.6 + 5.87433 * np.power(10.0, -6.0)  # eV
+        E_lower = -13.6
+        A_10 = 2.85 * np.power(10.0, -15.0)  # Hz
+        gamma_ul = A_10  # Need to consider other transitions??
+        A_ul = A_10
+        Elevels = np.array([E_lower, E_upper])
+        Glevels = np.array(
+            [g_lower, g_upper]
+        )  # Safe to simplify as 2 state system? Gas emitting this should be cold anyway. May need to expand on this if hot gas emitting too much?
+        n_u_fraction = 0.75
+        n_l_fraction = 0.25
+
+    elif speciesName == "NaI_D1":
+        # 2p^6 3p - > 2p^6 3s 5889.9
+        species_mass = 22.98977 / atomsPerMol / unit_M  # amu to g to unit mass
+        g_upper = 3
+        g_lower = 1
+        E_upper = 2.102297159
+        E_lower = 0
+        A_ps = 6.16 * np.power(10.0, 7)
+
+        gamma_ul = A_ps  # s is ground state, p is first excited state
+        A_ul = A_ps
+        Elevels, Glevels = read_nist_energy_levels(NAI_ENERGY_LEVELS_FILE)
+    elif speciesName == "NaI_D2":
+        # 2p^6 3p - > 2p^6 3s 5889.9
+        species_mass = 22.98977 / atomsPerMol / unit_M  # amu to g to unit mass
+        g_upper = 3
+        g_lower = 1
+        E_upper = 2.104429184
+        E_lower = 0
+        A_ps = 6.14 * np.power(10.0, 7)
+
+        gamma_ul = A_ps  # s is ground state, p is first excited state
+        A_ul = A_ps
+        Elevels, Glevels = read_nist_energy_levels(NAI_ENERGY_LEVELS_FILE)
+    else:
+        raise ValueError(f"Emission parameters for {speciesName!r} are not defined")
+
+    return (
+        species_mass,
+        g_upper,
+        g_lower,
+        E_upper,
+        E_lower,
+        A_ul,
+        gamma_ul,
+        Glevels,
+        Elevels,
+        n_u_fraction,
+        n_l_fraction,
+    )
+
+
+def read_nist_energy_levels(filedir):
+    """Read (energies, degeneracies) from a NIST energy-levels file."""
+    fullFile = Path(filedir).read_text()
+    lines = fullFile.split("\n")
+
+    Elevels = np.zeros(np.size(lines) - 1)
+    Glevels = np.copy(Elevels)
+
+    i = -1
+    for line in lines:
+        entries = line.split("\t")
+
+        if i > -1:
+            if np.size(entries) > 3:
+                energy = entries[3]
+                energy = energy[1 : len(energy) - 1]
+
+                if energy[0] == "[":
+                    energy = energy[1 : len(energy) - 1]
+                i += 1
+                Elevels[i] = float(energy)
+                Glevels[i] = (
+                    1  # should just list degenerate energy levels multiple times
+                )
+        else:
+            i += 1
+
+    Elevels = Elevels[Glevels > 0]
+    Glevels = Glevels[Glevels > 0]
+
+    return Elevels, Glevels

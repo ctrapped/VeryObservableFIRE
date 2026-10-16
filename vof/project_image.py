@@ -1,0 +1,514 @@
+"""Form the synthetic spectral datacube for one observer orientation.
+
+Two methods are available:
+
+- Optically thin projection (deposit_particles): deposits each particle's emission onto
+  the pixel grid, smoothed by a spherical kernel, using sparse stamping for small kernels
+  and FFT convolution for large ones.
+- Full spectral synthesis (gen_sightline): defines the vector, overlapping particles, and
+  effective column densities for each sightline, then calculates the emission and
+  absorption from each particle along it, with sightlines run in parallel.
+
+The cube is then smoothed to the target beam size and has noise added.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
+import logging
+import math
+import multiprocessing
+import time
+from functools import partial
+
+import numpy as np
+import scipy
+from joblib import Parallel, delayed
+from scipy.fft import irfft2, next_fast_len, rfft2
+from scipy.sparse import coo_matrix, csr_matrix
+
+from vof.calc_rotation_curve import calc_rotation_curve
+from vof.calc_sightline_spectrum import calc_sightline_spectrum
+from vof.constants import (
+    pi,
+)
+from vof.generate_spectra import generate_spectra
+from vof.io.load_data import load_data, read_stats
+from vof.orient_galaxy import center_on_observer, orient_galaxy
+
+logger = logging.getLogger(__name__)
+
+
+eps = 1e-20
+
+
+def gen_sightline(
+    thread_id,
+    Nsightlines_1d,
+    sightlines,
+    gPos,
+    gVel,
+    gKernel,
+    gMas,
+    gTemp,
+    speciesMassFrac,
+    beamSize,
+    speciesToRun,
+    Nspec,
+    bandwidth,
+    rObserver,
+):
+    """Return the emission spectrum for one sightline (pixel thread_id)."""
+    ix = thread_id % Nsightlines_1d  # Thread pixel coordinates
+    iy = int(np.floor(thread_id / Nsightlines_1d))
+    t0 = time.time()
+    _spectrum, emission = calc_sightline_spectrum(
+        sightlines[ix, iy, :],
+        gPos,
+        gVel,
+        gKernel,
+        gMas,
+        gTemp,
+        speciesMassFrac,
+        beamSize,
+        speciesToRun,
+        Nspec,
+        bandwidth,
+        rObserver,
+        calcThermalLevels=False,
+    )
+    logger.debug("Finished sightline [%d, %d] in %.2f s", ix, iy, time.time() - t0)
+    return emission
+
+
+def sphere_kernel(d):
+    """Return the (2d+1)x(2d+1) projected-sphere smoothing kernel (d in pixels)."""
+    if d == 0:
+        return np.ones((1, 1))
+    c = np.arange(-d, d + 1)
+    return np.sqrt(np.clip(d**2 - (c[:, None] ** 2 + c[None, :] ** 2), 0, None)) / d
+
+
+def deposit_particles(
+    gPos,
+    gVel,
+    gKernel,
+    gMas,
+    gTemp,
+    speciesMassFrac,
+    Nsightlines_1d,
+    beamSize,
+    speciesToRun,
+    Nspec,
+    bandwidth,
+    rObserver,
+    max_r,
+    projectGasProperties=False,
+    gRmom=None,
+    gSmom=None,
+    gRotMom=None,
+    minKernelSanityCheck=1.0,
+):
+    """Optically thin projection: deposit each particle's emission onto the grid.
+
+    Each particle is smoothed by a spherical kernel. Also returns projected mass
+    and momentum maps if projectGasProperties is set.
+    """
+    pixel_size_physical = 2 * max_r / Nsightlines_1d
+
+    # Already rotated
+    zmag = gPos[:, 0]
+    xmag = gPos[:, 2]
+    ymag = gPos[:, 1]
+
+    impact = np.zeros_like(gMas)  # Assume dead center, will be smoothed later
+
+    fx = (xmag / max_r + 1) / 2 * Nsightlines_1d
+    fy = (ymag / max_r + 1) / 2 * Nsightlines_1d
+    pixel_coords_x = np.floor(fx).astype(int)
+    pixel_coords_y = np.floor(fy).astype(int)
+    mask = (
+        (pixel_coords_x >= 0)
+        & (pixel_coords_x < Nsightlines_1d)
+        & (pixel_coords_y >= 0)
+        & (pixel_coords_y < Nsightlines_1d)
+    )
+
+    if not np.any(mask):
+        raise ValueError(
+            "No particles fall within the image bounds -- centering is likely incorrect."
+        )
+
+    minKernel = np.min(gKernel[mask])
+    if minKernel > minKernelSanityCheck:
+        raise ValueError(
+            f"Smallest particle smoothing length in the image is {minKernel:.3f} kpc (> {minKernelSanityCheck} kpc) -- centering is likely incorrect."
+        )
+
+    dopplerVelocity = gVel[mask][:, 0]
+    dopplerVelocity = np.add(
+        dopplerVelocity, (zmag[mask] - rObserver) * 0.07
+    )  # kpc * km/s /kpc, Hubble flow but still centered on galaxy
+
+    distance = np.copy(zmag[mask])
+    distance[distance == 0] = eps
+
+    _spectrum, emission, _tau, _nu = generate_spectra(
+        gMas[mask],
+        speciesMassFrac[mask],
+        dopplerVelocity,
+        gKernel[mask],
+        gTemp[mask],
+        distance,
+        impact[mask],
+        speciesToRun,
+        beamSize,
+        Nspec,
+        bandwidth,
+        calcThermalLevels=False,
+        calcChordLength=False,
+        return_sightline=False,
+    )
+
+    N = Nsightlines_1d
+    Npix = N * N
+
+    px = pixel_coords_x[mask]
+    py = pixel_coords_y[mask]
+    dx = np.round(gKernel[mask] / pixel_size_physical - 0.5).astype(
+        np.int64
+    )  # pixelized smoothing
+
+    order = np.argsort(dx, kind="stable")
+    dx_s, px_s, py_s = dx[order], px[order], py[order]
+    em_s = emission[order]
+
+    if projectGasProperties:
+        props_s = np.stack(
+            [gMas[mask], gRmom[mask], gSmom[mask], gRotMom[mask]], axis=1
+        )[order]  # properties to project
+
+    dx_vals, starts, counts = np.unique(
+        dx_s, return_index=True, return_counts=True
+    )  # Unique smoothing groups
+
+    stamp_threshold = 5 * Npix
+    rows_l, cols_l, vals_l = [], [], []
+    conv_groups = []
+
+    logger.debug(
+        "Depositing particles onto the pixel grid for dx_vals=%s:%s",
+        np.min(dx_vals),
+        np.max(dx_vals),
+    )
+    for d, s, n in zip(dx_vals, starts, counts):
+        logger.debug("Depositing d=%s with %d particles", d, n)
+        k = sphere_kernel(d)
+        if projectGasProperties:
+            props_s[s : s + n] /= k.sum()  # per-group: weights for properties sum to 1
+        ox, oy = np.nonzero(k)
+        w = k[ox, oy]
+        if n * w.size < stamp_threshold:
+            # Direct stenciling: for each of the n particles in this d-group, stamp its kernel directly onto
+            # the pixel grid as a sparse list of (row, col, value) entries, to be assembled into a sparse
+            # matrix below. Cheap when n*kernel_size is small; becomes wasteful for large/many-particle groups
+            # since most of a big sparse matrix's rows end up empty.
+            X = px_s[s : s + n, None] + (
+                ox - d
+            )  # absolute pixel x-coord of each (particle, kernel-offset) pair
+            Y = py_s[s : s + n, None] + (
+                oy - d
+            )  # absolute pixel y-coord of each (particle, kernel-offset) pair
+            ok = (
+                (X >= 0) & (X < N) & (Y >= 0) & (Y < N)
+            )  # drop kernel pixels that fall outside the image
+            rows_l.append(
+                (X * N + Y)[ok]
+            )  # flattened pixel index (row of the sparse matrix) for each entry
+            cols_l.append(
+                np.broadcast_to(np.arange(s, s + n)[:, None], X.shape)[ok]
+            )  # which particle (column) each entry belongs to
+            vals_l.append(
+                np.broadcast_to(w, X.shape)[ok]
+            )  # kernel weight for each entry
+        else:
+            # Group too large/dense for direct stenciling to be efficient; convolve it via FFT instead (below).
+            conv_groups.append((d, s, n, k))
+
+    # Properties become extra channels after the per-group scaling above
+    if projectGasProperties:
+        em_s = np.concatenate([em_s, props_s], axis=1)
+    Nch = em_s.shape[1]
+    out_map = np.zeros((N, N, Nch))
+
+    if rows_l:
+        logger.debug("Depositing small groups via direct stenciling")
+        P = coo_matrix(
+            (np.concatenate(vals_l), (np.concatenate(rows_l), np.concatenate(cols_l))),
+            shape=(Npix, len(dx_s)),
+        ).tocsr()
+        out_map += (P @ em_s).reshape(N, N, Nch)
+
+    if conv_groups:
+        # FFT-based stenciling: stamping each particle's kernel directly (as above) is equivalent to placing a
+        # point source at the particle's pixel and convolving the whole image with that d-group's kernel. For
+        # a group large/dense enough, it's cheaper to do that convolution once via FFT than to stamp every
+        # particle individually.
+        dmax = max(g[0] for g in conv_groups)
+        # Padded transform size: must be big enough to (a) hold the (2*d+1)-wide kernel itself and (b) give
+        # linear (non-wraparound) convolution via the circular convolution that FFT multiplication computes --
+        # the standard requirement for that is pad_length >= signal_length + kernel_length - 1 = N + 2*dmax.
+        # next_fast_len rounds that minimum up to a length that keeps the FFT itself fast.
+        logger.debug("Depositing large groups via FFT convolution")
+        L = next_fast_len(N + 2 * dmax, real=True)
+        acc = None
+        for d, s, n, k in conv_groups:
+            # Point-source image: each of the n particles in this d-group placed at its pixel with weight 1
+            # (no kernel yet -- that gets applied by the convolution below).
+            flat = px_s[s : s + n] * N + py_s[s : s + n]
+            Pg = csr_matrix((np.ones(n), (flat, np.arange(n))), shape=(Npix, n))
+            tmp = (Pg @ em_s[s : s + n]).reshape(
+                N, N, Nch
+            )  # sum each particle's (per-channel) value onto its pixel
+
+            # Place the kernel in the top-left corner of the padded (L,L) buffer, then roll it so its center
+            # (originally at index d,d) sits at index (0,0) -- the layout FFT-based convolution expects.
+            kp = np.zeros((L, L))
+            kp[: 2 * d + 1, : 2 * d + 1] = k
+            kp = np.roll(kp, (-d, -d), axis=(0, 1))
+
+            # Convolve (point sources) * (kernel) via multiplication in Fourier space; accumulate across
+            # all d-groups sharing this L before transforming back once at the end.
+            F = rfft2(tmp, s=(L, L), axes=(0, 1), workers=-1)
+            F *= rfft2(kp)[:, :, None]
+            if acc is None:
+                acc = F
+            else:
+                acc += F
+        out_map += irfft2(acc, s=(L, L), axes=(0, 1), workers=-1)[
+            :N, :N
+        ]  # back to real space, crop the padding off
+
+    emission_map = out_map[..., :Nspec]
+    if projectGasProperties:
+        mass_map, rMom_map, sMom_map, rotMom_map = np.moveaxis(
+            out_map[..., Nspec:], -1, 0
+        )
+        return emission_map, mass_map, rMom_map, sMom_map, rotMom_map
+    return emission_map
+
+
+def project_image(
+    config,
+    snapdir,
+    Nsnapstring,
+    statsDir,
+    observer_position,
+    maxima,
+    Nsightlines,
+    Lhat_rot,
+    r0_rot,
+    particleData=None,
+    sightlines=None,
+):
+    """Form the ideal, smoothed, and noisy datacubes for one orientation.
+
+    Also returns the projected property maps if projectGasProperties is set.
+    """
+    # Config values this function (and the deposit_particles/gen_sightline/calc_sightline_spectrum/generate_spectra
+    # helpers it calls) need, read out of the single shared config dict.
+    observer_velocity = config["observerVelocity"]
+    beamSize = config["beamSize"]
+    phiObs = config["phiObs"]
+    speciesToRun = config["speciesToRun"]
+    Nspec = config["Nspec"]
+    bandwidth = config["bandwidth"]
+    targetBeamSize = config["targetBeamSize"]
+    noiseAmplitude = config["noiseAmplitude"]
+    num_cores = config["num_cores"]
+    projectGasProperties = config["projectGasProperties"]
+    runAsOpticallyThinProjection = config["runAsOpticallyThinProjection"]
+
+    max_r, maxPhi, maxTheta = maxima
+    rObserver = np.abs(observer_position[0])
+    pos_center, vel_center, _Lhat, _r0, _orientation_maxima = read_stats(statsDir)
+
+    gPos = particleData["pos"]
+    gVel = particleData["vel"]
+    gKernel = particleData["kernel"]
+    gMas = particleData["mass"]
+    gTemp = particleData["temp"]
+    speciesMassFrac = particleData["speciesMassFrac"]
+    if projectGasProperties:
+        gRmom = particleData["rMom"]
+        gSmom = particleData["sMom"]
+        gRotMom = particleData["rotMom"]
+
+    # If observer velocity is not defined, calculate rotation curve to put the observer in the galaxy. Should only be used for in galaxy observations.
+    rotationCurve = None
+    defineRotationCurve = False
+
+    if observer_velocity is None:
+        defineRotationCurve = True
+
+    if defineRotationCurve:
+        # Load the star particles
+        sPos, sVel, sMass = load_data(
+            snapdir, Nsnapstring, 4, max_r, pos_center, vel_center
+        )
+        # Transform into previously defined coordinate system
+        sPos, sVel = orient_galaxy(sPos, sVel, Lhat_rot, r0_rot)
+
+        rBinSize = 0.1
+        nr = math.ceil(max_r / rBinSize)
+        rotationCurve = calc_rotation_curve(sPos, sVel, sMass, nr, max_r)
+
+    pos_observer, vel_observer = center_on_observer(
+        observer_position, observer_velocity, rotationCurve=rotationCurve, max_r=max_r
+    )
+    logger.debug("Observer velocity: %s", vel_observer)
+    gPos -= pos_observer  # Switch to observers frame of reference
+    gVel -= vel_observer
+
+    Nsightlines_1d = int(np.round(np.sqrt(Nsightlines)))
+
+    if num_cores is None:
+        num_cores = multiprocessing.cpu_count() - 1
+    num_cores = min(num_cores, multiprocessing.cpu_count() - 1)
+
+    tStart = time.time()
+
+    if runAsOpticallyThinProjection:
+        if projectGasProperties:
+            image, mass_map, rMom_map, sMom_map, rotMom_map = deposit_particles(
+                gPos,
+                gVel,
+                gKernel,
+                gMas,
+                gTemp,
+                speciesMassFrac,
+                Nsightlines_1d,
+                beamSize,
+                speciesToRun,
+                Nspec,
+                bandwidth,
+                rObserver,
+                max_r,
+                projectGasProperties=projectGasProperties,
+                gRmom=gRmom,
+                gSmom=gSmom,
+                gRotMom=gRotMom,
+            )
+        else:
+            image = deposit_particles(
+                gPos,
+                gVel,
+                gKernel,
+                gMas,
+                gTemp,
+                speciesMassFrac,
+                Nsightlines_1d,
+                beamSize,
+                speciesToRun,
+                Nspec,
+                bandwidth,
+                rObserver,
+                max_r,
+                projectGasProperties=projectGasProperties,
+            )
+
+    else:
+        if (
+            sightlines is None
+        ):  # Create sightline vectors to evenly sample the observed space
+            sightlines = np.zeros((Nsightlines_1d, Nsightlines_1d, 3))
+            phiRes = maxPhi / (Nsightlines_1d - 1)
+            thetaRes = maxTheta / (Nsightlines_1d - 1)
+
+            phi0 = (2 * pi - maxPhi) / 2 + phiObs - pi
+            theta0 = (pi - maxTheta) / 2
+
+            indices = np.indices((Nsightlines_1d, Nsightlines_1d))
+            sightlines[:, :, 0] = np.cos(indices[0, :, :] * phiRes + phi0) * np.cos(
+                -(indices[1, :, :] * thetaRes - pi / 2 + theta0)
+            )
+            sightlines[:, :, 1] = np.sin(indices[0, :, :] * phiRes + phi0) * np.cos(
+                -(indices[1, :, :] * thetaRes - pi / 2 + theta0)
+            )
+            sightlines[:, :, 2] = np.sin(
+                -(indices[1, :, :] * thetaRes - pi / 2 + theta0)
+            )
+
+        # For each sightline get the particles that overlap with the beam and their offset from the beam. Assumes particles are spheres (they aren't, this can be improved)
+        sightline_indices = range(Nsightlines)
+        logger.debug("Working with %d cores", num_cores)
+
+        # Define partial function to parallelize
+        GenSightline_ = partial(
+            gen_sightline,
+            Nsightlines_1d=Nsightlines_1d,
+            sightlines=sightlines,
+            gPos=gPos,
+            gVel=gVel,
+            gKernel=gKernel,
+            gMas=gMas,
+            gTemp=gTemp,
+            speciesMassFrac=speciesMassFrac,
+            beamSize=beamSize,
+            speciesToRun=speciesToRun,
+            Nspec=Nspec,
+            bandwidth=bandwidth,
+            rObserver=rObserver,
+        )
+
+        logger.debug("Splitting into parallel runs")
+        x = Parallel(n_jobs=num_cores)(
+            delayed(GenSightline_)(i) for i in sightline_indices
+        )
+
+        logger.debug("Reshaping image")
+        image = np.reshape(x, [Nsightlines_1d, Nsightlines_1d, Nspec])
+
+    tParallel = time.time()
+
+    # Smooth here
+    obs_spatial_resolution = targetBeamSize * np.linalg.norm(observer_position)
+    base_spatial_resolution = (2 * maxima[0]) / Nsightlines_1d
+    logger.debug(
+        "Spatial resolution: observed %.4g kpc, base %.4g kpc",
+        obs_spatial_resolution,
+        base_spatial_resolution,
+    )
+    sigma = (
+        obs_spatial_resolution / base_spatial_resolution / (2 * np.sqrt(2 * np.log(2)))
+    )
+    smoothed_image = scipy.ndimage.gaussian_filter(image, sigma=sigma, axes=[0, 1])
+
+    # Add noise here
+    noiseProfile = np.random.normal(
+        0, noiseAmplitude, np.shape(image)
+    )  # Create noise profile scaled by the downsampling we are doing
+    noiseProfile = scipy.ndimage.gaussian_filter(noiseProfile, sigma=sigma, axes=[0, 1])
+    noiseProfile = (
+        noiseProfile * noiseAmplitude / np.std(noiseProfile)
+    )  # Renormalize noise
+    noisy_image = np.add(smoothed_image, noiseProfile)
+
+    logger.debug(
+        "Max of smoothed image: %g, max of noise profile: %g",
+        np.max(smoothed_image),
+        np.max(noiseProfile),
+    )
+    logger.debug("Time to run in parallel: %.2f s", tParallel - tStart)
+    logger.debug("Total time for image generation: %.2f s", time.time() - tStart)
+
+    if projectGasProperties:
+        return (
+            image,
+            smoothed_image,
+            noisy_image,
+            mass_map,
+            rMom_map,
+            sMom_map,
+            rotMom_map,
+        )
+    return image, smoothed_image, noisy_image

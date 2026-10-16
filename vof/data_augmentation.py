@@ -1,0 +1,514 @@
+"""Augment VOF outputs with rotated and flipped copies of each datacube and its annotations.
+
+Optionally denoises each cube with the SoFiA-2 source finder first. Command-line entry
+point: vof-augment.
+"""
+
+import argparse
+import logging
+import os
+import subprocess
+import time
+from pathlib import Path
+
+import h5py
+import numpy as np
+from astropy.io import fits
+from scipy.ndimage import rotate
+
+from vof.convert_to_fits import convert_to_fits
+from vof.logging_setup import add_logging_arguments, configure_logging
+
+logger = logging.getLogger(__name__)
+
+RUN_SOFIA_SCRIPT = Path(__file__).parent / "run_sofia_for_vof.sh"
+
+
+def rotate_annotation(hf, phi, npix):
+    """Return the annotation in hf as an npix x npix map rotated by phi degrees."""
+    return rotate(
+        np.reshape(np.array(hf["annotation"]), [npix, npix]), angle=phi, reshape=False
+    )
+
+
+def denoise_with_sofia(
+    spectra,
+    fov,
+    observer_distance,
+    obs_spatial_res_arcseconds,
+    dnu_kmps,
+    template_fits,
+    sofia_dir,
+    sofia_base_path,
+):
+    """Return a SoFiA-2 source mask for the spectra.
+
+    Writes temp.fits, then runs run_sofia_for_vof.sh on it.
+    """
+    # Convert to Fits
+    fits_filedir = "temp.fits"
+    convert_to_fits(
+        spectra,
+        fits_filedir,
+        fov,
+        observer_distance,
+        obs_spatial_res_arcseconds,
+        dnu_kmps,
+        template_fits,
+    )
+
+    # Run Or Load SOFIA-2 Mask
+    subprocess.run(
+        ["bash", str(RUN_SOFIA_SCRIPT), sofia_dir, sofia_base_path], check=True
+    )
+
+    sofia_filedir = "temp_mask.fits"
+    with fits.open(sofia_filedir) as hdul:
+        mask = hdul[0].data  # This is a NumPy array
+
+    sofia_mask = np.transpose(mask, (1, 2, 0))
+
+    return sofia_mask
+
+
+def write_dataset(hf, annotation, imageDirBase):
+    """Write an annotation and its unrotated image filenames to an open HDF5 file."""
+    hf.create_dataset("annotation", data=annotation)
+    hf.create_dataset("imageName", data=imageDirBase + "_r0.hdf5")
+    hf.create_dataset("imageName_dn", data=imageDirBase + "_r0_dn.hdf5")
+
+
+def write_annotation(hf, annotation, imageName, imageName_dn):
+    """Write a flattened annotation and its image filenames to hf, then close it."""
+    hf.create_dataset("annotation", data=annotation.flatten())
+    hf.create_dataset("imageName", data=imageName)
+    hf.create_dataset("imageName_dn", data=imageName_dn)
+    hf.close()
+
+
+def convert_spectra_to_moment_maps(spectra, bandwidth_km_s):
+    """Return the zeroth, first, and second moment maps of a datacube.
+
+    The three maps are stacked along the last axis.
+    """
+    t0 = time.time()
+    Nspec = np.shape(spectra)[2]
+    dv = bandwidth_km_s / Nspec
+
+    velocities = np.linspace(-bandwidth_km_s / 2, bandwidth_km_s / 2, Nspec)
+    moment0 = np.sum(spectra * dv, axis=2)
+    moment0[moment0 == 0] = 1e-10
+
+    moment1_integrand = np.copy(spectra) * 0
+    moment2_integrand = np.copy(spectra) * 0
+    for s in range(Nspec):
+        moment1_integrand[:, :, s] = spectra[:, :, s] * velocities[s]
+    moment1 = np.divide(np.sum(moment1_integrand * dv, axis=2), moment0)
+
+    for s in range(Nspec):
+        moment2_integrand[:, :, s] = np.multiply(
+            spectra[:, :, s], np.power(velocities[s] - moment1[:, :], 2)
+        )
+
+    moment2 = np.divide(np.sum(moment2_integrand * dv, axis=2), moment0)
+
+    momentMap = np.zeros((np.shape(spectra)[0], np.shape(spectra)[1], 3))
+    momentMap[:, :, 0] = moment0
+    momentMap[:, :, 1] = moment1
+    momentMap[:, :, 2] = moment2
+
+    logger.debug("Time to make moment maps: %.2f s", time.time() - t0)
+    return momentMap
+
+
+def rotate_data(
+    imageDirBase,
+    annotationDirBase,
+    galName,
+    inclination,
+    position_angle,
+    Nsnap,
+    tag,
+    masked,
+    angles=(0, 90, 180, 270),
+    SavePNGs=False,
+    denoise=False,
+    DoTimeAveraging=False,
+    template_fits=None,
+    sofia_dir=None,
+    sofia_base_path=None,
+):
+    """Write rotated and flipped copies of one image and its annotations.
+
+    Optionally denoises the image with SoFiA-2 first.
+    """
+    logger.info("Rotating %s", imageDirBase)
+    tsave = 0
+    for base in (imageDirBase, annotationDirBase):
+        base_dir = os.path.dirname(base)
+        if base_dir:
+            os.makedirs(base_dir, exist_ok=True)
+    saveSpectra = True
+    fov = observer_distance = obs_spatial_res_arcseconds = dnu_kmps = None
+    try:
+        hfImage = h5py.File(imageDirBase + ".hdf5", "r")
+        spectra = np.array(hfImage["spectra"])
+        # Observation parameters saved alongside the datacube
+        fov = hfImage.attrs["fov_kpc"]
+        observer_distance = hfImage.attrs["observer_distance_kpc"]
+        obs_spatial_res_arcseconds = hfImage.attrs["beam_arcsec"]
+        dnu_kmps = hfImage.attrs["dnu_kmps"]
+        hfImage.close()
+        logger.debug("Found image")
+    except (OSError, KeyError):
+        logger.warning(
+            "No synthetic image found at %s.hdf5; skipping spectra", imageDirBase
+        )
+        spectra = np.zeros((1, 1, 1))
+        saveSpectra = False
+
+    suffix = (
+        "_i"
+        + str(inclination)
+        + "_pa"
+        + str(position_angle)
+        + masked
+        + "_"
+        + galName
+        + tag
+    )
+
+    hfMF = h5py.File(
+        annotationDirBase + "_MassFlux" + suffix + "_MF_" + str(Nsnap) + ".hdf5", "r"
+    )
+    hfMass = h5py.File(
+        annotationDirBase + "_Mass" + suffix + "_Mass_" + str(Nsnap) + ".hdf5", "r"
+    )
+    hfRC = h5py.File(
+        annotationDirBase + "_RC" + suffix + "_RC_" + str(Nsnap) + ".hdf5", "r"
+    )
+    hfrVel = h5py.File(
+        annotationDirBase + "_rVel" + suffix + "_rVel_" + str(Nsnap) + ".hdf5", "r"
+    )
+    hfsMF = h5py.File(
+        annotationDirBase + "_sMassFlux" + suffix + "_sMF_" + str(Nsnap) + ".hdf5", "r"
+    )
+
+    # Annotation grid resolution, read from the annotation files themselves rather than the (possibly missing) image
+    npix = round(np.sqrt(np.size(np.array(hfMF["annotation"]))))
+
+    if denoise:
+        logger.debug("Denoising")
+        sofia_mask = denoise_with_sofia(
+            spectra,
+            fov,
+            observer_distance,
+            obs_spatial_res_arcseconds,
+            dnu_kmps,
+            template_fits,
+            sofia_dir,
+            sofia_base_path,
+        )
+    for phi in angles:
+        logger.debug("Rotating spectra")
+        if phi != 0:
+            spectra_rot = rotate(spectra, angle=phi, reshape=False)
+        else:
+            spectra_rot = np.copy(spectra)
+
+        if phi == 0:
+            rotString = ""
+        else:
+            rotString = "_r" + str(int(phi))
+
+        dn_tag = ""
+        rot_mask = None
+        if saveSpectra:
+            if denoise:
+                dn_tag = "_dn"
+                rot_mask = rotate(sofia_mask, angle=phi, reshape=False)
+                spectra_rot = spectra_rot[rot_mask > 0]
+                hf_out = h5py.File(imageDirBase + rotString + "_dn.hdf5", "w")
+                hf_out.create_dataset("spectra", data=spectra_rot)
+                hf_out.close()
+            elif phi != 0:
+                logger.debug("Saving rotations")
+                t1 = time.time()
+                hf_out = h5py.File(imageDirBase + rotString + ".hdf5", "w")
+                hf_out.create_dataset("spectra", data=spectra_rot)
+                hf_out.close()
+                tsave += time.time() - t1
+
+            logger.debug("Flipping rotations")
+            spectra_lr = np.flip(spectra_rot, axis=0)
+            logger.debug("Saving flips")
+            t1 = time.time()
+            hf_out = h5py.File(imageDirBase + rotString + dn_tag + "_lr.hdf5", "w")
+            hf_out.create_dataset("spectra", data=spectra_lr)
+            hf_out.close()
+            tsave += time.time() - t1
+
+        logger.debug("Rotating annotations")
+        MF = rotate_annotation(hfMF, phi, npix)
+        Mass = rotate_annotation(hfMass, phi, npix)
+        RC = rotate_annotation(hfRC, phi, npix)
+        rVel = rotate_annotation(hfrVel, phi, npix)
+        sMF = rotate_annotation(hfsMF, phi, npix)
+
+        newImageName_dn = imageDirBase + rotString + "_dn.hdf5"
+        newImageName = imageDirBase + rotString + ".hdf5"
+
+        if phi != 0:
+            hfMF_o = h5py.File(
+                annotationDirBase
+                + "_MassFlux"
+                + suffix
+                + "_MF_"
+                + str(Nsnap)
+                + rotString
+                + ".hdf5",
+                "w",
+            )
+            hfMass_o = h5py.File(
+                annotationDirBase
+                + "_Mass"
+                + suffix
+                + "_Mass_"
+                + str(Nsnap)
+                + rotString
+                + ".hdf5",
+                "w",
+            )
+            hfRC_o = h5py.File(
+                annotationDirBase
+                + "_RC"
+                + suffix
+                + "_RC_"
+                + str(Nsnap)
+                + rotString
+                + ".hdf5",
+                "w",
+            )
+            hfrVel_o = h5py.File(
+                annotationDirBase
+                + "_rVel_"
+                + suffix
+                + "_rVel_"
+                + str(Nsnap)
+                + rotString
+                + ".hdf5",
+                "w",
+            )
+            hfsMF_o = h5py.File(
+                annotationDirBase
+                + "_sMassFlux_"
+                + suffix
+                + "_sMF_"
+                + str(Nsnap)
+                + rotString
+                + ".hdf5",
+                "w",
+            )
+            logger.debug("Saving annotations")
+            write_annotation(hfMF_o, MF, newImageName, newImageName_dn)
+            write_annotation(hfMass_o, Mass, newImageName, newImageName_dn)
+            write_annotation(hfRC_o, RC, newImageName, newImageName_dn)
+            write_annotation(hfrVel_o, rVel, newImageName, newImageName_dn)
+            write_annotation(hfsMF_o, sMF, newImageName, newImageName_dn)
+
+        hfMF_lr = h5py.File(
+            annotationDirBase
+            + "_MassFlux"
+            + suffix
+            + "_MF_"
+            + str(Nsnap)
+            + rotString
+            + "_lr.hdf5",
+            "w",
+        )
+        hfMass_lr = h5py.File(
+            annotationDirBase
+            + "_Mass"
+            + suffix
+            + "_Mass_"
+            + str(Nsnap)
+            + rotString
+            + "_lr.hdf5",
+            "w",
+        )
+        hfRC_lr = h5py.File(
+            annotationDirBase
+            + "_RC_"
+            + suffix
+            + "_RC_"
+            + str(Nsnap)
+            + rotString
+            + "_lr.hdf5",
+            "w",
+        )
+        hfrVel_lr = h5py.File(
+            annotationDirBase
+            + "_rVel"
+            + suffix
+            + "_rVel_"
+            + str(Nsnap)
+            + rotString
+            + "_lr.hdf5",
+            "w",
+        )
+        hfsMF_lr = h5py.File(
+            annotationDirBase
+            + "_sMassFlux"
+            + suffix
+            + "_sMF_"
+            + str(Nsnap)
+            + rotString
+            + "_lr.hdf5",
+            "w",
+        )
+
+        newImageName_dn = imageDirBase + rotString + "_dn_lr.hdf5"
+        newImageName = imageDirBase + rotString + "_lr.hdf5"
+        logger.debug("Flipping and saving annotations")
+        write_annotation(hfMF_lr, np.flip(MF, axis=0), newImageName, newImageName_dn)
+        write_annotation(
+            hfMass_lr, np.flip(Mass, axis=0), newImageName, newImageName_dn
+        )
+        write_annotation(hfRC_lr, np.flip(RC, axis=0), newImageName, newImageName_dn)
+        write_annotation(
+            hfrVel_lr, np.flip(rVel, axis=0), newImageName, newImageName_dn
+        )
+        write_annotation(hfsMF_lr, np.flip(sMF, axis=0), newImageName, newImageName_dn)
+
+        logger.debug("Time to save rotated data: %.2f s", tsave)
+
+
+def _parse_args():
+    """Parse the vof-augment command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Rotate/augment VOF synthetic images and annotations, optionally denoising via SoFiA-2."
+    )
+    parser.add_argument(
+        "--data-root",
+        default="/Volumes/wde4tb/simulation_snapshots/fire-2",
+        help="Base directory containing per-galaxy simulation outputs. Each combination is expected at <data-root>/<gal-name>/vof_outputs/i<inclination>/training/.",
+    )
+    parser.add_argument(
+        "--gal-names",
+        nargs="+",
+        default=["m12m", "m12i", "m12f", "m12b"],
+        help="Simulation names to process, e.g. m12m m12i m12f m12b.",
+    )
+    parser.add_argument(
+        "--inclinations",
+        nargs="+",
+        type=int,
+        default=[50, 60],
+        help="Inclinations (degrees) to process.",
+    )
+    parser.add_argument(
+        "--position-angles",
+        nargs="+",
+        type=int,
+        default=[0, 45, 90, 135, 180, 225, 270, 315],
+        help="Position angles (degrees) to process.",
+    )
+    parser.add_argument(
+        "--snapshots",
+        nargs="+",
+        type=int,
+        default=[600],
+        help="Snapshot numbers to process.",
+    )
+    parser.add_argument(
+        "--tags",
+        nargs="+",
+        default=[""],
+        help="Filename tags to process (default: ['']).",
+    )
+    parser.add_argument(
+        "--masked-tags",
+        nargs="+",
+        default=[""],
+        help="Masked-run filename suffixes to process (default: [''], i.e. unmasked only).",
+    )
+    parser.add_argument(
+        "--denoise",
+        action="store_true",
+        help="Run SoFiA-2 masking via --sofia-dir/--sofia-base-path/--template-fits.",
+    )
+    parser.add_argument(
+        "--sofia-dir",
+        default=".",
+        help="Path to the SoFiA-2 install directory (used when --denoise is set).",
+    )
+    parser.add_argument(
+        "--sofia-base-path",
+        default="./",
+        help="Directory containing the FITS cube passed to SoFiA-2 (used when --denoise is set).",
+    )
+    parser.add_argument(
+        "--template-fits",
+        default="template.fits",
+        help="FITS file to copy the header from when converting to FITS (used when --denoise is set).",
+    )
+    add_logging_arguments(parser)
+    return parser.parse_args()
+
+
+def main():
+    """Run vof-augment over every requested galaxy, orientation, snapshot, and tag."""
+    args = _parse_args()
+    configure_logging(verbose=args.verbose, quiet=args.quiet)
+
+    for galName in args.gal_names:
+        for inclination in args.inclinations:
+            for pa in args.position_angles:
+                for Nsnap in args.snapshots:
+                    for tag in args.tags:
+                        for masked in args.masked_tags:
+                            rootDir = (
+                                os.path.join(
+                                    args.data_root,
+                                    galName,
+                                    "vof_outputs",
+                                    "i" + str(inclination),
+                                    "training",
+                                )
+                                + "/"
+                            )
+                            imageDirBase = (
+                                rootDir
+                                + galName
+                                + tag
+                                + "_i"
+                                + str(inclination)
+                                + "_pa"
+                                + str(pa)
+                                + "_"
+                                + str(Nsnap)
+                                + "_image"
+                                + masked
+                                + "_fullSpectra"
+                            )
+                            annotationDirBase = rootDir + "training_annotations"
+                            rotate_data(
+                                imageDirBase,
+                                annotationDirBase,
+                                galName,
+                                inclination,
+                                pa,
+                                Nsnap,
+                                tag,
+                                masked,
+                                denoise=args.denoise,
+                                DoTimeAveraging=False,
+                                template_fits=args.template_fits,
+                                sofia_dir=args.sofia_dir,
+                                sofia_base_path=args.sofia_base_path,
+                            )
+                            logger.info("Rotated %s", imageDirBase)
+
+
+if __name__ == "__main__":
+    main()
