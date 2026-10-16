@@ -20,7 +20,7 @@ dependencies = [
 [project.optional-dependencies]
 # FITS export and data augmentation (vof-to-fits, vof-augment)
 fits = ["astropy", "unyt"]
-dev = ["ruff", "pytest"]
+dev = ["ruff", "pytest", "pre-commit"]
 
 [project.scripts]
 vof = "vof.very_observable_fire:main"

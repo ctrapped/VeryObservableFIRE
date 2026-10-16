@@ -170,3 +170,24 @@ Every key a `.param` file can set, grouped the same way as in `configs/param_tem
 | `num_cores` | Number of cores to use for parallel sightline generation; `None` to use all available |
 | `projectGasProperties` | `True` to project the true gas mass/radial/rotational velocity directly in the same imaging pass (used together with `runAsOpticallyThinProjection`) |
 | `runAsOpticallyThinProjection` | `True` for the fast optically-thin column-density projection (`deposit_particles`); `False` for full per-sightline spectral synthesis |
+
+## Development
+
+Install the package with the development tools, then turn on the git hooks once per clone:
+
+```bash
+pip install -e ".[dev]"
+pre-commit install
+```
+
+From then on, every `git commit` runs the checks in `.pre-commit-config.yaml`:
+[ruff](https://docs.astral.sh/ruff/) linting (with the rules in `pyproject.toml`, including
+"no `print`" and "every public function has a docstring") and formatting, plus checks for
+trailing whitespace, missing end-of-file newlines, merge-conflict markers, and accidentally
+committed large files (such as `.hdf5` outputs). Problems that can be fixed automatically
+are; the commit is then stopped so you can review the changes, `git add` them, and commit
+again. To run every check over the whole repository:
+
+```bash
+pre-commit run --all-files
+```
