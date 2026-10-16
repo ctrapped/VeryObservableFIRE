@@ -1,5 +1,7 @@
 # VeryObservableFIRE
 
+[![CI](https://github.com/ctrapped/VeryObservableFIRE/actions/workflows/ci.yml/badge.svg)](https://github.com/ctrapped/VeryObservableFIRE/actions/workflows/ci.yml)
+
 **V**ery**O**bservable**F**IRE (VOF) generates synthetic spectral datacubes from FIRE simulation snapshots, mimicking what a real telescope would observe. Given a snapshot, an observer distance/inclination/position angle, and a target line, VOF orients and centers the galaxy, traces sightlines through the gas, computes the resulting emission/absorption spectrum per sightline, and convolves the result with an instrument beam and noise model to produce a mock IFU-style datacube. This can also be run as a faster, optically thin projection to save time or on individual/limited sightlines.
 
 Currently supported lines: **HI 21cm**, **H-alpha**, and the **Sodium I doublet** (Na I D1/D2).
@@ -191,3 +193,20 @@ again. To run every check over the whole repository:
 ```bash
 pre-commit run --all-files
 ```
+
+### Tests
+
+The test suite builds a small synthetic galaxy (a rotating disk in a FIRE-format snapshot), so
+it runs in seconds without any simulation data:
+
+```bash
+pip install -e ".[dev,fits]"
+pytest
+```
+
+`tests/test_end_to_end.py` compares full `vof` runs against reference outputs stored in
+`tests/data/`. If a change to the science output is intended, regenerate them with
+`pytest --update-golden` and commit the new files along with the change.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the pre-commit checks and the tests on
+Python 3.10–3.14 for every push and pull request.
