@@ -1,12 +1,15 @@
+"""Write the Binfire-binned annotation maps for a single inclination and position angle.
+
+Saves the mass flux, mass, rotation curve, and radial velocity maps to disk as .hdf5 (plus
+optional .png previews), for use as neural network training annotations.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LogNorm
-
-####Writes the Binfire-binned annotation maps (mass flux, mass, rotation curve, radial velocity) for a single
-####inclination/position_angle to disk as .hdf5 (+ optional .png previews), for use as NN training annotations.
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
 
 
 def write_annotations(

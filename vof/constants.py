@@ -1,9 +1,10 @@
-import numpy as np
+"""Shared physical constants and simulation unit conversions.
 
-####Shared physical constants and simulation unit conversions.
-####
-####Numerical tolerances (eps) are intentionally kept local to each module, since they differ per algorithm.
-####convert_to_fits.py keeps its own unit-aware (unyt) constants.
+Numerical tolerances (eps) are intentionally kept local to each module, since they differ
+per algorithm. convert_to_fits.py keeps its own unit-aware (unyt) constants.
+"""
+
+import numpy as np
 
 pi = np.pi
 

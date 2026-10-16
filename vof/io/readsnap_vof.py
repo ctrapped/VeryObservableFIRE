@@ -1,3 +1,8 @@
+"""Legacy IO functions to read FIRE snapshots.
+
+Modified by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import logging
 import os.path
 
@@ -5,11 +10,6 @@ import h5py
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
-####Legacy io functions to read in FIRE snapshots
-####
-####Modified By Cameron Trapp (ctrapped@gmail.com)
-####Updated 12/08/2023
 
 
 def readsnap_initial(

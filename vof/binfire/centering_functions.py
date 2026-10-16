@@ -1,3 +1,11 @@
+"""Centering functions used by Binfire.
+
+Finds the galaxy center (shrinking-sphere fit on the stars), the disk orientation (mean
+angular momentum of the cold, dense gas), and the center-of-mass velocity.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import logging
 
 import numpy as np
@@ -8,12 +16,6 @@ from vof.constants import unit_L
 logger = logging.getLogger(__name__)
 
 eps = 1e-10
-
-
-####Various Centering functions used in Binfire
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
-####Updated 12/14/2023
 
 
 def find_center(

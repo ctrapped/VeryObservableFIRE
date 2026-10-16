@@ -1,3 +1,17 @@
+"""Binfire: center a FIRE galaxy and bin its gas into ground-truth maps.
+
+Loads the gas particles from a snapshot. If the snapshot has already been centered, the
+existing stats file is read; otherwise the galactic center, central velocity, and central
+angular momentum are determined and written to a new stats file. The gas is then centered,
+a Cartesian coordinate system is defined with the z-axis along the galaxy's angular
+momentum, and the mass, radial mass flux, and azimuthal mass flux (used for mass-weighted
+rotational velocities) are binned on a Cartesian grid.
+
+Primarily for use with VeryObservableFIRE and CoNNGaFit.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import logging
 import os
 import time
@@ -22,16 +36,6 @@ from vof.io.readsnap_vof import readsnap_initial, readsnap_trunc
 logger = logging.getLogger(__name__)
 
 eps = 1e-10
-
-####Functions to read in FIRE snapshots, bin data on a cartesian grid, and return relevant parameters (mass, radial mass flux, and rotational mass flux)
-####
-####Code initially loads particle data from snapshot. If this snapshot has already been centered, it will read the existing stats file. Otherwise it will
-####determine the galactic center, central velocity, and central angular momentum. From here, it will center the gas particles, define a cartesian coordinate system
-####with the z-axis oriented on the angular momentum vector of the galaxy, and bin mass, radial mass flux, and azimuhtal mass flux (used for calculating mass weighted rotaional velocities)
-####on a cartesian grid. This version of the code is primarily for use with VeryObservableFIRE and CoNNGaFIT
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
-####Updated 12/14/2023
 
 
 def load_gas(
@@ -700,9 +704,6 @@ def run_binfire(
         binned_mom_s_cart,
         binned_mom_s_curve,
     )
-
-
-###################################################################################################################################################################################################
 
 
 def find_densities(Gz, Gdens):

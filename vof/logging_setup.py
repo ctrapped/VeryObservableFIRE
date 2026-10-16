@@ -1,7 +1,10 @@
-import logging
+"""Shared logging configuration for the command-line entry points.
 
-####Shared logging configuration for the command-line entry points (vof, vof-to-fits, vof-augment).
-####Library modules only create a logger (logging.getLogger(__name__)) and never configure output themselves.
+Used by vof, vof-to-fits, and vof-augment. Library modules only create a logger
+(logging.getLogger(__name__)) and never configure output themselves.
+"""
+
+import logging
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"

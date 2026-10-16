@@ -1,3 +1,10 @@
+"""Generate emission and absorption for the particles along a sightline.
+
+Used to construct the mock spectra.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import logging
 
 import numpy as np
@@ -17,10 +24,6 @@ from vof.emission_species import get_emission_species_parameters
 
 logger = logging.getLogger(__name__)
 
-####Functions to generate emission/absorption for particles along a sightline in order to construct the mock spectra
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
-####Updated 12/08/2023
 
 # gamma_ul is the sum of all A_ul's and A_lu's for all possible emissions from u and all possible absorptions from l (pg 57 in Draine)
 

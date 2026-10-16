@@ -1,16 +1,18 @@
+"""Calculate the spectrum along a single sightline of finite beam size.
+
+Finds all particles that intersect the sightline and sorts them by distance, such that the
+full spectrum can be built up by accounting for emission then absorption starting with the
+furthest particle. Calls generate_spectra to determine the emission and full spectrum from
+all particles in the sightline.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import numpy as np
 
 from vof.generate_spectra import generate_spectra
 
 eps = 1e-10
-
-####Function to find all particles that intersect with a given sightline of finite beam size
-####Sorts particles by distance, such that the full spectrum can be built up by accounting for emission then absorption starting with the furthest particle
-####
-####Calls generate_spectra to determine the emission and full spectra from all particles in the given sightline
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
-####Updated 03-10-2023
 
 
 def calc_sightline_spectrum(

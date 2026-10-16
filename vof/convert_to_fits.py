@@ -1,3 +1,8 @@
+"""Convert a VOF spectral datacube (HDF5) into a FITS cube.
+
+Uses an existing FITS file as a header template. Command-line entry point: vof-to-fits.
+"""
+
 import argparse
 import logging
 import os

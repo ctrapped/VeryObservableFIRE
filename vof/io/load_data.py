@@ -1,3 +1,8 @@
+"""IO functions for reading simulation snapshots, sightline information, and galaxy stats.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import h5py
 import numpy as np
 
@@ -9,15 +14,7 @@ from vof.constants import (
 )
 from vof.io.readsnap_vof import readsnap_initial, readsnap_trunc
 
-####
-
-
 eps = 1e-10
-
-####Various IO functions for reading in the simulation snapshots, sightline information, and galaxy stats
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
-####Updated 12/08/2023
 
 
 def read_stats(statsDir):

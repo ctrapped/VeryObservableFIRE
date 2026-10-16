@@ -1,3 +1,13 @@
+"""Build one mock observation and write it to disk.
+
+Forms the spectral datacube for one observer orientation (via project_image), then writes
+the noisy and ideal cubes, plus the projected gas-property annotations when
+projectGasProperties is set, to an HDF5 file with the observation setup as attributes.
+Optionally also saves zeroth/first-moment and annotation PNG previews.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import logging
 import os.path
 import time
@@ -16,16 +26,6 @@ from vof.project_image import project_image
 logger = logging.getLogger(__name__)
 
 image = 0
-
-# J*s^-1*m^-2*Hz-1
-
-
-####Each thread generates a spectra for the assigned pixel, then convolves it with a Gaussian PSF at it's location within the image.
-####Returns a matrix the size of the image, containing soley the PSF contribution from the assigned sightline.
-####This allows the total image to be created from summing each thread contribution.
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
-####Updated 03-10-2023
 
 
 def generate_synthetic_image(

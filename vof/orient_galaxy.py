@@ -1,15 +1,14 @@
+"""Center on the observer and orient coordinate systems along given vectors.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import math
 
 import numpy as np
 from scipy import interpolate
 
 eps = 0.00000000000000000000000000000000000000000000001
-
-
-####Functions to center on observer and orient coordinate systems to certain vectors
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
-####Updated 12/08/2023
 
 
 def center_on_observer(

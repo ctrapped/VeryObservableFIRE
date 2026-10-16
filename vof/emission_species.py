@@ -1,3 +1,8 @@
+"""Emission-line parameters used to generate emission and absorption.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 from pathlib import Path
 
 import numpy as np
@@ -13,11 +18,6 @@ NAI_ENERGY_LEVELS_FILE = (
 
 
 eps = 0.00000000000000000000000000000000000000000000001
-
-####Functions to read in emission species parameters for generating emission/absorption
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
-####Updated 12/08/2023
 
 
 def get_emission_species_parameters(speciesName):

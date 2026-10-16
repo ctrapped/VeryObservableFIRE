@@ -1,10 +1,12 @@
+"""Calculate the rotation curve of a galaxy.
+
+Used to give a mock observer placed inside the galaxy its orbital velocity.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import numpy as np
 from scipy import stats
-
-####Function to calculate the rotational velocity curve of a galaxy. Used for placing a mock observer within a galaxy
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
-####Updated 12/08/2023
 
 
 def calc_rotation_curve(pos, vel, mass, nr, max_r):

@@ -1,3 +1,17 @@
+"""Read a plain-text "key = value" parameter file into a dict.
+
+Values are parsed top-to-bottom and may reference earlier keys in the same file, e.g.::
+
+    galName = m12m
+    fileDir = /path/to/sims/{galName}/snapdir_      #string templating
+    bandwidth_km_s = 256*res_km_s                   #arithmetic expression (any earlier key may be used this way)
+
+`pi` and `arcsec` are always available in expressions without needing to be defined in
+the file.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import ast
 import logging
 import os
@@ -7,15 +21,6 @@ import numpy as np
 from vof.constants import arcsec, pi
 
 logger = logging.getLogger(__name__)
-
-####Reads a plain-text "key = value" parameter file into a dict, instead of importing a .py module.
-####Values are parsed top-to-bottom and may reference earlier keys in the same file, e.g.:
-####    galName = m12m
-####    fileDir = /path/to/sims/{galName}/snapdir_      #string templating
-####    bandwidth_km_s = 256*res_km_s                    #arithmetic expression (any earlier key may be used this way)
-####`pi` and `arcsec` are always available in expressions without needing to be defined in the file.
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
 
 
 _CONSTANTS = {"pi": pi, "arcsec": arcsec}

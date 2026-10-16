@@ -1,13 +1,13 @@
+"""Shrinking-sphere fit for the center of a galaxy's stellar distribution.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import logging
 
 import numpy as np
 
 logger = logging.getLogger(__name__)
-
-####Functions to perform the shrinking sphere fit
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
-####Updated 12/14/2023
 
 
 def center_of_mass(Smas, r_s):

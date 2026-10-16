@@ -1,3 +1,9 @@
+"""Augment VOF outputs with rotated and flipped copies of each datacube and its annotations.
+
+Optionally denoises each cube with the SoFiA-2 source finder first. Command-line entry
+point: vof-augment.
+"""
+
 import argparse
 import logging
 import os

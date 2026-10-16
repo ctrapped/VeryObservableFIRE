@@ -1,3 +1,12 @@
+"""Convert a FIRE snapshot into an image dataset usable with CoNNGaFit.
+
+Depending on the options, first generates annotation files (projected mass flux, mass,
+and/or rotational velocity maps), then generates the synthetic images corresponding to
+those projection maps.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import logging
 import os
 
@@ -15,13 +24,6 @@ from vof.orient_galaxy import orient_galaxy
 from vof.write_annotations import write_annotations
 
 logger = logging.getLogger(__name__)
-
-####Function converts a FIRE snapshot to an image dataset usable with CoNNGaFit.
-####Based on given options will first generate annotation files in the form of a .csv file for the mass flux, mass, and/or rotational velocities
-####Will then generate synthetic images corresponding to those projection maps.
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
-####Updated 12/08/2023
 
 
 def particles_for_binfire(particles):

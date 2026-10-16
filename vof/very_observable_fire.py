@@ -1,3 +1,16 @@
+"""Run VeryObservableFIRE to create synthetic images from given observational parameters.
+
+Also creates corresponding projected and deprojected maps of radial mass flux, rotational
+velocity, and mass for the purposes of neural network training.
+
+To use, copy configs/param_template.param, modify it, and pass the path to it as the first
+argument, e.g. ``vof configs/param_template.param`` (or
+``python -m vof configs/param_template.param``). Optional overrides (any order): --galName,
+--minSnap, --maxSnap, --inclination, and -v/-q for log verbosity (see --help).
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import argparse
 import logging
 import time
@@ -15,15 +28,6 @@ from vof.logging_setup import add_logging_arguments, configure_logging
 from vof.make_dataset import make_dataset
 
 logger = logging.getLogger(__name__)
-
-####Runs VeryObservableFIRE to create synthetic images from given observational parameters.
-####Also creates corresponding projected and deprojected maps of radial mass flux, rotational velocity, and mass for the purposes of neural network training
-####To use, copy configs/param_template.param, modify it, and pass the path to it as the first argument.
-####    e.g. vof configs/param_template.param   (or: python -m vof configs/param_template.param)
-####Optional overrides (any order): --galName, --minSnap, --maxSnap, --inclination (see --help)
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
-####Updated 12/08/2023
 
 
 def parse_args():

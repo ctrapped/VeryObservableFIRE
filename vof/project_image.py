@@ -1,3 +1,19 @@
+"""Form the synthetic spectral datacube for one observer orientation.
+
+Two methods are available:
+
+- Optically thin projection (deposit_particles): deposits each particle's emission onto
+  the pixel grid, smoothed by its kernel, using sparse stamping for small kernels and FFT
+  convolution for large ones.
+- Full spectral synthesis (gen_sightline): defines the vector, overlapping particles, and
+  effective column densities for each sightline, then calculates the emission and
+  absorption from each particle along it, with sightlines run in parallel.
+
+The cube is then smoothed to the target beam size and has noise added.
+
+Written by Cameron Trapp (ctrapped@gmail.com).
+"""
+
 import logging
 import math
 import multiprocessing
@@ -25,14 +41,6 @@ logger = logging.getLogger(__name__)
 
 
 eps = 1e-20
-
-####Functions to generate a sightline spectra for a given set of observer parameters. Defines the vectors, overlapping particles in each sightline,
-####and relevant parameters that allows each thread to get the effective column density of a particle along that sightline.
-####
-####Then calculates the emission and absorption from each particle along the sightline.
-####
-####Written By Cameron Trapp (ctrapped@gmail.com)
-####Updated 03-10-2023
 
 
 def gen_sightline(
