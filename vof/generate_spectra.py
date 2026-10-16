@@ -274,7 +274,7 @@ def gen_line_profile(
     sigma[wingFreqs] = np.divide(
         prefactor * (1 / (4 * np.power(pi, 1.5)) * gamma_ul * lamda_ul * b),
         np.power(v[wingFreqs], 2),
-    ) 
+    )
 
     return sigma
 

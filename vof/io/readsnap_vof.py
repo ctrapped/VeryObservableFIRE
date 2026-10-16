@@ -428,7 +428,7 @@ def readsnap_trunc(
         rho *= hinv / ((ascale * hinv) ** 3)
 
     vel *= np.sqrt(ascale)  # remember gadget's weird velocity units!
-    
+
     if ptype == 0:
         hsml *= hinv * ascale
     if (

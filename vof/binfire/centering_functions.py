@@ -100,7 +100,7 @@ def find_center(
                 & (Spos[:, 2] < zmax)
                 & (Spos[:, 2] > zmin)
             )
-            Gdens[gasMask] = 0 
+            Gdens[gasMask] = 0
             Smas[starMask] = 0
 
     if (old_a is not None) and (v is not None) and (ascale is not None):

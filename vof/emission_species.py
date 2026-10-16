@@ -105,8 +105,7 @@ def get_emission_species_parameters(speciesName):
 
 
 def read_nist_energy_levels(filedir):
-    """Read (energies, degeneracies) from a NIST energy-levels file.
-    """
+    """Read (energies, degeneracies) from a NIST energy-levels file."""
     fullFile = Path(filedir).read_text()
     lines = fullFile.split("\n")
 
