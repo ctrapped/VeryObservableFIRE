@@ -8,7 +8,7 @@ If `runBinfire` is enabled, VOF also uses the bundled `Binfire` submodule to bin
 
 ## Installation
 
-Requires Python 3.9+. From the repository root:
+Requires Python 3.10+. From the repository root:
 
 ```bash
 pip install -e .            # core pipeline
