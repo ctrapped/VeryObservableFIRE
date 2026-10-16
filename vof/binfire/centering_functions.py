@@ -34,23 +34,35 @@ def find_center(
     mask_centers=None,
     mask_radius=None,
 ):
-    # Function to determine the central position of a galaxy using a shrinking sphere algorithm. Also contains functionality to estimate where the center would be from a previous snapshot
-    #
-    # Inputs:
-    #### pos_center : Initial guess of central position. Will default to the position of maximum density if left as None
-    #### Gdens : Density of the gas particles
-    #### Gpos : position of the gas particles
-    #### Spos : position of the star particles
-    #### Smas : mass of the start particles
-    #### rshrinksphere : initial radius of the shrinking sphere in kpc
-    #### shrinkfactor : how much the sphere is reduced each iteration
-    #### shrinking_sphere_flag : set to 0 to skip shrinking sphere and just go with density estimate
-    #### old_a : scale factor of next snapshot for use in estimating center at this snapshot
-    #### v : central velocity of next snapshot for use in estimating center at this snapshot
-    #### ascale : scale factor of this snapshot
-    #### mask_centers : list of positions to mask. Use to ignore halos
-    #### mask_radius : list of mask radii. Use to ignore halos
+    """Find the galaxy center: densest gas, refined by a shrinking-sphere fit on stars.
 
+    Can also estimate the center by extrapolating from the next snapshot.
+
+    Parameters
+    ----------
+    pos_center : array or None
+        Initial guess of the central position. Defaults to the densest gas particle if
+        None.
+    Gdens, Gpos : array
+        Densities and positions of the gas particles.
+    Spos, Smas : array
+        Positions and masses of the star particles.
+    rshrinksphere : float
+        Initial radius of the shrinking sphere (kpc).
+    rminsphere : float
+        Minimum radius of the shrinking sphere (kpc).
+    shrinkfactor : float
+        Factor the sphere is shrunk by each iteration.
+    shrinking_sphere_flag : int
+        Set to 0 to skip the shrinking sphere and keep the density estimate.
+    old_a, v : float, array, optional
+        Scale factor and central velocity of the next snapshot, to estimate this
+        snapshot's center.
+    ascale : float, optional
+        Scale factor of this snapshot.
+    mask_centers, mask_radius : array, optional
+        Positions and radii to mask out, e.g. to ignore other halos.
+    """
     if (mask_centers is not None) and (
         mask_radius is not None
     ):  # Mask data to ignore a certain halo/galaxy
@@ -131,14 +143,21 @@ def find_center(
 
 
 def find_angular_momentum(nh, Gpos, Gmom, Gtemp, r2):
-    # Function to find orientation of the galaxy based on the average angular momentum vector of the cold dense gas
-    # Inputs
-    #### nh : Hydrogen number density
-    #### Gpos : Position of gas particles
-    #### Gmom : Momentum vector of gas particles
-    #### Gtemp : Temperature of gas particles
-    #### r2 : radial distance of each gas particle from the galactic center squared
+    """Return the unit angular momentum vector of the inner galaxy's cold, dense gas.
 
+    Uses gas below 8000 K, above 1 cm^-3, and within 10 kpc of the center.
+
+    Parameters
+    ----------
+    nh : array
+        Hydrogen number density of the gas particles.
+    Gpos, Gmom : array
+        Positions and momentum vectors of the gas particles.
+    Gtemp : array
+        Temperatures of the gas particles.
+    r2 : array
+        Squared distance of each gas particle from the galactic center.
+    """
     N = np.size(Gtemp)
     L = np.zeros((N, 3))  # Initialize Angular Momentum Vector
 
@@ -164,6 +183,7 @@ def find_angular_momentum(nh, Gpos, Gmom, Gtemp, r2):
 
 
 def center_of_mass_velocity(mas, vel):
+    """Return the mass-weighted mean velocity of the given particles."""
     mtot = np.sum(mas)
     v_com = np.zeros(3)
     v_com[0] = np.dot(mas, vel[:, 0]) / mtot

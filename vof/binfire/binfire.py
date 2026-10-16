@@ -47,6 +47,9 @@ def load_gas(
     maskRadius=None,
     rshrinksphere=5000,
 ):
+    """
+    Load gas particles in a box around the galaxy center.
+    """
     Nsnapstring = str(Nsnap)
 
     max_x = maxima[0]
@@ -175,6 +178,11 @@ def run_binfire(
     maskRadius=None,
     project_gas_properties=False,
 ):
+    """Center and orient the galaxy, then bin its gas into ground-truth maps.
+
+    Bins for one orientation and writes the stats file if missing. Returns the
+    per-particle momenta instead if project_gas_properties is set.
+    """
     Nsnapstring = str(Nsnap)
     shrinking_sphere_flag = 0
     writeStatsFile = False
@@ -705,6 +713,10 @@ def run_binfire(
 
 
 def find_densities(Gz, Gdens):
+    """Return each gas particle's hydrogen number density.
+
+    Computed from its density and its metal and helium mass fractions.
+    """
     N = np.size(Gz[:, 0])
     # Find particle densities
     nh = np.zeros(N)

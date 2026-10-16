@@ -37,4 +37,7 @@ vof = ["energy_levels/*.txt", "run_sofia_for_vof.sh"]
 target-version = "py39"
 
 [tool.ruff.lint]
-extend-select = ["T20"]  # flag print() calls: use the module logger instead (see vof/logging_setup.py)
+extend-select = [
+    "T20",  # flag print() calls: use the module logger instead (see vof/logging_setup.py)
+    "D1",   # require docstrings on public modules, classes, and functions
+]

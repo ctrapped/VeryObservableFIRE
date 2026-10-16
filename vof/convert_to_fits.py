@@ -40,7 +40,10 @@ def convert_to_fits(
     template_filename,
     observer_name="unknown",
 ):
+    """Write a spectral datacube to a FITS cube, using a template FITS file's header.
 
+    fov and observer_distance are in kpc, the beam in arcseconds, and dnu_kmps in km/s.
+    """
     nx, ny, nspec = np.shape(spectra)
 
     # Get Observational Parameters
@@ -109,6 +112,7 @@ def convert_to_fits(
 
 
 def _parse_args():
+    """Parse the vof-to-fits command-line arguments."""
     parser = argparse.ArgumentParser(
         description="Convert a VeryObservableFIRE spectra datacube to a FITS cube."
     )
@@ -146,6 +150,7 @@ def _parse_args():
 
 
 def main():
+    """Run vof-to-fits: convert an HDF5 spectra file to a FITS cube."""
     args = _parse_args()
     configure_logging(verbose=args.verbose, quiet=args.quiet)
     with h5py.File(args.spectra_h5, "r") as hf:

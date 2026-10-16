@@ -27,15 +27,21 @@ logger = logging.getLogger(__name__)
 
 
 def particles_for_binfire(particles):
-    # run_binfire subtracts vel_center from particles['v'] in place; give it a shallow copy of the dict
-    # with its own copy of just that array, so repeated calls don't re-subtract into the same buffer.
+    """Return a shallow copy of particles with its own copy of the velocities.
+
+    run_binfire subtracts vel_center from particles["v"] in place, so repeated calls
+    can't share it.
+    """
     shielded = dict(particles)
     shielded["v"] = np.copy(particles["v"])
     return shielded
 
 
 def mask_particle_data(particles, pos_center, rMax, extraArrays=()):
-    # Apply mask to particle data when more data was loaded for shrinking sphere calculation
+    """Return the particles (and extra per-particle arrays) within rMax of pos_center.
+
+    Used to trim the larger region loaded for the shrinking-sphere centering.
+    """
     N = np.shape(particles["p"])[0]
     mask = np.linalg.norm(particles["p"] - pos_center, axis=1) < rMax
     logger.debug(
@@ -66,7 +72,7 @@ def mask_particle_data(particles, pos_center, rMax, extraArrays=()):
 def make_dataset(
     config, fileDir, statsDir, Nsnap, output, galName, writeRadialVelocity=True
 ):
-
+    """Create the annotations and/or images for every orientation of one snapshot."""
     # Config values this function's own body needs. Values only needed by generate_synthetic_image/project_image
     # (e.g. observerDistance, beamSize, num_cores, ...) are read directly out of config there instead.
     maxRadius = config["maxRadius"]

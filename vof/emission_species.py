@@ -17,10 +17,15 @@ NAI_ENERGY_LEVELS_FILE = (
 )
 
 
-eps = 0.00000000000000000000000000000000000000000000001
+eps = 1e-20
 
 
 def get_emission_species_parameters(speciesName):
+    """Return the line parameters for an emission species.
+
+    Mass, degeneracies, energies, transition rates, and level populations. Raises
+    ValueError for a species that isn't defined.
+    """
     n_u_fraction = None
     n_l_fraction = None
     if speciesName == "h_alpha":
@@ -100,6 +105,8 @@ def get_emission_species_parameters(speciesName):
 
 
 def read_nist_energy_levels(filedir):
+    """Read (energies, degeneracies) from a NIST energy-levels file.
+    """
     fullFile = Path(filedir).read_text()
     lines = fullFile.split("\n")
 

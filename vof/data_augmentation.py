@@ -25,6 +25,7 @@ RUN_SOFIA_SCRIPT = Path(__file__).parent / "run_sofia_for_vof.sh"
 
 
 def rotate_annotation(hf, phi, npix):
+    """Return the annotation in hf as an npix x npix map rotated by phi degrees."""
     return rotate(
         np.reshape(np.array(hf["annotation"]), [npix, npix]), angle=phi, reshape=False
     )
@@ -40,6 +41,10 @@ def denoise_with_sofia(
     sofia_dir,
     sofia_base_path,
 ):
+    """Return a SoFiA-2 source mask for the spectra.
+
+    Writes temp.fits, then runs run_sofia_for_vof.sh on it.
+    """
     # Convert to Fits
     fits_filedir = "temp.fits"
     convert_to_fits(
@@ -67,12 +72,14 @@ def denoise_with_sofia(
 
 
 def write_dataset(hf, annotation, imageDirBase):
+    """Write an annotation and its unrotated image filenames to an open HDF5 file."""
     hf.create_dataset("annotation", data=annotation)
     hf.create_dataset("imageName", data=imageDirBase + "_r0.hdf5")
     hf.create_dataset("imageName_dn", data=imageDirBase + "_r0_dn.hdf5")
 
 
 def write_annotation(hf, annotation, imageName, imageName_dn):
+    """Write a flattened annotation and its image filenames to hf, then close it."""
     hf.create_dataset("annotation", data=annotation.flatten())
     hf.create_dataset("imageName", data=imageName)
     hf.create_dataset("imageName_dn", data=imageName_dn)
@@ -80,6 +87,10 @@ def write_annotation(hf, annotation, imageName, imageName_dn):
 
 
 def convert_spectra_to_moment_maps(spectra, bandwidth_km_s):
+    """Return the zeroth, first, and second moment maps of a datacube.
+
+    The three maps are stacked along the last axis.
+    """
     t0 = time.time()
     Nspec = np.shape(spectra)[2]
     dv = bandwidth_km_s / Nspec
@@ -127,7 +138,10 @@ def rotate_data(
     sofia_dir=None,
     sofia_base_path=None,
 ):
+    """Write rotated and flipped copies of one image and its annotations.
 
+    Optionally denoises the image with SoFiA-2 first.
+    """
     logger.info("Rotating %s", imageDirBase)
     tsave = 0
     for base in (imageDirBase, annotationDirBase):
@@ -370,6 +384,7 @@ def rotate_data(
 
 
 def _parse_args():
+    """Parse the vof-augment command-line arguments."""
     parser = argparse.ArgumentParser(
         description="Rotate/augment VOF synthetic images and annotations, optionally denoising via SoFiA-2."
     )
@@ -442,6 +457,7 @@ def _parse_args():
 
 
 def main():
+    """Run vof-augment over every requested galaxy, orientation, snapshot, and tag."""
     args = _parse_args()
     configure_logging(verbose=args.verbose, quiet=args.quiet)
 

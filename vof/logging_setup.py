@@ -11,7 +11,7 @@ DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 def add_logging_arguments(parser):
-    # Add the -v/--verbose and -q/--quiet flags to an argparse parser
+    """Add the -v/--verbose and -q/--quiet flags to an argparse parser."""
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
         "-v",
@@ -28,6 +28,7 @@ def add_logging_arguments(parser):
 
 
 def configure_logging(verbose=False, quiet=False):
+    """Set up timestamped log output at the level chosen by -v/-q."""
     # Third-party libraries (matplotlib, h5py, ...) stay at INFO/WARNING; -v only turns on debug output from vof itself
     level = logging.DEBUG if verbose else logging.WARNING if quiet else logging.INFO
     logging.basicConfig(

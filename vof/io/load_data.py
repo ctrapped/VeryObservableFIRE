@@ -18,7 +18,10 @@ eps = 1e-10
 
 
 def read_stats(statsDir):
-    # Read in previously saved centering information for a galaxy
+    """Read a galaxy's saved centering information from its stats file.
+
+    Returns (pos_center, vel_center, Lhat, r0, orientation_maxima).
+    """
     hf = h5py.File(statsDir, "r")
     posCenter = np.zeros(3)
     velCenter = np.zeros(3)
@@ -39,6 +42,11 @@ def read_stats(statsDir):
 
 
 def load_data(snapdir, Nsnapstring, ptype, rTrunc, posCenter, velCenter):
+    """Load one particle type within rTrunc of the galaxy center, centered on it.
+
+    Returns (pos, vel, mass), plus density, metallicity, neutral fraction, smoothing
+    length, and temperature for gas.
+    """
     # Load position and density to create a mask for particles in user defined region of interest
     particles = readsnap_initial(
         snapdir,
@@ -97,6 +105,7 @@ def load_data(snapdir, Nsnapstring, ptype, rTrunc, posCenter, velCenter):
 
 
 def calc_temps(GintE, ElectronAbundance, Gz):  # Calculate Temperatures
+    """Return gas temperatures from internal energy, electron abundance, and Z/He."""
     gamma = 1.6666666666666666667
     kb = (
         1.38064852
@@ -128,7 +137,7 @@ def calc_temps(GintE, ElectronAbundance, Gz):  # Calculate Temperatures
 
 
 def load_data_for_image_gen(particles, posCenter, velCenter):
-    # Center the gas particles (as loaded by binfire.load_gas) on the galaxy. Modifies particles["p"]/["v"] in place.
+    """Center the gas on the galaxy (in place); return (pos, smoothing length, vel)."""
     pos = particles["p"]
     vel = particles["v"]
     pos -= posCenter
@@ -137,7 +146,10 @@ def load_data_for_image_gen(particles, posCenter, velCenter):
 
 
 def load_masked_data_for_image_gen(particles, gKernel, species):
-    # Mass, temperature, and emitting-species mass fraction for the gas particles (as loaded by binfire.load_gas)
+    """Return (mass, temperature, emitting-species mass fraction) for the gas particles.
+
+    Only HI_21cm currently sets the species mass fraction.
+    """
     fHe = particles["z"][:, 1]
     z = particles["z"][:, 0]
 
@@ -164,6 +176,11 @@ def calc_molecular_fraction(
     fMetals,
     to_return="fH1",
 ):
+    """Return the HI (default), H2, or ionized hydrogen fraction of each gas particle.
+
+    Based on the Krumholz & Gnedin (2011) approximation; to_return is "fH1", "fH2", or
+    "fHion".
+    """
     # Inputs = Mass, number density, Kernel Length, density, metallicity
     Z = fMetals  # metal mass (everything not H, He)
     mu_H = (

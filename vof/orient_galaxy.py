@@ -14,6 +14,11 @@ eps = 0.00000000000000000000000000000000000000000000001
 def center_on_observer(
     observer_position, observer_velocity=None, rotationCurve=None, max_r=None
 ):
+    """Return the observer's Cartesian position and velocity.
+
+    If observer_velocity is None, the observer moves azimuthally at the rotation-curve
+    speed.
+    """
     # Observer position and velocity in (pseudo)cylindrical coordinates?
     r, phi, z = observer_position
     pos_observer = [r * np.cos(phi), r * np.sin(phi), z]
@@ -35,8 +40,10 @@ def center_on_observer(
 
 
 def orient_galaxy(pos, vel, Lhat, r0, returnRotationalVelocity=False):
-    # Rotate galaxy with Lhat defined as the z direction and r0 as the x direction
-    # Does not modify pos/vel; always returns new arrays.
+    """Rotate positions (and velocities) so Lhat is the z axis and r0 the x axis.
+
+    Returns new arrays; the inputs are not modified.
+    """
     xhat = r0
     zhat = Lhat
     yhat = np.cross(zhat, xhat)
@@ -91,6 +98,7 @@ def orient_galaxy(pos, vel, Lhat, r0, returnRotationalVelocity=False):
 
 
 def get_radial_velocity(pos, vel, rObs):
+    """Return each particle's radial velocity plus Hubble flow relative to rObs."""
     rMag = np.linalg.norm(pos, axis=1)
     rHat = np.copy(pos)
     rHat[:, 0] = np.divide(pos[:, 0], rMag)

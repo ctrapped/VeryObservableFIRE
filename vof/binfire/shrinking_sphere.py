@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def center_of_mass(Smas, r_s):
-    # Simple center of mass calculation with output
+    """Return the mass-weighted center of the given positions."""
     pos_com = np.zeros(3)
     pos_com[:] = np.divide(np.dot(np.transpose(r_s), Smas), np.sum(Smas))
     logger.debug("New center of mass: %s", pos_com)
@@ -21,10 +21,12 @@ def center_of_mass(Smas, r_s):
 def shrink_sphere(
     Smas, Spos, wiggle_count, r=None, rmin=10, shrink_factor=0.7, old_com=None
 ):
-    # Shrinking Sphere algorithm to find center of mass. Calculates the center of mass within a sphere of radius r,
-    # then shrinks the sphere by a factor of shrink_factor. Continues until r<=rmin and the center of mass does not change
-    # by more than delta_cutoff between iterations. Recommended to use stellar mass, at least for m12's
+    """Find the center of mass with a shrinking-sphere fit.
 
+    Shrinks the sphere by shrink_factor each iteration down to rmin, then re-centers
+    until the center moves less than delta_cutoff. Recommended with stellar mass, at
+    least for m12 galaxies.
+    """
     delta_cutoff = 0.000001
 
     # Shrinking phase: recompute the c.o.m. and filter to particles within a shrinking radius, until the radius reaches rmin

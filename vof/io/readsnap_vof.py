@@ -26,8 +26,11 @@ def readsnap_initial(
     loud=0,
     load_density=False,
 ):
-    # load_density: for gas (ptype 0), also read densities (used by Binfire to find the galaxy center)
+    """Read the positions of one particle type from a snapshot.
 
+    load_density: for gas (ptype 0), also read densities (used by Binfire to find the
+    galaxy center).
+    """
     if ptype < 0:
         return {"k": -1}
     if ptype > 5:
@@ -183,12 +186,16 @@ def readsnap_trunc(
     load_ids=True,
     n_metal_fields=2,
 ):
-    # Gas-only options (ptype 0), to skip fields a caller doesn't need on large loads:
-    #   load_density:   read densities ("rho")
-    #   load_ids:       read particle IDs ("pid", "cid", "gen")
-    #   n_metal_fields: read only the first n metallicity columns. Default 2 = total metallicity + helium,
-    #                   the only ones the pipeline uses; None reads all (e.g. for individual element abundances)
+    """Read the remaining fields of one particle type for the particles in truncMask.
 
+    Gas-only options (ptype 0), to skip fields a caller doesn't need on large loads:
+
+    - load_density: read densities ("rho").
+    - load_ids: read particle IDs ("pid", "cid", "gen").
+    - n_metal_fields: read only the first n metallicity columns. The default 2 (total
+      metallicity and helium) is all the pipeline uses; None reads all, e.g. for
+      individual element abundances.
+    """
     if ptype < 0:
         return {"k": -1}
     if ptype > 5:
@@ -460,6 +467,10 @@ def readsnap_trunc(
 def check_if_filename_exists(
     sdir, snum, snapshot_name="snapshot", extension=".hdf5", four_char=0
 ):
+    """Find a snapshot's file, trying the common naming and multi-part layouts.
+
+    Returns (fname, fname_base, extension), each "NULL" if no file is found.
+    """
     for extension_touse in [extension, ".bin", ""]:
         fname = sdir + "/" + snapshot_name + "_"
         ext = "00" + str(snum)
@@ -519,6 +530,7 @@ def check_if_filename_exists(
 
 
 def load_gadget_binary_header(f):
+    """Read the header of a binary (format 1) Gadget snapshot file."""
     ### Read header.
     import array
 
@@ -610,7 +622,7 @@ def load_gadget_binary_header(f):
 
 
 def load_gadget_binary_particledat(f, header, ptype, skip_bh=0):
-    ## load old format=1 style gadget binary snapshot files (unformatted fortran binary)
+    """Read one particle type's data from a binary (format 1) Gadget snapshot."""
     import array
 
     gas_u = 0.0

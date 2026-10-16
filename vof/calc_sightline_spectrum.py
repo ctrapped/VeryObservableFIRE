@@ -29,7 +29,11 @@ def calc_sightline_spectrum(
     bandwidth,
     rObserver,
     calcThermalLevels,
-):  # assume already centered on observer
+):
+    """Return the spectrum and emission along one sightline of finite beam size.
+
+    Particle positions must already be centered on the observer.
+    """
     zHat = sightline / np.linalg.norm(
         sightline
     )  # orient cylindrical coordinate system along the sightline

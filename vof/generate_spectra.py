@@ -48,7 +48,11 @@ def generate_spectra(
     calcChordLength=True,
     return_sightline=True,
 ):
+    """Return the spectrum, emission, optical depth, and frequencies along a sightline.
 
+    Particles must be sorted by distance; with return_sightline=False only the optically
+    thin emission is computed.
+    """
     (
         mass_species,
         g_upper,
@@ -177,8 +181,11 @@ def generate_spectra(
 def get_column_density_along_los(
     r, impact, N_mol_in_particle, beamRadiusPhysical, calcChordLength=True
 ):
-    # calculate an effect path length through the material (i.e. the particles are spheres and the beam is of finite size, so each part of the beam will not pass through the same length)
-    # This can be improved upon, as it is an approximation of what the FIRE simulations actually represent
+    """Return each particle's line-of-sight column density and the path length used.
+
+    Treats particles as spheres crossed by a finite beam, an approximation of what FIRE
+    particles represent.
+    """
     vol = 4 / 3 * pi * np.power(r, 3)
     if calcChordLength:
         chordLength = calc_effective_chord_length(r, impact, beamRadiusPhysical)
@@ -197,7 +204,7 @@ def get_column_density_along_los(
 
 
 def calc_effective_chord_length(r, impact, beamRadiusPhysical):
-    # Finds an average chord length through the sphere for a given beam width
+    """Return the mean chord length through each spherical particle across the beam."""
     Nsample = 100
 
     impactMax = impact + beamRadiusPhysical
@@ -223,7 +230,7 @@ def calc_effective_chord_length(r, impact, beamRadiusPhysical):
 def gen_line_profile(
     nu_ul, f_lu, gamma_ul, dopplerVelocity, spectralRange, temp, mass_species, Nspec
 ):
-    # Defines line profile with a gaussian core and damping wings. Following Draine "Physics of the Interstellar and Intergalactic Medium"
+    """Return a line profile with a Gaussian core and damping wings (Draine 2011)."""
     nu = np.linspace(spectralRange[0], spectralRange[1], Nspec)
 
     dopplerBeta = dopplerVelocity / (3.0 * np.power(10, 5))  # both in km/s
@@ -275,7 +282,7 @@ def gen_line_profile(
 def gen_line_profile_mat(
     nu_ul, f_lu, gamma_ul, dopplerVelocity, spectralRange, temp, mass_species, Nspec
 ):
-    # Defines line profile with a gaussian core and damping wings. Following Draine "Physics of the Interstellar and Intergalactic Medium"
+    """Vectorized gen_line_profile: return all particles' profiles (Npart x Nspec)."""
     nu = np.linspace(spectralRange[0], spectralRange[1], Nspec)
 
     dopplerBeta = dopplerVelocity / (3.0 * np.power(10, 5))  # both in km/s
@@ -343,7 +350,7 @@ def gen_line_profile_mat(
 def gen_emission_and_absorption_rates(
     colDens, T, species, beamRadiusPhysical, calcThermalLevels
 ):
-    # Find rates of emission and attenuation cross section. Following Draine "Physics of the Interstellar and Intergalactic Medium"
+    """Return each particle's emission rate and attenuation cross section (Draine)."""
     (
         _mass_species,
         g_u,

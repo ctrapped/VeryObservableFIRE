@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 def parse_args():
+    """Parse the vof command-line arguments."""
     parser = argparse.ArgumentParser(
         prog="vof",
         description="Run VeryObservableFIRE to generate synthetic images/annotations from a parameter file.",
@@ -64,6 +65,7 @@ def parse_args():
 
 
 def main():
+    """Run the pipeline for every snapshot in the parameter file's range."""
     startTime = time.time()
     args = parse_args()
     configure_logging(verbose=args.verbose, quiet=args.quiet)

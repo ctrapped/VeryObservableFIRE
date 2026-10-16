@@ -1,4 +1,4 @@
-"""Build one mock observation and write it to disk.
+"""Builds a mock observation and write it to disk.
 
 Forms the spectral datacube for one observer orientation (via project_image), then writes
 the noisy and ideal cubes, plus the projected gas-property annotations when
@@ -38,7 +38,10 @@ def generate_synthetic_image(
     r0_rot,
     particleData=None,
 ):
+    """Builds a mock observation and write it to <output>_fullSpectra.hdf5.
 
+    Also saves PNG previews if savePng is set.
+    """
     # Config values this function's own body needs. Everything else project_image needs
     # is read directly out of config there instead of being passed through here.
     observerDistance = config["observerDistance"]
@@ -61,7 +64,6 @@ def generate_synthetic_image(
 
     Nsightlines = Nsightlines1d * Nsightlines1d
 
-    logger.debug("Generating sightline files")
     observer_position = np.array(
         [-observerDistance, phiObs, 0]
     )  # in spherical coordinates
@@ -116,7 +118,6 @@ def generate_synthetic_image(
     hf = h5py.File(output + "_fullSpectra.hdf5", "w")
     hf.create_dataset("spectra", data=noisy_image)
     hf.create_dataset("ideal_image", data=ideal_image)
-    #hf.create_dataset('smooth_image',data=smooth_image)
     hf.attrs["fov_kpc"] = 2 * maxRadius
     hf.attrs["observer_distance_kpc"] = observerDistance
     hf.attrs["beam_arcsec"] = targetBeamSize / arcsec

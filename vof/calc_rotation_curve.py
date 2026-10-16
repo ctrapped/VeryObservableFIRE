@@ -10,13 +10,15 @@ from scipy import stats
 
 
 def calc_rotation_curve(pos, vel, mass, nr, max_r):
+    """Return the mass-weighted mean non-radial speed in nr radial bins out to max_r."""
     rMag = np.linalg.norm(pos, axis=1)
     rHat = np.copy(pos)
     rHat[:, 0] = np.divide(pos[:, 0], rMag)
     rHat[:, 1] = np.divide(pos[:, 1], rMag)
     rHat[:, 2] = np.divide(pos[:, 2], rMag)
+    v_radial = np.sum(vel * rHat, axis=1)  # component of each velocity along r-hat
     vMag = np.linalg.norm(
-        vel - np.multiply(vel, rHat), axis=1
+        vel - v_radial[:, np.newaxis] * rHat, axis=1
     )  # Don't count radial velocity
 
     # Calculate mass weighted average

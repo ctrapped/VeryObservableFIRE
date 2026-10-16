@@ -3,8 +3,8 @@
 Two methods are available:
 
 - Optically thin projection (deposit_particles): deposits each particle's emission onto
-  the pixel grid, smoothed by its kernel, using sparse stamping for small kernels and FFT
-  convolution for large ones.
+  the pixel grid, smoothed by a spherical kernel, using sparse stamping for small kernels
+  and FFT convolution for large ones.
 - Full spectral synthesis (gen_sightline): defines the vector, overlapping particles, and
   effective column densities for each sightline, then calculates the emission and
   absorption from each particle along it, with sightlines run in parallel.
@@ -57,6 +57,7 @@ def gen_sightline(
     bandwidth,
     rObserver,
 ):
+    """Return the emission spectrum for one sightline (pixel thread_id)."""
     ix = thread_id % Nsightlines_1d  # Thread pixel coordinates
     iy = int(np.floor(thread_id / Nsightlines_1d))
     t0 = time.time()
@@ -80,7 +81,7 @@ def gen_sightline(
 
 
 def sphere_kernel(d):
-    # Kernel for smoothing as particles by their smoothing length
+    """Return the (2d+1)x(2d+1) projected-sphere smoothing kernel (d in pixels)."""
     if d == 0:
         return np.ones((1, 1))
     c = np.arange(-d, d + 1)
@@ -107,6 +108,11 @@ def deposit_particles(
     gRotMom=None,
     minKernelSanityCheck=1.0,
 ):
+    """Optically thin projection: deposit each particle's emission onto the grid.
+
+    Each particle is smoothed by a spherical kernel. Also returns projected mass
+    and momentum maps if projectGasProperties is set.
+    """
     pixel_size_physical = 2 * max_r / Nsightlines_1d
 
     # Already rotated
@@ -304,6 +310,10 @@ def project_image(
     particleData=None,
     sightlines=None,
 ):
+    """Form the ideal, smoothed, and noisy datacubes for one orientation.
+
+    Also returns the projected property maps if projectGasProperties is set.
+    """
     # Config values this function (and the deposit_particles/gen_sightline/calc_sightline_spectrum/generate_spectra
     # helpers it calls) need, read out of the single shared config dict.
     observer_velocity = config["observerVelocity"]

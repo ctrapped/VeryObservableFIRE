@@ -27,7 +27,7 @@ def write_annotations(
     writeRadialVelocity=True,
     savePNG=False,
 ):
-
+    """Write one orientation's binned annotation maps to HDF5 (and optional PNGs)."""
     # Binfire's binned grids and the image grid are built with opposite row order.
     binnedMass = np.flipud(binnedMass)
     binnedRadialMassFlux = np.flipud(binnedRadialMassFlux)

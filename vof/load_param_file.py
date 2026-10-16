@@ -30,7 +30,7 @@ _ARRAY_FIELDS = ("observerVelocity", "inclinations")
 
 
 def _strip_comment(line):
-    # Remove a trailing '# comment', ignoring '#' that appears inside a quoted string
+    """Remove a trailing '# comment', ignoring '#' inside a quoted string."""
     in_quote = None
     for i, ch in enumerate(line):
         if in_quote:
@@ -44,6 +44,7 @@ def _strip_comment(line):
 
 
 def _parse_value(raw, namespace):
+    """Parse a value as a literal, an expression of earlier keys, or a string."""
     raw = raw.strip()
     try:
         return ast.literal_eval(raw)
@@ -67,8 +68,11 @@ def _parse_value(raw, namespace):
 
 
 def load_param_file(path, overrides=None):
-    # Parse the file, applying any given overrides inline (so later lines that reference
-    # an overridden key, e.g. a path using "{galName}", see the overridden value)
+    """Parse a parameter file into a dict, applying overrides inline.
+
+    Later lines that reference an overridden key (e.g. a path using "{galName}") see the
+    overridden value.
+    """
     overrides = overrides or {}
     params = {}
     namespace = dict(_CONSTANTS)
@@ -109,7 +113,7 @@ def load_param_file(path, overrides=None):
 
 
 def load_params(path, galName=None, minSnap=None, maxSnap=None, inclination=None):
-    # Read a parameter file, applying galName/minSnap/maxSnap/inclination as overrides on top of it.
+    """Read a parameter file, overriding galName/minSnap/maxSnap/inclination."""
     if not os.path.isfile(path) and os.path.isfile(path + ".param"):
         path = path + ".param"
 
