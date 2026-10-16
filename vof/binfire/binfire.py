@@ -82,7 +82,7 @@ def load_gas(
     if shrinking_sphere_flag:
         rTrunc = rshrinksphere  # Only load relevant data
     else:
-        rTrunc = 1.5 * max_x  # np.sqrt(max_x*max_x + max_y*max_y)#max(max_y,max_x)
+        rTrunc = 1.5 * max_x
 
     if pos_center is None:
         if densityMask is None:
@@ -242,7 +242,7 @@ def run_binfire(
     )
     ascale = header["time"]
 
-    # Read the Snapshots#################################################
+    # Read the snapshots
     # Already accounts for factors of h, but not the hubble flow
     Gpos = particles["p"]
     Gdens = particles["rho"]
@@ -289,7 +289,7 @@ def run_binfire(
     if shrinking_sphere_flag:
         rTrunc = rshrinksphere  # Only load relevant data
     else:
-        rTrunc = 1.5 * max_x  # np.sqrt(max_x*max_x + max_y*max_y)#max(max_y,max_x)
+        rTrunc = 1.5 * max_x
     truncMax = np.zeros(3)
     truncMin = np.zeros(3)
     truncMax[0] = pos_center[0] + rTrunc
@@ -324,7 +324,6 @@ def run_binfire(
         Gtemp = calc_temps(particles["u"], particles["ne"], Gz)
     N = np.size(Gmas)  # Number of Gas Particles
     Gloaded = True
-    # del G
     logger.debug("Time to load gas: %.2f s", time.time() - t1)
 
     if (
@@ -398,8 +397,7 @@ def run_binfire(
             h0=1,
             cosmological=1,
         )  # Stars Matter, only load truncated data
-        if needToCenter:  # only need stellar velocities to determine galactic vel
-            Svel = S["v"]
+        Svel = S["v"]
         Smas = S["m"]
 
         del S
@@ -476,7 +474,7 @@ def run_binfire(
         del r2_DM
         del r2_S
 
-        # CALCULATE MOMENTUMS################################################################################
+        # Calculate momenta
     Gmom = np.zeros((N, 3))
     Gmom[:, 0] = np.multiply(Gmas, Gvel[:, 0])  # Calculate each Momentum component
     Gmom[:, 1] = np.multiply(Gmas, Gvel[:, 1])
@@ -657,7 +655,7 @@ def run_binfire(
     if project_gas_properties:
         return Gmom_r, Gmom_s, Gmom_phi
 
-    ##################SORT INTO BINS########################################
+    # Sort into bins
     logger.info("Binning annotation maps")
     xmag = np.multiply(smag_rot, np.cos(phi))
     ymag = np.multiply(smag_rot, np.sin(phi))

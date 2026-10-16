@@ -53,8 +53,8 @@ def convert_to_fits(
     with fits.open(template_filename) as hdul:
         header = hdul[0].header.copy()
 
-    bmaj = obs_spatial_res_arcseconds / 3600.0  # 0.001666666666666666
-    bmin = obs_spatial_res_arcseconds / 3600.0  # 0.001666666666666666
+    bmaj = obs_spatial_res_arcseconds / 3600.0
+    bmin = obs_spatial_res_arcseconds / 3600.0
 
     image_array = spectra
 

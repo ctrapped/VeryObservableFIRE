@@ -82,8 +82,6 @@ def make_dataset(
     createMaskFromExistingStatsDir = config["createMaskFromExistingStatsDir"]
     projectGasProperties = config["projectGasProperties"]
 
-    # Create synthetic image using VOF like code
-    # do for a variety of inclinations + in disk observations!
     outputSuffix = ""
     particles = None
 

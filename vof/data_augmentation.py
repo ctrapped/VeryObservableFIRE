@@ -183,8 +183,6 @@ def rotate_data(
     # Annotation grid resolution, read from the annotation files themselves rather than the (possibly missing) image
     npix = round(np.sqrt(np.size(np.array(hfMF["annotation"]))))
 
-    ####################################################
-
     if denoise:
         logger.debug("Denoising")
         sofia_mask = denoise_with_sofia(
@@ -304,13 +302,6 @@ def rotate_data(
             write_annotation(hfrVel_o, rVel, newImageName, newImageName_dn)
             write_annotation(hfsMF_o, sMF, newImageName, newImageName_dn)
 
-            # print("Appending annotation files...")
-            # AppendToAnnotationsFile(csv_MF,newImageName,MF.flatten())
-            # AppendToAnnotationsFile(csv_Mass,newImageName,Mass.flatten())
-            # AppendToAnnotationsFile(csv_RC,newImageName,RC.flatten())
-            # AppendToAnnotationsFile(csv_rVel,newImageName,rVel.flatten())
-            # AppendToAnnotationsFile(csv_sMF,newImageName,sMF.flatten())
-
         hfMF_lr = h5py.File(
             annotationDirBase
             + "_MassFlux"
@@ -374,13 +365,6 @@ def rotate_data(
             hfrVel_lr, np.flip(rVel, axis=0), newImageName, newImageName_dn
         )
         write_annotation(hfsMF_lr, np.flip(sMF, axis=0), newImageName, newImageName_dn)
-
-        # print("Appending flipped annotation files...")
-        # AppendToAnnotationsFile(csv_MF,newImageName,np.flip(MF,axis=0).flatten())
-        # AppendToAnnotationsFile(csv_Mass,newImageName,np.flip(Mass,axis=0).flatten())
-        # AppendToAnnotationsFile(csv_RC,newImageName,np.flip(RC,axis=0).flatten())
-        # AppendToAnnotationsFile(csv_rVel,newImageName,np.flip(rVel,axis=0).flatten())
-        # AppendToAnnotationsFile(csv_sMF,newImageName,np.flip(sMF,axis=0).flatten())
 
         logger.debug("Time to save rotated data: %.2f s", tsave)
 

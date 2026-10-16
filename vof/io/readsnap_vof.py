@@ -287,9 +287,8 @@ def readsnap_trunc(
         pid = np.zeros(Ntrunc, dtype=int)
         cid = np.copy(pid)
         gen = np.copy(pid)
-    # if (ptype==0) or (ptype==4):
-    if True:
-        vel = np.zeros([Ntrunc, 3], dtype=float)
+
+    vel = np.zeros([Ntrunc, 3], dtype=float)
 
     if load_density:
         rho = np.copy(mass)
@@ -350,20 +349,17 @@ def readsnap_trunc(
                         truncMask[nL0:nR0]
                     ]
                 if massarr[ptype] <= 0.0:
-                    # mass[nL0:nR0] = input_struct[bname+"Masses"]
                     tmp = np.zeros(nR0 - nL0)
                     tmp[:] = input_struct[bname + "Masses"]
                     mass[nL:nR] = tmp[truncMask[nL0:nR0]]
                     del tmp
-                # if (ptype==0) or (ptype==4):
-                if True:
-                    logger.debug("Reading velocities %d/%d", i_file + 1, numfiles)
-                    tmp = np.zeros((nR0 - nL0, 3))
-                    tmp[:, :] = input_struct[bname + "Velocities"]
-                    vel[nL:nR, :] = tmp[truncMask[nL0:nR0]]
-                    del tmp
 
-                    # vel[nL:nR,:]=input_struct[bname+"Velocities"][truncMask[nL0:nR0],:] #Try splitting the dimensions up??
+                logger.debug("Reading velocities %d/%d", i_file + 1, numfiles)
+                tmp = np.zeros((nR0 - nL0, 3))
+                tmp[:, :] = input_struct[bname + "Velocities"]
+                vel[nL:nR, :] = tmp[truncMask[nL0:nR0]]
+                del tmp
+
                 if load_density:
                     logger.debug("Reading densities %d/%d", i_file + 1, numfiles)
                     tmp = np.zeros(nR0 - nL0)
@@ -423,9 +419,9 @@ def readsnap_trunc(
     mass *= hinv
     if load_density:
         rho *= hinv / ((ascale * hinv) ** 3)
-    # if (ptype==0) or (ptype==4):
-    if True:
-        vel *= np.sqrt(ascale)  # remember gadget's weird velocity units!
+
+    vel *= np.sqrt(ascale)  # remember gadget's weird velocity units!
+    
     if ptype == 0:
         hsml *= hinv * ascale
     if (

@@ -74,7 +74,6 @@ def generate_synthetic_image(
     maxima = [maxRadius, maxPhi, maxTheta]
     logger.debug("Pixel size: %.4g arcsec", beamSize / arcsec)
 
-    # Predefine which particles belong to which sightline files to speed up parallelization. Can be re-used for observations from the same distance/inclination
     if projectGasProperties:
         (
             ideal_image,
@@ -117,7 +116,7 @@ def generate_synthetic_image(
     hf = h5py.File(output + "_fullSpectra.hdf5", "w")
     hf.create_dataset("spectra", data=noisy_image)
     hf.create_dataset("ideal_image", data=ideal_image)
-    # hf.create_dataset('smooth_image',data=smooth_image)
+    #hf.create_dataset('smooth_image',data=smooth_image)
     hf.attrs["fov_kpc"] = 2 * maxRadius
     hf.attrs["observer_distance_kpc"] = observerDistance
     hf.attrs["beam_arcsec"] = targetBeamSize / arcsec

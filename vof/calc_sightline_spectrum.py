@@ -30,8 +30,6 @@ def calc_sightline_spectrum(
     rObserver,
     calcThermalLevels,
 ):  # assume already centered on observer
-    # print("Setting up sightline geometry...")
-    # radMask = np.where(rmag<max_r*1.5)[0]
     zHat = sightline / np.linalg.norm(
         sightline
     )  # orient cylindrical coordinate system along the sightline
@@ -75,7 +73,6 @@ def calc_sightline_spectrum(
         dopplerVelocity, (zmag - rObserver) * 0.07
     )  # kpc * km/s /kpc, Hubble flow but still centered on galaxy
 
-    # mask = np.where((((smag-testRadii-beamRadiusPhysical)<0 ) & (zmag>0)))
     indices = np.argsort(zmag)  # start with the closest particles
 
     # Calculate the spectrum and emission from these particles

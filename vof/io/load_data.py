@@ -48,7 +48,7 @@ def load_data(snapdir, Nsnapstring, ptype, rTrunc, posCenter, velCenter):
         extension=".hdf5",
         h0=1,
         cosmological=1,
-    )  ##!! EDIT READSNAP INITIAL TO ONLY LOAD POS
+    )
     pos = particles["p"]  # positions
 
     truncMax = posCenter + rTrunc
@@ -75,7 +75,7 @@ def load_data(snapdir, Nsnapstring, ptype, rTrunc, posCenter, velCenter):
         extension=".hdf5",
         h0=1,
         cosmological=1,
-    )  ##!! EDIT TO LOAD DENS AS WELL
+    )
     vel = particles["v"]
     mass = particles["m"]
 
@@ -105,9 +105,6 @@ def calc_temps(GintE, ElectronAbundance, Gz):  # Calculate Temperatures
         * (1000.0 / unit_M)
         * (unit_T) ** 2
     )  ## Boltzmann's constant, appropriate units
-    # GintE = G['u'] #internal energy
-    # ElectronAbundance = G['ne']
-    # Gz = G['z']
     N = np.size(GintE)
 
     helium_mass_fraction = np.zeros(N)

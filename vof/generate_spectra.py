@@ -267,7 +267,7 @@ def gen_line_profile(
     sigma[wingFreqs] = np.divide(
         prefactor * (1 / (4 * np.power(pi, 1.5)) * gamma_ul * lamda_ul * b),
         np.power(v[wingFreqs], 2),
-    )  # Was commented out? double check
+    ) 
 
     return sigma
 
@@ -318,10 +318,6 @@ def gen_line_profile_mat(
     coreFreqs = np.abs(v) <= transition_v[:, np.newaxis]
     wingFreqs = np.abs(v) > transition_v[:, np.newaxis]
 
-    # coreFreqs = coreFreqs[((coreFreqs<np.size(nu)) & (coreFreqs>=0))]
-
-    # wingFreqs = wingFreqs[((wingFreqs<np.size(nu)) & (wingFreqs>=0))]
-
     bmat = np.zeros((Npart, Nspec))
     bmat[:, :] = b[:, np.newaxis]
     prefactor_mat = np.zeros((Npart, Nspec))
@@ -333,14 +329,13 @@ def gen_line_profile_mat(
         prefactor_mat[coreFreqs],
         np.exp(np.divide(-np.power(v[coreFreqs], 2), np.power(bmat[coreFreqs], 2))),
     )
-    # sigma[wingFreqs] = np.divide(prefactor * (1/(4*np.power(pi,1.5)) * gamma_ul*lamda_ul * b) , np.power(v[wingFreqs],2)) #Was commented out? double check
     sigma[wingFreqs] = np.divide(
         np.multiply(
             prefactor_mat[wingFreqs],
             (1 / (4 * np.power(pi, 1.5)) * gamma_ul * lamda_ul * bmat[wingFreqs]),
         ),
         np.power(v[wingFreqs], 2),
-    )  # Was commented out? double check
+    )
 
     return sigma
 
@@ -364,8 +359,6 @@ def gen_emission_and_absorption_rates(
     ) = get_emission_species_parameters(species)
 
     n_total = pi * np.multiply(colDens, np.power(beamRadiusPhysical, 2))  # unitless
-
-    # v=(E_u-E_l)/h #Hz
 
     Nlevels = np.size(Elevels)
     partitionFunction = np.zeros(np.shape(colDens))

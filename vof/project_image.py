@@ -37,8 +37,6 @@ from vof.orient_galaxy import center_on_observer, orient_galaxy
 
 logger = logging.getLogger(__name__)
 
-# J*s^-1*m^-2*Hz-1
-
 
 eps = 1e-20
 
@@ -78,7 +76,7 @@ def gen_sightline(
         calcThermalLevels=False,
     )
     logger.debug("Finished sightline [%d, %d] in %.2f s", ix, iy, time.time() - t0)
-    return emission  # , [ix,iy]
+    return emission
 
 
 def sphere_kernel(d):
@@ -462,7 +460,7 @@ def project_image(
 
     tParallel = time.time()
 
-    ###Smooth here
+    # Smooth here
     obs_spatial_resolution = targetBeamSize * np.linalg.norm(observer_position)
     base_spatial_resolution = (2 * maxima[0]) / Nsightlines_1d
     logger.debug(
@@ -475,7 +473,7 @@ def project_image(
     )
     smoothed_image = scipy.ndimage.gaussian_filter(image, sigma=sigma, axes=[0, 1])
 
-    ####Add noise here
+    # Add noise here
     noiseProfile = np.random.normal(
         0, noiseAmplitude, np.shape(image)
     )  # Create noise profile scaled by the downsampling we are doing
