@@ -145,6 +145,7 @@ def generate_synthetic_image(
         # Simulation units (10^10 Msun) -> Msun. Velocities are mass-weighted, so unaffected.
         mass_map = mass_map * unit_M_Msun
         rMom_map = rMom_map * unit_M_Msun
+        logger.debug("Mass map sums to %.4g Msun", np.sum(mass_map))
         hf.create_dataset("mass_annotation", data=mass_map)
         hf.create_dataset("radial_velocity_annotation", data=rVel_map)
         hf.create_dataset("cylindrial_radial_velocity_annotation", data=sVel_map)
