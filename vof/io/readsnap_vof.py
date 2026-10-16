@@ -1,7 +1,10 @@
+import logging
 import os.path
 
 import h5py
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 ####Legacy io functions to read in FIRE snapshots
 ####
@@ -41,7 +44,7 @@ def readsnap_initial(
     if fname == "NULL":
         return {"k": -1}
     if loud == 1:
-        print("loading file : " + fname)
+        logger.debug("Loading file: %s", fname)
 
     ## open file and parse its header information
     nL = 0  # initial particle point to start at
@@ -86,8 +89,7 @@ def readsnap_initial(
         flag_stellarage,
         flag_metals,
     ]
-    print("npart_file: ", npart)
-    print("npart_total:", npartTotal)
+    logger.debug("Particles in file: %s, total: %s", npart, npartTotal)
 
     hinv = 1.0
     if h0 == 1:
@@ -146,10 +148,10 @@ def readsnap_initial(
         # now do the actual reading
         if npart[ptype] > 0:
             nR = nL + npart[ptype]
-            print("Reading Positions", i_file + 1, "/", numfiles)
+            logger.debug("Reading positions %d/%d", i_file + 1, numfiles)
             pos[nL:nR, :] = input_struct[bname + "Coordinates"]
             if load_density:
-                print("Reading Densities", i_file + 1, "/", numfiles)
+                logger.debug("Reading densities %d/%d", i_file + 1, numfiles)
                 rho[nL:nR] = input_struct[bname + "Density"]
             nL = nR  # sets it for the next iteration
 
@@ -203,7 +205,7 @@ def readsnap_trunc(
     if fname == "NULL":
         return {"k": -1}
     if loud == 1:
-        print("loading file : " + fname)
+        logger.debug("Loading file: %s", fname)
 
     ## open file and parse its header information
     nL = 0  # initial particle point to start at
@@ -249,8 +251,7 @@ def readsnap_trunc(
         flag_stellarage,
         flag_metals,
     ]
-    print("npart_file: ", npart)
-    print("npart_total:", npartTotal)
+    logger.debug("Particles in file: %s, total: %s", npart, npartTotal)
 
     hinv = 1.0
     if h0 == 1:
@@ -334,11 +335,11 @@ def readsnap_trunc(
             nR0 = nL0 + npart[ptype]
             nR = nL + np.size(np.where(truncMask[nL0:nR0]))
             if nR > nL:
-                print("Reading Mass", i_file + 1, "/", numfiles)
+                logger.debug("Reading masses %d/%d", i_file + 1, numfiles)
                 mass[nL:nR] = massarr[ptype]
 
                 if load_ids:
-                    print("Reading ids", i_file + 1, "/", numfiles)
+                    logger.debug("Reading ids %d/%d", i_file + 1, numfiles)
                     pid[nL:nR] = (input_struct[bname + "ParticleIDs"])[
                         truncMask[nL0:nR0]
                     ]
@@ -356,7 +357,7 @@ def readsnap_trunc(
                     del tmp
                 # if (ptype==0) or (ptype==4):
                 if True:
-                    print("Reading Velocities", i_file + 1, "/", numfiles)
+                    logger.debug("Reading velocities %d/%d", i_file + 1, numfiles)
                     tmp = np.zeros((nR0 - nL0, 3))
                     tmp[:, :] = input_struct[bname + "Velocities"]
                     vel[nL:nR, :] = tmp[truncMask[nL0:nR0]]
@@ -364,32 +365,35 @@ def readsnap_trunc(
 
                     # vel[nL:nR,:]=input_struct[bname+"Velocities"][truncMask[nL0:nR0],:] #Try splitting the dimensions up??
                 if load_density:
-                    print("Reading Densities", i_file + 1, "/", numfiles)
+                    logger.debug("Reading densities %d/%d", i_file + 1, numfiles)
                     tmp = np.zeros(nR0 - nL0)
                     tmp[:] = input_struct[bname + "Density"]
                     rho[nL:nR] = tmp[truncMask[nL0:nR0]]
                     del tmp
                 if ptype == 0:
-                    print("Reading Internal Energy", i_file + 1, "/", numfiles)
+                    logger.debug("Reading internal energy %d/%d", i_file + 1, numfiles)
                     tmp = np.zeros(nR0 - nL0)
                     tmp[:] = input_struct[bname + "InternalEnergy"]
                     ugas[nL:nR] = tmp[truncMask[nL0:nR0]]
                     del tmp
-                    print("Reading SmoothingLength", i_file + 1, "/", numfiles)
+                    logger.debug(
+                        "Reading smoothing lengths %d/%d", i_file + 1, numfiles
+                    )
                     tmp = np.zeros(nR0 - nL0)
                     tmp[:] = input_struct[bname + "SmoothingLength"]
                     hsml[nL:nR] = tmp[truncMask[nL0:nR0]]
                     del tmp
                     if flag_cooling > 0:
-                        print("Reading Electron Abundance", i_file + 1, "/", numfiles)
+                        logger.debug(
+                            "Reading electron abundance %d/%d", i_file + 1, numfiles
+                        )
                         tmp = np.zeros(nR0 - nL0)
                         tmp[:] = input_struct[bname + "ElectronAbundance"]
                         nume[nL:nR] = tmp[truncMask[nL0:nR0]]
                         del tmp
-                        print(
-                            "Reading Neutral Hydrogen Abundance",
+                        logger.debug(
+                            "Reading neutral hydrogen abundance %d/%d",
                             i_file + 1,
-                            "/",
                             numfiles,
                         )
                         tmp = np.zeros(nR0 - nL0)
@@ -397,7 +401,7 @@ def readsnap_trunc(
                         numh[nL:nR] = tmp[truncMask[nL0:nR0]]
                         del tmp
                 if (ptype == 0) and (flag_metals > 0):
-                    print("Reading Metallicity", i_file + 1, "/", numfiles)
+                    logger.debug("Reading metallicity %d/%d", i_file + 1, numfiles)
                     if n_metal_fields is None:
                         tmp = np.array(input_struct[bname + "Metallicity"])
                     else:
@@ -407,7 +411,7 @@ def readsnap_trunc(
                     metal[nL:nR, :] = tmp[truncMask[nL0:nR0]]
                     del tmp
                 if (ptype == 4) and (flag_sfr > 0) and (flag_stellarage > 0):
-                    print("Reading Stellar Age", i_file + 1, "/", numfiles)
+                    logger.debug("Reading stellar ages %d/%d", i_file + 1, numfiles)
                     tmp = np.zeros(nR0 - nL0)
                     tmp[:] = input_struct[bname + "StellarFormationTime"]
                     stellage[nL:nR] = tmp[truncMask[nL0:nR0]]
@@ -718,14 +722,14 @@ def load_gadget_binary_particledat(f, header, ptype, skip_bh=0):
                 zmet = np.reshape(star_z, (-1, header["Flag_Metals"]))
 
         if Npart[5] > 0 and skip_bh > 0:
-                ## BH mass (same as code units, but this is the separately-tracked BH mass from particle mass)
-                bh_mass = array.array("f")
-                bh_mass.fromfile(f, Npart[5])
-                f.read(4 + 4)  # Read block size fields.
-                ## BH accretion rate in snapshot
-                bh_mdot = array.array("f")
-                bh_mdot.fromfile(f, Npart[5])
-                f.read(4 + 4)  # Read block size fields.
+            ## BH mass (same as code units, but this is the separately-tracked BH mass from particle mass)
+            bh_mass = array.array("f")
+            bh_mass.fromfile(f, Npart[5])
+            f.read(4 + 4)  # Read block size fields.
+            ## BH accretion rate in snapshot
+            bh_mdot = array.array("f")
+            bh_mdot.fromfile(f, Npart[5])
+            f.read(4 + 4)  # Read block size fields.
 
     return {
         "Coordinates": pos[n0:n1, :],

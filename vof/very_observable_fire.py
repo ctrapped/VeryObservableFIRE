@@ -11,7 +11,10 @@ from vof.constants import (
 )
 from vof.emission_species import get_emission_species_parameters
 from vof.load_param_file import load_params
+from vof.logging_setup import add_logging_arguments, configure_logging
 from vof.make_dataset import make_dataset
+
+logger = logging.getLogger(__name__)
 
 ####Runs VeryObservableFIRE to create synthetic images from given observational parameters.
 ####Also creates corresponding projected and deprojected maps of radial mass flux, rotational velocity, and mass for the purposes of neural network training
@@ -52,22 +55,14 @@ def parse_args():
         default=None,
         help="Restrict to a single inclination, overriding the inclinations list in the parameter file",
     )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Show debug messages (e.g. how each parameter file value was parsed)",
-    )
+    add_logging_arguments(parser)
     return parser.parse_args()
 
 
 def main():
     startTime = time.time()
     args = parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s %(name)s: %(message)s",
-    )
+    configure_logging(verbose=args.verbose, quiet=args.quiet)
     if args.maxSnap is None:
         args.maxSnap = args.minSnap
 
@@ -90,7 +85,7 @@ def main():
     statsDir = config["statsDir"]
     output = config["output"]
 
-    print("Looking at:" + fileDir)
+    logger.info("Snapshot directory: %s", fileDir)
 
     config["targetBeamSize"] = (
         config["targetBeamSize"] * arcsec
@@ -124,21 +119,22 @@ def main():
         )
     )
 
-    print("##################    Calculated Observation Parameters    ###############")
-    print("Beamsize = ", config["beamSize"])
-    print("f0 = ", f0)
-    print("Bandwidth = ", config["bandwidth"])
-    print("###########################################################################")
+    logger.info(
+        "Observation: beam size %g rad, f0 %g Hz, bandwidth %g Hz",
+        config["beamSize"],
+        f0,
+        config["bandwidth"],
+    )
 
     initialSavePng = config[
         "savePng"
     ]  # make_dataset may turn this off partway through a snapshot (onlySaveFirstPng); restore it for the next one
     for Nsnap in range(minSnap, maxSnap + 1, snapStep):
-        print(Nsnap)
+        logger.info("Processing snapshot %d", Nsnap)
         make_dataset(config, fileDir, statsDir, Nsnap, output, galName)
         config["savePng"] = initialSavePng
 
-    print("Time to finish: ", time.time() - startTime)
+    logger.info("Finished all snapshots in %.1f s", time.time() - startTime)
 
 
 if __name__ == "__main__":

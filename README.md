@@ -91,13 +91,14 @@ vof param_myrun.param          # or: python -m vof param_myrun.param
 Optional flags override values from the parameter file, which is useful for scripting batch runs without editing the file each time:
 
 ```bash
-vof <param_file> [--galName NAME] [--minSnap N] [--maxSnap N] [--inclination DEG]
+vof <param_file> [--galName NAME] [--minSnap N] [--maxSnap N] [--inclination DEG] [-v | -q]
 ```
 
 - `--galName` overrides `galName`, including in any `{galName}` path templating elsewhere in the file.
 - `--minSnap` overrides the starting snapshot number.
 - `--maxSnap` overrides the ending snapshot number. If omitted it defaults to `--minSnap`, i.e. a single snapshot.
 - `--inclination` restricts the run to this one inclination instead of the `inclinations` list in the file.
+- `-v`/`--verbose` shows debug messages (per-step details, timings, intermediate values); `-q`/`--quiet` shows only warnings and errors. By default, progress is logged at the INFO level with timestamps, about one line per image. `vof-to-fits` and `vof-augment` accept the same two flags.
 
 Any flag left off falls back to the value in the parameter file. These overrides are implemented in `vof.load_param_file.load_params(path, galName=..., minSnap=..., maxSnap=..., inclination=...)`, which other scripts can also call directly to read a `.param` file into a plain `dict`.
 

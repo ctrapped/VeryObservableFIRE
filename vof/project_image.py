@@ -1,3 +1,4 @@
+import logging
 import math
 import multiprocessing
 import time
@@ -17,6 +18,8 @@ from vof.constants import (
 from vof.generate_spectra import generate_spectra
 from vof.io.load_data import load_data, read_stats
 from vof.orient_galaxy import center_on_observer, orient_galaxy
+
+logger = logging.getLogger(__name__)
 
 # J*s^-1*m^-2*Hz-1
 
@@ -66,7 +69,7 @@ def gen_sightline(
         rObserver,
         calcThermalLevels=False,
     )
-    print("Finished sightline [", ix, ",", iy, "] in ", time.time() - t0)
+    logger.debug("Finished sightline [%d, %d] in %.2f s", ix, iy, time.time() - t0)
     return emission  # , [ix,iy]
 
 
@@ -180,14 +183,13 @@ def deposit_particles(
     rows_l, cols_l, vals_l = [], [], []
     conv_groups = []
 
-    print(
-        "Depositing particles onto the pixel grid fro dx_vals=",
+    logger.debug(
+        "Depositing particles onto the pixel grid for dx_vals=%s:%s",
         np.min(dx_vals),
-        ":",
         np.max(dx_vals),
     )
     for d, s, n in zip(dx_vals, starts, counts):
-        print("Depositing d=", d, " with ", n, " particles")
+        logger.debug("Depositing d=%s with %d particles", d, n)
         k = sphere_kernel(d)
         if projectGasProperties:
             props_s[s : s + n] /= k.sum()  # per-group: weights for properties sum to 1
@@ -227,7 +229,7 @@ def deposit_particles(
     out_map = np.zeros((N, N, Nch))
 
     if rows_l:
-        print("Depositing small groups via direct stenciling...")
+        logger.debug("Depositing small groups via direct stenciling")
         P = coo_matrix(
             (np.concatenate(vals_l), (np.concatenate(rows_l), np.concatenate(cols_l))),
             shape=(Npix, len(dx_s)),
@@ -244,7 +246,7 @@ def deposit_particles(
         # linear (non-wraparound) convolution via the circular convolution that FFT multiplication computes --
         # the standard requirement for that is pad_length >= signal_length + kernel_length - 1 = N + 2*dmax.
         # next_fast_len rounds that minimum up to a length that keeps the FFT itself fast.
-        print("Depositing large groups via FFT convolution...")
+        logger.debug("Depositing large groups via FFT convolution")
         L = next_fast_len(N + 2 * dmax, real=True)
         acc = None
         for d, s, n, k in conv_groups:
@@ -347,7 +349,7 @@ def project_image(
     pos_observer, vel_observer = center_on_observer(
         observer_position, observer_velocity, rotationCurve=rotationCurve, max_r=max_r
     )
-    print("vel_observer=", vel_observer)
+    logger.debug("Observer velocity: %s", vel_observer)
     gPos -= pos_observer  # Switch to observers frame of reference
     gVel -= vel_observer
 
@@ -422,7 +424,7 @@ def project_image(
 
         # For each sightline get the particles that overlap with the beam and their offset from the beam. Assumes particles are spheres (they aren't, this can be improved)
         sightline_indices = range(Nsightlines)
-        print("Working with ", num_cores, " cores")
+        logger.debug("Working with %d cores", num_cores)
 
         # Define partial function to parallelize
         GenSightline_ = partial(
@@ -442,12 +444,12 @@ def project_image(
             rObserver=rObserver,
         )
 
-        print("Splitting into parallel runs")
+        logger.debug("Splitting into parallel runs")
         x = Parallel(n_jobs=num_cores)(
             delayed(GenSightline_)(i) for i in sightline_indices
         )
 
-        print("Reshaping image...")
+        logger.debug("Reshaping image")
         image = np.reshape(x, [Nsightlines_1d, Nsightlines_1d, Nspec])
 
     tParallel = time.time()
@@ -455,8 +457,11 @@ def project_image(
     ###Smooth here
     obs_spatial_resolution = targetBeamSize * np.linalg.norm(observer_position)
     base_spatial_resolution = (2 * maxima[0]) / Nsightlines_1d
-    print("Obs spatial resolution (kpc)=", obs_spatial_resolution)
-    print("Base spatial resolution (kpc)=", base_spatial_resolution)
+    logger.debug(
+        "Spatial resolution: observed %.4g kpc, base %.4g kpc",
+        obs_spatial_resolution,
+        base_spatial_resolution,
+    )
     sigma = (
         obs_spatial_resolution / base_spatial_resolution / (2 * np.sqrt(2 * np.log(2)))
     )
@@ -472,10 +477,13 @@ def project_image(
     )  # Renormalize noise
     noisy_image = np.add(smoothed_image, noiseProfile)
 
-    print("max of image is:", np.max(smoothed_image))
-    print("Max of noise profile is:", np.max(noiseProfile))
-    print("Time to run in parallel=", tParallel - tStart)
-    print("Total Time for image generation=", time.time() - tStart)
+    logger.debug(
+        "Max of smoothed image: %g, max of noise profile: %g",
+        np.max(smoothed_image),
+        np.max(noiseProfile),
+    )
+    logger.debug("Time to run in parallel: %.2f s", tParallel - tStart)
+    logger.debug("Total time for image generation: %.2f s", time.time() - tStart)
 
     if projectGasProperties:
         return (

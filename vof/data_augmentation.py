@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import subprocess
 import time
@@ -10,6 +11,9 @@ from astropy.io import fits
 from scipy.ndimage import rotate
 
 from vof.convert_to_fits import convert_to_fits
+from vof.logging_setup import add_logging_arguments, configure_logging
+
+logger = logging.getLogger(__name__)
 
 RUN_SOFIA_SCRIPT = Path(__file__).parent / "run_sofia_for_vof.sh"
 
@@ -96,7 +100,7 @@ def convert_spectra_to_moment_maps(spectra, bandwidth_km_s):
     momentMap[:, :, 1] = moment1
     momentMap[:, :, 2] = moment2
 
-    print("Time to make moment maps=", time.time() - t0)
+    logger.debug("Time to make moment maps: %.2f s", time.time() - t0)
     return momentMap
 
 
@@ -118,7 +122,7 @@ def rotate_data(
     sofia_base_path=None,
 ):
 
-    print("Rotating data...")
+    logger.info("Rotating %s", imageDirBase)
     tsave = 0
     for base in (imageDirBase, annotationDirBase):
         base_dir = os.path.dirname(base)
@@ -135,9 +139,11 @@ def rotate_data(
         obs_spatial_res_arcseconds = hfImage.attrs["beam_arcsec"]
         dnu_kmps = hfImage.attrs["dnu_kmps"]
         hfImage.close()
-        print("Found image...")
+        logger.debug("Found image")
     except (OSError, KeyError):
-        print("Warning!!! No synthetic image for this inclination...")
+        logger.warning(
+            "No synthetic image found at %s.hdf5; skipping spectra", imageDirBase
+        )
         spectra = np.zeros((1, 1, 1))
         saveSpectra = False
 
@@ -174,7 +180,7 @@ def rotate_data(
     ####################################################
 
     if denoise:
-        print("Denoising...")
+        logger.debug("Denoising")
         sofia_mask = denoise_with_sofia(
             spectra,
             fov,
@@ -186,7 +192,7 @@ def rotate_data(
             sofia_base_path,
         )
     for phi in angles:
-        print("Rotating spectra...")
+        logger.debug("Rotating spectra")
         if phi != 0:
             spectra_rot = rotate(spectra, angle=phi, reshape=False)
         else:
@@ -208,23 +214,23 @@ def rotate_data(
                 hf_out.create_dataset("spectra", data=spectra_rot)
                 hf_out.close()
             elif phi != 0:
-                print("Saving Rotations")
+                logger.debug("Saving rotations")
                 t1 = time.time()
                 hf_out = h5py.File(imageDirBase + rotString + ".hdf5", "w")
                 hf_out.create_dataset("spectra", data=spectra_rot)
                 hf_out.close()
                 tsave += time.time() - t1
 
-            print("Flipping rotations...")
+            logger.debug("Flipping rotations")
             spectra_lr = np.flip(spectra_rot, axis=0)
-            print("Saving Flips...")
+            logger.debug("Saving flips")
             t1 = time.time()
             hf_out = h5py.File(imageDirBase + rotString + dn_tag + "_lr.hdf5", "w")
             hf_out.create_dataset("spectra", data=spectra_lr)
             hf_out.close()
             tsave += time.time() - t1
 
-        print("Rotating Annotations...")
+        logger.debug("Rotating annotations")
         MF = rotate_annotation(hfMF, phi, npix)
         Mass = rotate_annotation(hfMass, phi, npix)
         RC = rotate_annotation(hfRC, phi, npix)
@@ -285,7 +291,7 @@ def rotate_data(
                 + ".hdf5",
                 "w",
             )
-            print("Saving annotations...")
+            logger.debug("Saving annotations")
             write_annotation(hfMF_o, MF, newImageName, newImageName_dn)
             write_annotation(hfMass_o, Mass, newImageName, newImageName_dn)
             write_annotation(hfRC_o, RC, newImageName, newImageName_dn)
@@ -352,7 +358,7 @@ def rotate_data(
 
         newImageName_dn = imageDirBase + rotString + "_dn_lr.hdf5"
         newImageName = imageDirBase + rotString + "_lr.hdf5"
-        print("Flipping and saving annotations...")
+        logger.debug("Flipping and saving annotations")
         write_annotation(hfMF_lr, np.flip(MF, axis=0), newImageName, newImageName_dn)
         write_annotation(
             hfMass_lr, np.flip(Mass, axis=0), newImageName, newImageName_dn
@@ -370,7 +376,7 @@ def rotate_data(
         # AppendToAnnotationsFile(csv_rVel,newImageName,np.flip(rVel,axis=0).flatten())
         # AppendToAnnotationsFile(csv_sMF,newImageName,np.flip(sMF,axis=0).flatten())
 
-        print("Time to save rotated data was", tsave)
+        logger.debug("Time to save rotated data: %.2f s", tsave)
 
 
 def _parse_args():
@@ -441,11 +447,13 @@ def _parse_args():
         default="template.fits",
         help="FITS file to copy the header from when converting to FITS (used when --denoise is set).",
     )
+    add_logging_arguments(parser)
     return parser.parse_args()
 
 
 def main():
     args = _parse_args()
+    configure_logging(verbose=args.verbose, quiet=args.quiet)
 
     for galName in args.gal_names:
         for inclination in args.inclinations:
@@ -493,7 +501,7 @@ def main():
                                 sofia_dir=args.sofia_dir,
                                 sofia_base_path=args.sofia_base_path,
                             )
-                            print("Rotated ", imageDirBase)
+                            logger.info("Rotated %s", imageDirBase)
 
 
 if __name__ == "__main__":

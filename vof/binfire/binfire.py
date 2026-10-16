@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 
@@ -17,6 +18,8 @@ from vof.constants import (
 )
 from vof.io.load_data import calc_temps, read_stats
 from vof.io.readsnap_vof import readsnap_initial, readsnap_trunc
+
+logger = logging.getLogger(__name__)
 
 eps = 1e-10
 
@@ -67,7 +70,10 @@ def load_gas(
         else:
             pos_center = None
             shrinking_sphere_flag = 1
-            print("Ssf=1")
+            logger.info(
+                "No stats file for this snapshot; running shrinking-sphere centering (slow: loads a ~%d kpc region)",
+                rshrinksphere,
+            )
 
     if shrinking_sphere_flag:
         rTrunc = rshrinksphere  # Only load relevant data
@@ -79,29 +85,30 @@ def load_gas(
             tmp_index = np.argmax(G0["rho"])
             if not np.isscalar(tmp_index):
                 center_index = tmp_index[0]
-                print(
-                    "Warning: ", np.size(tmp_index), " multiple max density particles"
+                logger.warning(
+                    "%d particles share the maximum density; using the first",
+                    np.size(tmp_index),
                 )
             else:
                 center_index = tmp_index  # in case there are degenerate max densities
 
             pos_center = G0["p"][center_index, :]  # Naive center of sim.
-            print("Center estimate from density: ", pos_center)
+            logger.debug("Center estimate from density: %s", pos_center)
         else:
             tmp_index = np.argmax(G0["rho"][densityMask])
             if not np.isscalar(tmp_index):
                 center_index = tmp_index[0]
-                print(
-                    "Warning: ", np.size(tmp_index), " multiple max density particles"
+                logger.warning(
+                    "%d particles share the maximum density; using the first",
+                    np.size(tmp_index),
                 )
             else:
                 center_index = tmp_index  # in case there are degenerate max densities
 
-            print(np.shape(G0["p"]), np.shape(G0["p"][densityMask, :]))
             pos_center = G0["p"][densityMask, :][
                 center_index, :
             ]  # Naive center of sim.
-            print("Center estimate from density: ", pos_center)
+            logger.debug("Center estimate from density: %s", pos_center)
 
     truncMax = np.zeros(3)
     truncMin = np.zeros(3)
@@ -183,10 +190,12 @@ def run_binfire(
     if statsFile is not None:
         if os.path.isfile(statsFile):
             pos_center, vel_center, Lhat, r_0, _ = read_stats(statsFile)
-            print("From Stats:")
-            print("    pos_center=", pos_center)
-            print("    vel_center=", vel_center)
-            print("    Lhat=", Lhat)
+            logger.debug(
+                "From stats file: pos_center=%s, vel_center=%s, Lhat=%s",
+                pos_center,
+                vel_center,
+                Lhat,
+            )
         else:
             writeStatsFile = True
             r_0 = None
@@ -216,7 +225,7 @@ def run_binfire(
         needToCenter = True
 
     # Read in Header and Data
-    print("Snapdir:", snapdir)
+    logger.debug("Snapshot directory: %s", snapdir)
     header = readsnap_initial(
         snapdir,
         Nsnapstring,
@@ -244,10 +253,9 @@ def run_binfire(
                 tmp_index = np.argmax(Gdens)
                 if not np.isscalar(tmp_index):
                     center_index = tmp_index[0]
-                    print(
-                        "Warning: ",
+                    logger.warning(
+                        "%d particles share the maximum density; using the first",
                         np.size(tmp_index),
-                        " multiple max density particles",
                     )
                 else:
                     center_index = (
@@ -255,26 +263,24 @@ def run_binfire(
                     )
 
                 pos_center = Gpos[center_index, :]  # Naive center of sim.
-                print("Center estimate from density: ", pos_center)
+                logger.debug("Center estimate from density: %s", pos_center)
             else:
                 tmp_index = np.argmax(Gdens[densityMask])
                 if not np.isscalar(tmp_index):
                     center_index = tmp_index[0]
-                    print(
-                        "Warning: ",
+                    logger.warning(
+                        "%d particles share the maximum density; using the first",
                         np.size(tmp_index),
-                        " multiple max density particles",
                     )
                 else:
                     center_index = (
                         tmp_index  # in case there are degenerate max densities
                     )
 
-                print(np.shape(Gpos), np.shape(Gpos[densityMask, :]))
                 pos_center = Gpos[densityMask, :][
                     center_index, :
                 ]  # Naive center of sim.
-                print("Center estimate from density: ", pos_center)
+                logger.debug("Center estimate from density: %s", pos_center)
 
     if shrinking_sphere_flag:
         rTrunc = rshrinksphere  # Only load relevant data
@@ -315,7 +321,7 @@ def run_binfire(
     N = np.size(Gmas)  # Number of Gas Particles
     Gloaded = True
     # del G
-    print("Time to load gas:", time.time() - t1)
+    logger.debug("Time to load gas: %.2f s", time.time() - t1)
 
     if (
         needToCenter
@@ -355,7 +361,7 @@ def run_binfire(
         DMvel = DM["v"]
         del DM
         DMloaded = True
-        print("Time to load dark matter:", time.time() - t1)
+        logger.debug("Time to load dark matter: %.2f s", time.time() - t1)
 
         t1 = time.time()
         S = readsnap_initial(
@@ -395,7 +401,7 @@ def run_binfire(
         del S
         del truncMask
         Sloaded = True
-        print("Time to load stars:", time.time() - t1)
+        logger.debug("Time to load stars: %.2f s", time.time() - t1)
 
         t1 = time.time()
 
@@ -416,7 +422,7 @@ def run_binfire(
             shrinkfactor,
             shrinking_sphere_flag,
         )
-        print("Time to center:", time.time() - t1)
+        logger.debug("Time to center: %.2f s", time.time() - t1)
 
     if Gloaded:
         Gpos -= pos_center  # Shift to Galactic Frame
@@ -453,9 +459,9 @@ def run_binfire(
             np.concatenate((Smas[Sidx], DMmas[DMidx]), 0),
             np.concatenate((Svel[Sidx, :], DMvel[DMidx, :]), 0),
         )
-        print("Time to find vel_center:", time.time() - t1)
+        logger.debug("Time to find vel_center: %.2f s", time.time() - t1)
 
-    print("Best Estimate of Center Velocity:", vel_center)
+    logger.debug("Best estimate of center velocity: %s", vel_center)
 
     if Gloaded:
         Gvel -= vel_center
@@ -479,7 +485,7 @@ def run_binfire(
         Lhat = find_angular_momentum(
             nh, Gpos, Gmom, Gtemp, r2
         )  # Find orientation of the Disk
-        print("Time to find Lhat:", time.time() - t1)
+        logger.debug("Time to find Lhat: %.2f s", time.time() - t1)
 
     t1 = time.time()
     N = np.size(Gmas)
@@ -490,7 +496,7 @@ def run_binfire(
     smag = np.zeros(N)
     zmag = np.zeros(N)
 
-    print("Finding velocity components...")
+    logger.debug("Finding velocity components")
     Lhat_forStats = np.copy(Lhat)
     zmag = np.dot(Gpos, Lhat_forStats)
     r_z[:, 0] = zmag * Lhat[0]
@@ -528,14 +534,14 @@ def run_binfire(
 
     phi = np.zeros(N)
     if r_0 is None:
-        print("Defining r0...")
+        logger.debug("Defining r0")
         r_0 = np.zeros(3)
         r_0[:] = r_s[0, :] / np.linalg.norm(r_s[0, :])
     else:
         r_0 = r_0 - np.dot(r_0, Lhat) * Lhat  # project onto current disk
         r_0 = r_0 / np.linalg.norm(r_0)  # make unit vector
 
-    print("r0 is", r_0)
+    logger.debug("r0 = %s", r_0)
     r_0_forStats = np.copy(r_0)
     Lhat_forStats = np.copy(Lhat)
     smag = np.linalg.norm(r_s, axis=1)
@@ -612,8 +618,6 @@ def run_binfire(
         ),
     )
 
-    print("MEAN OF GMOM_R IS:", np.mean(Gmom[:, 0]))
-
     angMom = np.cross(Gpos, Gmom)
     Lz = (
         np.multiply(angMom[:, 0], Lhat_forStats[0])
@@ -625,7 +629,7 @@ def run_binfire(
     del r_z
     del r_s
     del Lz
-    print("Time to convert to disk coordinates:", time.time() - t1)
+    logger.debug("Time to convert to disk coordinates: %.2f s", time.time() - t1)
 
     if writeStatsFile:
         stats_dir = os.path.dirname(statsFile)
@@ -650,7 +654,7 @@ def run_binfire(
         return Gmom_r, Gmom_s, Gmom_phi
 
     ##################SORT INTO BINS########################################
-    print("Binning everything...")
+    logger.info("Binning annotation maps")
     xmag = np.multiply(smag_rot, np.cos(phi))
     ymag = np.multiply(smag_rot, np.sin(phi))
 

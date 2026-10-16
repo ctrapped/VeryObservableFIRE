@@ -1,3 +1,4 @@
+import logging
 
 import numpy as np
 
@@ -13,6 +14,8 @@ from vof.constants import (
     pi,
 )
 from vof.emission_species import get_emission_species_parameters
+
+logger = logging.getLogger(__name__)
 
 ####Functions to generate emission/absorption for particles along a sightline in order to construct the mock spectra
 ####
@@ -60,10 +63,12 @@ def generate_spectra(
     )  # Load the emission/absorption parameters for this species
     N_molecules = np.multiply(gMass, speciesMassFrac) / mass_species
     if np.size(N_molecules) > 0 and np.min(N_molecules) < 0:
-        print("Warning: N_molecules<0")
-        print("    gMass=", np.min(gMass))
-        print("    speciesMassFrac = ", np.min(speciesMassFrac))
-        print("    mass_species = ", mass_species)
+        logger.warning(
+            "Negative species count (N_molecules < 0): min gMass=%g, min speciesMassFrac=%g, mass_species=%g",
+            np.min(gMass),
+            np.min(speciesMassFrac),
+            mass_species,
+        )
 
     beamRadiusPhysical = distance * np.sin(beamSize) / 2.0  # sim units (kpc)
 
@@ -152,14 +157,13 @@ def generate_spectra(
 
             optical_depth_particle = phi_nu * attenuationCrossSection[p]
             if np.min(optical_depth_particle) < 0:
-                print(
-                    "WARNING, NEGATIVE OPTICAL DEPTH -> ",
+                logger.warning(
+                    "Negative optical depth (min %g, max %g): min(phi_nu)=%g, attenuationCrossSection[p]=%s",
                     np.min(optical_depth_particle),
-                    " : ",
                     np.max(optical_depth_particle),
+                    np.min(phi_nu),
+                    attenuationCrossSection[p],
                 )
-                print("min(phi_nu)=", np.min(phi_nu))
-                print("attenuationCrossSection[p]=", attenuationCrossSection[p])
 
             optical_depth_particle[optical_depth_particle < 0] = 0
             optical_depth += optical_depth_particle  # Build up optical depth as you go through particles in the sightline
@@ -179,10 +183,13 @@ def get_column_density_along_los(
         chordLength = 2 * r
     colDensParticle = np.multiply(np.divide(N_mol_in_particle, vol), chordLength)
     if np.size(colDensParticle) > 0 and np.min(colDensParticle) < 0:
-        print("Warning: colDensParticle<0, min=", np.min(colDensParticle))
-        print("    N_mol_in_particle = ", np.min(N_mol_in_particle))
-        print("    vol = ", np.min(vol))
-        print("    chordLength = ", np.min(chordLength))
+        logger.warning(
+            "Negative column density (min %g): min N_mol_in_particle=%g, min vol=%g, min chordLength=%g",
+            np.min(colDensParticle),
+            np.min(N_mol_in_particle),
+            np.min(vol),
+            np.min(chordLength),
+        )
     return colDensParticle, chordLength
 
 
@@ -394,10 +401,12 @@ def gen_emission_and_absorption_rates(
         h * nu_ul / c * (colDensLower * B_lu)
     )  # - n_u * B_ul) Ignore stimulated emission for now
     if np.size(attenuationCrossSection) > 0 and np.min(attenuationCrossSection) < 0:
-        print("Warning, attenuationCrossSection<0...")
-        print("    colDensLower=", np.min(colDensLower))
-        print("    B_lu=", B_lu)
-        print("    colDens=", np.min(colDens))
+        logger.warning(
+            "Negative attenuation cross-section: min colDensLower=%g, B_lu=%s, min colDens=%g",
+            np.min(colDensLower),
+            B_lu,
+            np.min(colDens),
+        )
 
     upperToLowerRate = n_u * A_ul  # * (1+nbar_gamma) #Hz
 

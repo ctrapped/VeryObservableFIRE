@@ -1,3 +1,4 @@
+import logging
 import os.path
 import time
 
@@ -11,6 +12,8 @@ from vof.constants import (
     pi,
 )
 from vof.project_image import project_image
+
+logger = logging.getLogger(__name__)
 
 image = 0
 
@@ -58,7 +61,7 @@ def generate_synthetic_image(
 
     Nsightlines = Nsightlines1d * Nsightlines1d
 
-    print("Generating Sightline Files...")
+    logger.debug("Generating sightline files")
     observer_position = np.array(
         [-observerDistance, phiObs, 0]
     )  # in spherical coordinates
@@ -66,10 +69,10 @@ def generate_synthetic_image(
         2 * maxRadius / observerDistance
     )  # Convert physical size of observation to radians on the sky
 
-    maxTheta = min(maxPhi,pi)
+    maxTheta = min(maxPhi, pi)
 
     maxima = [maxRadius, maxPhi, maxTheta]
-    print("Pixel size set to: ", beamSize / arcsec, " ''")
+    logger.debug("Pixel size: %.4g arcsec", beamSize / arcsec)
 
     # Predefine which particles belong to which sightline files to speed up parallelization. Can be re-used for observations from the same distance/inclination
     if projectGasProperties:
@@ -206,4 +209,4 @@ def generate_synthetic_image(
             plt.savefig(output + "_RotationalVelocity.png")
             plt.close()
 
-    print("Snapshot ", Nsnapstring, " ran in ", time.time() - t1)
+    logger.info("Finished %s in %.1f s", os.path.basename(output), time.time() - t1)

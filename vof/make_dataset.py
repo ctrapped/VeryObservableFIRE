@@ -1,3 +1,4 @@
+import logging
 import os
 
 import numpy as np
@@ -12,6 +13,8 @@ from vof.io.load_data import (
 )
 from vof.orient_galaxy import orient_galaxy
 from vof.write_annotations import write_annotations
+
+logger = logging.getLogger(__name__)
 
 ####Function converts a FIRE snapshot to an image dataset usable with CoNNGaFit.
 ####Based on given options will first generate annotation files in the form of a .csv file for the mass flux, mass, and/or rotational velocities
@@ -33,8 +36,11 @@ def mask_particle_data(particles, pos_center, rMax, extraArrays=()):
     # Apply mask to particle data when more data was loaded for shrinking sphere calculation
     N = np.shape(particles["p"])[0]
     mask = np.linalg.norm(particles["p"] - pos_center, axis=1) < rMax
-    print(
-        "Trimming gas particles to r <", rMax, "kpc:", N, "->", np.count_nonzero(mask)
+    logger.debug(
+        "Trimming gas particles to r < %s kpc: %d -> %d",
+        rMax,
+        N,
+        np.count_nonzero(mask),
     )
 
     trimmed = {}
@@ -92,8 +98,7 @@ def make_dataset(
             maskRadius = 100
             statsDir += "masked_"
             outputSuffix = "_masked"
-            print("Set mask center...")
-
+            logger.debug("Set mask center")
 
         particles = load_gas(  # Load gas particles
             fileDir + str(Nsnap),
@@ -113,7 +118,7 @@ def make_dataset(
                 output,
                 [maxRadius, maxRadius, maxHeight],
                 [Nsightlines1d, Nsightlines1d, Nspec],
-                inclination=90-inclinations[0],
+                inclination=90 - inclinations[0],
                 position_angle=position_angles[0],
                 maskCenter=maskCenter,
                 maskRadius=maskRadius,
@@ -121,7 +126,7 @@ def make_dataset(
             )
 
         else:
-            print("Creating Annotation files with Binfire...")
+            logger.info("Creating annotation files with Binfire")
             for inclination in inclinations:
                 os.makedirs(output + "i" + str(inclination) + "/", exist_ok=True)
                 for position_angle in position_angles:
@@ -139,7 +144,7 @@ def make_dataset(
                         output,
                         [maxRadius, maxRadius, maxHeight],
                         [Nsightlines1d, Nsightlines1d, Nspec],
-                        inclination=90-inclination,
+                        inclination=90 - inclination,
                         position_angle=position_angle,
                         maskCenter=maskCenter,
                         maskRadius=maskRadius,
@@ -162,7 +167,7 @@ def make_dataset(
                     )
 
     if createImages:
-        print("Creating Synthetic Images...")
+        logger.info("Creating synthetic images")
 
         Nsnapstring = str(Nsnap)
         pos_center, vel_center, Lhat, r0, _ = read_stats(
@@ -170,7 +175,7 @@ def make_dataset(
         )
         snapdir = fileDir + Nsnapstring  # Directory containing the actual snapshots
 
-        print("snapdir=", snapdir)
+        logger.debug("Snapshot directory: %s", snapdir)
 
         if particles is None:
             # Not already loaded for Binfire above. The stats file exists by now (read just above),
@@ -201,11 +206,8 @@ def make_dataset(
         for inclination in inclinations:
             os.makedirs(output + "i" + str(inclination) + "/", exist_ok=True)
             for position_angle in position_angles:
-                print(
-                    "Generating Image for inclination: ",
-                    inclination,
-                    "P.A.=",
-                    position_angle,
+                logger.info(
+                    "Generating image for i=%s, PA=%s", inclination, position_angle
                 )
                 image_name = (
                     output
@@ -223,34 +225,27 @@ def make_dataset(
                     + outputSuffix
                 )
                 if os.path.isfile(image_name + "_fullSpectra.hdf5"):
-                    print(
-                        "Warning: image for i=",
+                    logger.warning(
+                        "Image for i=%s, PA=%s already exists, overwriting",
                         inclination,
-                        "pa=",
                         position_angle,
-                        "already exists. Overwriting...",
                     )
 
                 # Rotate r0 first to set the position angle
                 rotation_axis = np.copy(Lhat)
-                rotation_vector = (
-                    float(position_angle) * np.pi / 180.0 * rotation_axis
-                )
-                rotation = scipy.spatial.transform.Rotation.from_rotvec(
-                    rotation_vector
-                )
+                rotation_vector = float(position_angle) * np.pi / 180.0 * rotation_axis
+                rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
                 r0_rot = rotation.apply(r0)
 
                 # Rotate the vectors Lhat and r0 that define the z and x unit vectors respectively. Effectively rotates the entire galaxy
                 rotation_axis = np.cross(Lhat, r0_rot)
-                rotation_vector = float(90-inclination) * np.pi / 180.0 * rotation_axis
-                rotation = scipy.spatial.transform.Rotation.from_rotvec(
-                    rotation_vector
+                rotation_vector = (
+                    float(90 - inclination) * np.pi / 180.0 * rotation_axis
                 )
+                rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
 
                 Lhat_rot = rotation.apply(Lhat)
                 r0_rot = rotation.apply(r0_rot)
-
 
                 gPos_rot, gVel_rot = orient_galaxy(gPos, gVel, Lhat_rot, r0_rot)
 

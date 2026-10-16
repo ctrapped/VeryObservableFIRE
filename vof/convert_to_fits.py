@@ -1,10 +1,15 @@
 import argparse
+import logging
 import os
 
 import h5py
 import numpy as np
 import unyt as u
 from astropy.io import fits
+
+from vof.logging_setup import add_logging_arguments, configure_logging
+
+logger = logging.getLogger(__name__)
 
 c = 3e5 * u.km / u.s  # km/s
 H0 = 70.0 * u.km / u.s / u.Mpc  # km/s/Mpc Hubble's constant
@@ -56,9 +61,6 @@ def convert_to_fits(
 
     fov_deg = (fov_kpc / observer_distance).to_value("dimensionless") * 180.0 / np.pi
 
-    print("Fov_kpc=", fov_kpc)
-    print("fov_deg=", fov_deg)
-
     header["NAXIS1"] = nx
     header["NAXIS2"] = ny
     header["NAXIS3"] = nspec
@@ -87,14 +89,18 @@ def convert_to_fits(
         os.makedirs(output_dir, exist_ok=True)
     hdu.writeto(output_filename, overwrite=True)
 
-    print("SHAPE OF IMAGE =", nx, ny)
-    print("bmaj=", bmaj)
-    print("bmaj in arsec=", bmaj * 3600)
-    print("fov_kpc=", fov_kpc)
-    print("arcsec per pixel=", fov_deg / nx * 3600)
-    print("kpc per pixel=", fov_kpc / nx)
+    logger.debug(
+        "FITS geometry: %dx%d px, FOV %s (%.4g deg), %s per px, %.4g arcsec per px, beam %.4g arcsec",
+        nx,
+        ny,
+        fov_kpc,
+        fov_deg,
+        fov_kpc / nx,
+        fov_deg / nx * 3600,
+        bmaj * 3600,
+    )
 
-    print(f"\nSaved modified FITS file as {output_filename}")
+    logger.info("Saved FITS cube to %s", output_filename)
 
 
 def _parse_args():
@@ -130,11 +136,13 @@ def _parse_args():
         default="unknown",
         help="Value to write to the FITS OBSERVER header keyword.",
     )
+    add_logging_arguments(parser)
     return parser.parse_args()
 
 
 def main():
     args = _parse_args()
+    configure_logging(verbose=args.verbose, quiet=args.quiet)
     with h5py.File(args.spectra_h5, "r") as hf:
         spectra = np.array(hf["spectra"])
     convert_to_fits(

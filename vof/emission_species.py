@@ -82,8 +82,7 @@ def get_emission_species_parameters(speciesName):
         A_ul = A_ps
         Elevels, Glevels = read_nist_energy_levels(NAI_ENERGY_LEVELS_FILE)
     else:
-        print("Error: Parameters for " + speciesName + " have not been defined.")
-        return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+        raise ValueError(f"Emission parameters for {speciesName!r} are not defined")
 
     return (
         species_mass,

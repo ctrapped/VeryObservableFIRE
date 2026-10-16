@@ -1,7 +1,11 @@
+import logging
+
 import numpy as np
 
 from vof.binfire.shrinking_sphere import shrink_sphere
 from vof.constants import unit_L
+
+logger = logging.getLogger(__name__)
 
 eps = 1e-10
 
@@ -49,14 +53,14 @@ def find_center(
         mask_radius is not None
     ):  # Mask data to ignore a certain halo/galaxy
         Nmask = np.size(mask_centers) / 3  # Number of mask centers
-        print("Nmask is", Nmask)
+        logger.debug("Number of mask centers: %s", Nmask)
         for ii in range(Nmask):  # Mask multiple positions
             if Nmask > 1:
                 mask_center = np.zeros(3)
                 mask_center[:] = mask_centers[ii, :]
             else:
                 mask_center = mask_centers
-            print("Masking at: ", mask_center)
+            logger.debug("Masking at: %s", mask_center)
 
             maxima = mask_center + mask_radius
             minima = mask_center - mask_radius
@@ -97,7 +101,7 @@ def find_center(
             center_index = tmp_index  # in case there are degenerate max densities
 
         pos_center = Gpos[center_index, :]  # Naive center of sim.
-        print("Center estimate from density: ", pos_center)
+        logger.debug("Center estimate from density: %s", pos_center)
 
     r2_S = np.add(
         np.power(np.subtract(Spos[:, 0], pos_center[0]), 2),
@@ -106,7 +110,7 @@ def find_center(
             np.power(np.subtract(Spos[:, 2], pos_center[2]), 2),
         ),
     )
-    print("Shape of r2_S", np.shape(r2_S))
+    logger.debug("Shape of r2_S: %s", np.shape(r2_S))
     if np.max(r2_S) < rshrinksphere**2:
         rshrinksphere = np.sqrt(np.max(r2_S))
 
@@ -117,10 +121,10 @@ def find_center(
         pos_center = shrink_sphere(
             Smas[Sidx], Spos[Sidx, :][0], 0, rshrinksphere, rminsphere, shrinkfactor
         )
-        print("Best Estimate of Center:", pos_center)
+        logger.info("Best estimate of center: %s", pos_center)
     else:
-        print("Skipping Shrinking Sphere...")
-        print("Center at:", pos_center)
+        logger.debug("Skipping shrinking sphere")
+        logger.debug("Center at: %s", pos_center)
     return pos_center
 
 
@@ -136,7 +140,7 @@ def find_angular_momentum(nh, Gpos, Gmom, Gtemp, r2):
     N = np.size(Gtemp)
     L = np.zeros((N, 3))  # Initialize Angular Momentum Vector
 
-    print("Finding orientation of disk...")
+    logger.debug("Finding orientation of disk")
     L_avg = np.zeros(3)  # average momentum of central disk
 
     T_cutoff_L = 8000  # Kelvin

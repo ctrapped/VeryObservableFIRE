@@ -1,4 +1,8 @@
+import logging
+
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 ####Functions to perform the shrinking sphere fit
 ####
@@ -10,7 +14,7 @@ def center_of_mass(Smas, r_s):
     # Simple center of mass calculation with output
     pos_com = np.zeros(3)
     pos_com[:] = np.divide(np.dot(np.transpose(r_s), Smas), np.sum(Smas))
-    print("New center of mass:", pos_com)
+    logger.debug("New center of mass: %s", pos_com)
     return pos_com
 
 
@@ -26,9 +30,9 @@ def shrink_sphere(
     # Shrinking phase: recompute the c.o.m. and filter to particles within a shrinking radius, until the radius reaches rmin
     while True:
         NS = np.size(Smas)
-        print(NS, " Stars in sphere.")
+        logger.debug("%d stars in sphere", NS)
 
-        print("Calculating new center of mass...")
+        logger.debug("Calculating new center of mass")
         pos_com = center_of_mass(Smas, Spos)
 
         r2_S = np.add(
@@ -40,13 +44,12 @@ def shrink_sphere(
         )
 
         r_new = r * shrink_factor
-        print("Rnew is", r_new)
+        logger.debug("New radius: %s", r_new)
 
         if r_new > rmin:  # iterate until few enough particles
             # Set a min radius, #Iterate at the minimum radius until the com is stable
-            print("Iterating again...")
+            logger.debug("Iterating again")
             Sidx = np.where(r2_S < np.power(r_new, 2))
-            print(Sidx[0])
             del r2_S
 
             Smas = Smas[Sidx]
@@ -68,13 +71,13 @@ def shrink_sphere(
     while ((delta > delta_cutoff) and (wiggle_count < 1000)) or (
         (wiggle_count < 10) and (delta != 0.0)
     ):
-        print("Wiggling the sphere around...")
-        print("Delta C.O.M. =", delta)
+        logger.debug("Wiggling the sphere around")
+        logger.debug("Delta C.O.M. = %s", delta)
         wiggle_count += 1
 
         NS = np.size(Smas)
-        print(NS, " Stars in sphere.")
-        print("Calculating new center of mass...")
+        logger.debug("%d stars in sphere", NS)
+        logger.debug("Calculating new center of mass")
         pos_com = center_of_mass(Smas, Spos)
         r2_S = np.add(
             np.power(Spos[:, 0] - pos_com[0], 2),
@@ -93,8 +96,7 @@ def shrink_sphere(
         delta_com = np.subtract(final_com, old_com)
         delta = np.linalg.norm(delta_com)
 
-    print("Delta C.O.M. =", delta)
-    print("Done with shrinking sphere...")
-    print("Wiggled ", wiggle_count, " times.")
+    logger.debug("Delta C.O.M. = %s", delta)
+    logger.debug("Shrinking sphere converged after %d wiggles", wiggle_count)
 
     return final_com
