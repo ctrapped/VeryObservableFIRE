@@ -180,7 +180,6 @@ def generate_synthetic_image(
 
         if projectGasProperties:
             plt.figure()
-
             plt.imshow(mass_map, norm=LogNorm(), cmap="inferno")
             plt.colorbar(label="Projected Mass (Msun)")
             plt.savefig(output + "_ProjectedMass.png")
