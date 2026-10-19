@@ -16,7 +16,7 @@ from vof.constants import proton_mass, unit_L
 SNAPSHOT = 600
 ASCALE = 0.9  # scale factor of the snapshot
 HUBBLE = 0.7  # little h
-N_METAL_FIELDS = 11  # FIRE stores total metallicity, He, then 9 individual elements
+N_METAL_FIELDS = 11  # FIRE stores total metallicity, He, then individual elements
 
 N_PER_FILE = {
     0: [2200, 1800],

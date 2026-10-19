@@ -148,7 +148,7 @@ def generate_synthetic_image(
         logger.debug("Mass map sums to %.4g Msun", np.sum(mass_map))
         hf.create_dataset("mass_annotation", data=mass_map)
         hf.create_dataset("radial_velocity_annotation", data=rVel_map)
-        hf.create_dataset("cylindrial_radial_velocity_annotation", data=sVel_map)
+        hf.create_dataset("cylindrical_radial_velocity_annotation", data=sVel_map)
         hf.create_dataset("rotational_velocity_annotation", data=rotVel_map)
         hf.attrs["annotation_mass_units"] = "Msun"
         hf.attrs["annotation_velocity_units"] = "km/s"
