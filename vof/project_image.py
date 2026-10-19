@@ -196,7 +196,8 @@ def deposit_particles(
     conv_groups = []
 
     logger.debug(
-        "Depositing particles onto the pixel grid for dx_vals=%s:%s",
+        "Depositing %d particles onto the pixel grid for dx_vals=%s:%s",
+        np.sum(counts),
         np.min(dx_vals),
         np.max(dx_vals),
     )

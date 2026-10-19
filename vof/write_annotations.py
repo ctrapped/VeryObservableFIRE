@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LogNorm
 
+from vof.constants import unit_M_Msun
+
 
 def write_annotations(
     output,
@@ -29,10 +31,27 @@ def write_annotations(
 ):
     """Write one orientation's binned annotation maps to HDF5 (and optional PNGs)."""
     # Binfire's binned grids and the image grid are built with opposite row order.
-    binnedMass = np.flipud(binnedMass)
-    binnedRadialMassFlux = np.flipud(binnedRadialMassFlux)
-    binnedPhiMassFlux = np.flipud(binnedPhiMassFlux)
-    binnedCylRadMassFlux = np.flipud(binnedCylRadMassFlux)
+    # Masses and mass fluxes are converted from simulation units (10^10 Msun) to Msun.
+    binnedMass = np.flipud(binnedMass) * unit_M_Msun
+    binnedRadialMassFlux = np.flipud(binnedRadialMassFlux) * unit_M_Msun
+    binnedPhiMassFlux = np.flipud(binnedPhiMassFlux) * unit_M_Msun
+    binnedCylRadMassFlux = np.flipud(binnedCylRadMassFlux) * unit_M_Msun
+    binnedCylRadMassFluxCurve = binnedCylRadMassFluxCurve * unit_M_Msun
+
+    # Mass-weighted velocities, zero in bins with no mass
+    filled = binnedMass > 0
+    cylRadVelocity = np.divide(
+        binnedCylRadMassFlux,
+        binnedMass,
+        out=np.zeros_like(binnedCylRadMassFlux),
+        where=filled,
+    )
+    rotationalVelocity = np.divide(
+        binnedPhiMassFlux,
+        binnedMass,
+        out=np.zeros_like(binnedPhiMassFlux),
+        where=filled,
+    )
 
     angle_str = "i" + str(inclination) + "_pa" + str(position_angle)
     # Matches the datacube filename generate_synthetic_image.py actually writes in make_dataset's createImages loop (image_name+"_fullSpectra.hdf5" there)
@@ -144,18 +163,12 @@ def write_annotations(
     hfsMF1d.close()
 
     if writeRadialVelocity:
-        binnedMass[binnedMass == 0] = 1e-10
         if savePNG:
-            vmax = np.max(
-                [
-                    -np.min(np.divide(binnedCylRadMassFlux, binnedMass)),
-                    np.max(np.divide(binnedCylRadMassFlux, binnedMass)),
-                ]
-            )
+            vmax = np.max(np.abs(cylRadVelocity))
             vmin = -vmax
             plt.figure()
             plt.imshow(
-                np.divide(binnedCylRadMassFlux, binnedMass),
+                cylRadVelocity,
                 vmin=vmin,
                 vmax=vmax,
                 cmap="seismic",
@@ -171,9 +184,7 @@ def write_annotations(
             "w",
         )
         hfrVel.create_dataset("imageName", data=image_name)
-        hfrVel.create_dataset(
-            "annotation", data=np.divide(binnedCylRadMassFlux, binnedMass).flatten()
-        )
+        hfrVel.create_dataset("annotation", data=cylRadVelocity.flatten())
         hfrVel.close()
 
     if savePNG:
@@ -194,12 +205,9 @@ def write_annotations(
     hfMass.create_dataset("annotation", data=binnedMass.flatten())
     hfMass.close()
 
-    binnedMass[binnedMass == 0] = 1e-10
     if savePNG:
-        vmax = np.abs(np.max(np.divide(binnedPhiMassFlux, binnedMass)))
-        vmin = 0
         plt.figure()
-        plt.imshow(np.divide(binnedPhiMassFlux, binnedMass), cmap="seismic")
+        plt.imshow(rotationalVelocity, cmap="seismic")
         plt.colorbar()
         plt.savefig(annotationFileDir_RC + "_" + galName + "_RC_" + str(Nsnap) + ".png")
         plt.close()
@@ -208,7 +216,5 @@ def write_annotations(
         annotationFileDir_RC + "_" + galName + "_RC_" + str(Nsnap) + ".hdf5", "w"
     )
     hfMass.create_dataset("imageName", data=image_name)
-    hfMass.create_dataset(
-        "annotation", data=np.divide(binnedPhiMassFlux, binnedMass).flatten()
-    )
+    hfMass.create_dataset("annotation", data=rotationalVelocity.flatten())
     hfMass.close()

@@ -11,7 +11,6 @@ import logging
 import os
 
 import numpy as np
-import scipy
 
 from vof.binfire.binfire import load_gas, run_binfire
 from vof.generate_synthetic_image import generate_synthetic_image
@@ -20,7 +19,7 @@ from vof.io.load_data import (
     load_masked_data_for_image_gen,
     read_stats,
 )
-from vof.orient_galaxy import orient_galaxy
+from vof.orient_galaxy import orient_galaxy, orientation_vectors
 from vof.write_annotations import write_annotations
 
 logger = logging.getLogger(__name__)
@@ -237,22 +236,9 @@ def make_dataset(
                         position_angle,
                     )
 
-                # Rotate r0 first to set the position angle
-                rotation_axis = np.copy(Lhat)
-                rotation_vector = float(position_angle) * np.pi / 180.0 * rotation_axis
-                rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
-                r0_rot = rotation.apply(r0)
-
-                # Rotate the vectors Lhat and r0 that define the z and x unit vectors respectively. Effectively rotates the entire galaxy
-                rotation_axis = np.cross(Lhat, r0_rot)
-                rotation_vector = (
-                    float(90 - inclination) * np.pi / 180.0 * rotation_axis
+                Lhat_rot, r0_rot = orientation_vectors(
+                    Lhat, r0, inclination, position_angle
                 )
-                rotation = scipy.spatial.transform.Rotation.from_rotvec(rotation_vector)
-
-                Lhat_rot = rotation.apply(Lhat)
-                r0_rot = rotation.apply(r0_rot)
-
                 gPos_rot, gVel_rot = orient_galaxy(gPos, gVel, Lhat_rot, r0_rot)
 
                 particleData = {}

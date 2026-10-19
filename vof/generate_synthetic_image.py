@@ -20,12 +20,27 @@ from matplotlib.colors import LogNorm
 from vof.constants import (
     arcsec,
     pi,
+    unit_M_Msun,
 )
 from vof.project_image import project_image
 
 logger = logging.getLogger(__name__)
 
 image = 0
+
+# Pixels with less projected mass than this fraction of the peak are treated as empty. FFT
+# deposition leaves round-off of ~1e-16 of the peak (sometimes negative) in empty pixels.
+EMPTY_PIXEL_FRACTION = 1e-12
+
+
+def annotation_maps(mass_map, rMom_map, sMom_map, rotMom_map):
+    """Return the mass map and mass-weighted velocity maps, all zero in pixels with no mass."""
+    filled = mass_map > EMPTY_PIXEL_FRACTION * np.max(mass_map)
+    velocities = [
+        np.divide(mom, mass_map, out=np.zeros_like(mom), where=filled)
+        for mom in (rMom_map, sMom_map, rotMom_map)
+    ]
+    return np.where(filled, mass_map, 0.0), *velocities
 
 
 def generate_synthetic_image(
@@ -124,17 +139,17 @@ def generate_synthetic_image(
     if bandwidth_km_s is not None:
         hf.attrs["dnu_kmps"] = bandwidth_km_s / Nspec
     if projectGasProperties:
-        mass_map[mass_map == 0] = 1e-20
+        mass_map, rVel_map, sVel_map, rotVel_map = annotation_maps(
+            mass_map, rMom_map, sMom_map, rotMom_map
+        )
+        # Simulation units (10^10 Msun) -> Msun. Velocities are mass-weighted, so unaffected.
+        mass_map = mass_map * unit_M_Msun
+        rMom_map = rMom_map * unit_M_Msun
+        logger.debug("Mass map sums to %.4g Msun", np.sum(mass_map))
         hf.create_dataset("mass_annotation", data=mass_map)
-        hf.create_dataset(
-            "radial_velocity_annotation", data=np.divide(rMom_map, mass_map)
-        )
-        hf.create_dataset(
-            "cylindrial_radial_velocity_annotation", data=np.divide(sMom_map, mass_map)
-        )
-        hf.create_dataset(
-            "rotational_velocity_annotation", data=np.divide(rotMom_map, mass_map)
-        )
+        hf.create_dataset("radial_velocity_annotation", data=rVel_map)
+        hf.create_dataset("cylindrial_radial_velocity_annotation", data=sVel_map)
+        hf.create_dataset("rotational_velocity_annotation", data=rotVel_map)
         hf.attrs["annotation_mass_units"] = "Msun"
         hf.attrs["annotation_velocity_units"] = "km/s"
     hf.close()
@@ -165,7 +180,6 @@ def generate_synthetic_image(
 
         if projectGasProperties:
             plt.figure()
-
             plt.imshow(mass_map, norm=LogNorm(), cmap="inferno")
             plt.colorbar(label="Projected Mass (Msun)")
             plt.savefig(output + "_ProjectedMass.png")
@@ -174,9 +188,7 @@ def generate_synthetic_image(
             plt.figure()
             vmax = 150
             vmin = -vmax
-            plt.imshow(
-                np.divide(rMom_map, mass_map), vmin=vmin, vmax=vmax, cmap="seismic"
-            )
+            plt.imshow(rVel_map, vmin=vmin, vmax=vmax, cmap="seismic")
             plt.colorbar(label="Radial Velocity (km/s)")
             plt.savefig(output + "_RadialVelocity.png")
             plt.close()
@@ -192,9 +204,7 @@ def generate_synthetic_image(
             plt.figure()
             vmax = 150
             vmin = -vmax
-            plt.imshow(
-                np.divide(sMom_map, mass_map), vmin=vmin, vmax=vmax, cmap="seismic"
-            )
+            plt.imshow(sVel_map, vmin=vmin, vmax=vmax, cmap="seismic")
             plt.colorbar(label="Cylindrical Radial Velocity (km/s)")
             plt.savefig(output + "_CylRadialVelocity.png")
             plt.close()
@@ -202,9 +212,7 @@ def generate_synthetic_image(
             plt.figure()
             vmax = 400
             vmin = 0
-            plt.imshow(
-                np.divide(rotMom_map, mass_map), vmin=vmin, vmax=vmax, cmap="inferno"
-            )
+            plt.imshow(rotVel_map, vmin=vmin, vmax=vmax, cmap="inferno")
             plt.colorbar(label="Rotational Velocity (km/s)")
             plt.savefig(output + "_RotationalVelocity.png")
             plt.close()

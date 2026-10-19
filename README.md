@@ -1,26 +1,69 @@
 # VeryObservableFIRE
 
-**V**ery**O**bservable**F**IRE (VOF) generates synthetic spectral datacubes from FIRE simulation snapshots, mimicking what a real telescope would observe. Given a snapshot, an observer distance/inclination/position angle, and a target line, VOF orients and centers the galaxy, traces sightlines through the gas, computes the resulting emission/absorption spectrum per sightline, and convolves the result with an instrument beam and noise model to produce a mock IFU-style datacube. This can also be run as a faster, optically thin projection to save time or on individual/limited sightlines.
+[![CI](https://github.com/ctrapped/VeryObservableFIRE/actions/workflows/ci.yml/badge.svg)](https://github.com/ctrapped/VeryObservableFIRE/actions/workflows/ci.yml)
 
-Currently supported lines: **HI 21cm**, **H-alpha**, and the **Sodium I doublet** (Na I D1/D2).
+**Turn galaxy simulations into realistic telescope observations, paired with the true physical properties of every pixel.**
 
-If `runBinfire` is enabled, VOF also uses the bundled `Binfire` submodule to bin the true simulation gas onto the same projected grid (mass, radial/azimuthal mass flux, rotation curve), producing annotation files that pair with the synthetic images for neural network training (e.g. with CoNNGaFit). Alternatively, if `projectGasProperties` and `runAsOpticallyThinProjection` are enabled, VOF can project these properties in the same imaging pass.
+![VOF Pipeline Example](docs/images/m12m_example.png)
+*Output of the VOF pipeline on a full-resolution FIRE-2 snapshot (m12m). Left: what a radio telescope would see (HI 21cm intensity and line-of-sight velocity), with realistic resolution and noise. Right: the true gas mass and radial velocity (blue = inflow, red = outflow) behind that image, which can be used as labels for training a neural network.*
+
+## Why
+
+Understanding how galaxies get their gas is vital to understanding how they grow, evolve, and form stars. Figuring out how this gas reaches star-forming regions is difficult. Theory and simulations, such as [FIRE](https://fire.northwestern.edu/), predict that much of this gas at late times must transport through the gaseous disk, but observing this radial movement is not trivial. Telescopes see each galaxy from a single angle and a single point in time, blurred by finite resolution and buried in noise. The signals from this radial transport can be highly degenerate with other velocity components of the gas, making model fitting a long-standing challenge.
+
+**V**ery**O**bservable**F**IRE (VOF) bridges simulation and observation. It observes a simulated galaxy the way a real instrument would, from a variety of viewing angles, and records the ground truth for several physical properties at each pixel. The result is a labeled dataset for training neural networks (such as [CoNNGaFit](https://github.com/ctrapped/CoNNGaFit)) that infer gas flows from real telescope data.
+
+## Highlights
+
+- **Physics:** places the galaxy at a chosen distance, inclination, and position angle, then computes Doppler-shifted, thermally broadened emission and absorption along each sightline, convolves with the instrument beam, and adds noise. Produces spectral datacubes (two sky axes plus velocity).
+- **Performance:** a fast optically thin mode deposits particles onto the image grid, grouping them by kernel size and choosing per group between sparse-matrix stamping and FFT convolution. The full spectral-synthesis mode runs sightlines in parallel with joblib. Snapshots are read in two passes (positions first, then only the particles in the region of interest) to limit memory use.
+
+  For example, the optically thin projection mode (recommended) takes 30 seconds to generate and write a 512×512×128 HI 21cm datacube at a single viewing angle for a full-resolution FIRE-2 snapshot (~3,000,000 gas particles in the region of interest). The time to load, center, and process the snapshot is about 400 seconds, and is done once for multiple viewing angles. Therefore, for 56 viewing angles of a single galaxy, this takes ~35 minutes, or ~2,300 images per day on a laptop (Apple M4 Max - 128 GB RAM, 16 core, single threaded).
+
+- **Training labels:** projects the true gas mass, radial velocity, and rotational velocity onto the same pixels as the mock observation, for use training neural networks or validating model fits.
+- **Development:** an installable Python package with command-line tools, plain-text config files with command-line overrides, and logging. 80+ automated tests run on a synthetic galaxy in the FIRE file format, including end-to-end checks against stored reference outputs. Continuous integration (GitHub Actions) runs linting ([ruff](https://docs.astral.sh/ruff/), via pre-commit) and the tests on Python 3.10–3.14.
+
+## Quick start
+
+No simulation data needed:
+
+```bash
+git clone https://github.com/ctrapped/VeryObservableFIRE.git
+cd VeryObservableFIRE
+pip install -e .
+python examples/demo.py      # writes examples/demo_output/demo.png
+```
+
+![VOF demo output](docs/images/demo.png)
+*Output of [`examples/demo.py`](examples/demo.py) on a small synthetic galaxy. Left: what a radio telescope would see (HI 21cm intensity and line-of-sight velocity). Right: the true gas properties of the demo galaxy.*
+
+The demo writes a small synthetic disk galaxy in the same file format as a FIRE snapshot, runs the `vof` command on it, and plots the figure above.
+
+## Details
+
+VOF generates synthetic spectral datacubes from FIRE simulation snapshots, mimicking what a real telescope would observe. Given a snapshot, an observer distance/inclination/position angle, and a target line, VOF orients and centers the galaxy, traces sightlines through the gas, computes the resulting emission/absorption spectrum per sightline, and convolves the result with an instrument beam and noise model to produce a mock datacube. VOF can also run a faster, optically thin projection or compute spectra along only a few chosen sightlines to save time.
+
+Images are oriented so that the galaxy's major axis lies along the image x axis; the position angle sets which side of the disk faces the observer.
+
+Currently supports the **HI 21cm** line. Line parameters for **H-alpha** and the **Sodium I doublet** (Na I D1/D2) are included, but the imaging pipeline doesn't support them yet.
+
+If `runBinfire` is enabled, VOF also uses the bundled `binfire` subpackage to bin the true simulation gas onto the same projected grid (mass, radial/azimuthal mass flux, rotation curve), producing annotation files that pair with the synthetic images for neural network training (e.g. with CoNNGaFit). Alternatively, if `projectGasProperties` and `runAsOpticallyThinProjection` are enabled, VOF can project these properties in the same imaging pass. Masses are written in Msun and velocities in km/s.
 
 ## Installation
 
-Requires Python 3.9+. From the repository root:
+Requires Python 3.10+. From the repository root:
 
 ```bash
 pip install -e .            # core pipeline
 pip install -e ".[fits]"    # + FITS export and data augmentation (astropy, unyt)
-pip install -e ".[dev]"     # + development tools (ruff, pytest)
+pip install -e ".[dev]"     # + development tools (ruff, pytest, pre-commit)
 ```
 
 This installs the `vof` package and three commands: `vof`, `vof-to-fits`, and `vof-augment`. The `-e` (editable) install links to this folder rather than copying it, so code changes and `git pull`s take effect without reinstalling.
 
 ### Running without installing
 
-If you can't (or would rather not) `pip install`, install the dependencies listed in `pyproject.toml` yourself and run the package as a module from the repository root:
+Install the dependencies listed in `pyproject.toml` and run the package as a module from the repository root:
 
 ```bash
 cd /path/to/VeryObservableFIRE
@@ -30,41 +73,6 @@ python -m vof.data_augmentation ...     # instead of: vof-augment
 ```
 
 To run from a different directory, add the repository root to `PYTHONPATH` first (`export PYTHONPATH=/path/to/VeryObservableFIRE`). Running a file directly (e.g. `python vof/very_observable_fire.py`) won't work, because the modules import each other as `vof.<module>`.
-
-## Repository layout
-
-```
-configs/
-  param_template.param        Starting point for a run's parameter file
-  examples/                   Parameter files from real runs
-vof/
-  very_observable_fire.py       `vof` entry point: loads the config, derives observation parameters, loops over snapshots
-  load_param_file.py            Parser for the plain-text .param format
-  make_dataset.py               Per-snapshot driver: loads gas, runs Binfire, loops over inclination x position angle
-  orient_galaxy.py              Centering and rotating the galaxy into the observer's frame
-  generate_synthetic_image.py   Builds one mock observation and writes HDF5/PNG outputs
-  project_image.py              Image formation: optically thin particle deposition (sparse stamping + FFT convolution)
-                                or full per-sightline spectral synthesis (parallel via joblib), then beam smoothing + noise
-  calc_sightline_spectrum.py,
-  generate_spectra.py           Emission/absorption spectrum along a sightline
-  emission_species.py           Line parameters (HI 21cm, H-alpha, Na I D1/D2)
-  calc_rotation_curve.py        Rotation curve, for observers placed inside the galaxy
-  write_annotations.py          Writes Binfire annotation files and previews
-  convert_to_fits.py            `vof-to-fits`: HDF5 datacube -> FITS cube
-  data_augmentation.py          `vof-augment`: rotation/flip augmentation, optional SoFiA-2 denoising
-  run_sofia_for_vof.sh          Wrapper used by augmentation to run SoFiA-2
-  io/                           FIRE snapshot readers and loaders (load_data.py, readsnap_vof.py)
-  binfire/                      Binfire: centering (shrinking sphere), disk orientation, and binned
-                                ground-truth maps (mass, radial/azimuthal mass flux, rotation)
-  energy_levels/                NIST Na I energy levels
-```
-
-## How it works
-
-1. **`vof.very_observable_fire`** loads a parameter file (`vof.load_param_file.load_params`), computes derived observation quantities (beam size, line frequency, bandwidth), and calls `vof.make_dataset.make_dataset` for each snapshot in the requested range.
-2. **`vof.make_dataset.make_dataset`** loads the gas particles. If `runBinfire`/`projectGasProperties` is set, it runs Binfire, which also centers the galaxy and writes the stats file the first time a snapshot is processed. It then loops over every inclination x position angle pair, rotates the galaxy into the observer's frame (`vof.orient_galaxy`), and calls `vof.generate_synthetic_image.generate_synthetic_image`.
-3. **`vof.project_image.project_image`** forms the image cube, either with the fast optically thin projection (`deposit_particles`) or with full per-sightline spectral synthesis (`vof.calc_sightline_spectrum` -> `vof.generate_spectra`, using line parameters from `vof.emission_species`). The cube is then smoothed to the target beam size and has noise added.
-4. The output is written as HDF5 (`*_fullSpectra.hdf5`). It holds the `spectra` and `ideal_image` datasets, plus the projected `*_annotation` maps when `projectGasProperties` is set. The `fov_kpc`/`observer_distance_kpc`/`beam_arcsec`/`dnu_kmps` attributes record the observation setup used. Zeroth/first-moment PNG previews are optional.
 
 ## Usage
 
@@ -102,31 +110,12 @@ vof <param_file> [--galName NAME] [--minSnap N] [--maxSnap N] [--inclination DEG
 
 Any flag left off falls back to the value in the parameter file. These overrides are implemented in `vof.load_param_file.load_params(path, galName=..., minSnap=..., maxSnap=..., inclination=...)`, which other scripts can also call directly to read a `.param` file into a plain `dict`.
 
-### Optional post-processing
-
-These require the `fits` extra (`pip install -e ".[fits]"`).
-
-`vof-to-fits` converts a VOF spectra datacube to a FITS cube, using an existing FITS file as a header template. It is also available as a library function (`vof.convert_to_fits.convert_to_fits(...)`):
-
-```bash
-vof-to-fits <spectra.hdf5> <template.fits> <output.fits> \
-    --fov <kpc> --observer-distance <kpc> --beam-arcsec <arcsec> --dnu-kms <km/s> [--observer-name <name>]
-```
-
-`<spectra.hdf5>` is a VOF output file (e.g. `*_fullSpectra.hdf5`, read from its `spectra` dataset); `<template.fits>` supplies the header keywords not otherwise set from the arguments above.
-
-`vof-augment` batch-augments a set of runs' outputs, writing rotations/flips of each datacube and its Binfire annotations. It can optionally denoise each cube with the SoFiA-2 source finder first, via `vof/run_sofia_for_vof.sh`. It reads `fov_kpc`/`observer_distance_kpc`/`beam_arcsec`/`dnu_kmps` back off each `*_fullSpectra.hdf5` rather than hardcoding them:
-
-```bash
-vof-augment --data-root <dir> --gal-names m12m m12i --inclinations 50 60 --position-angles 0 45 90 135 180 225 270 315 --snapshots 600 \
-    [--tags ""] [--masked-tags ""] [--denoise --sofia-dir <sofia_dir> --sofia-base-path <base_path> --template-fits <template.fits>]
-```
-
-`--data-root` is the base directory containing per-galaxy outputs, laid out the way the main pipeline writes its `output` directory. `--denoise` is a flag (off by default) that runs SoFiA-2 masking on each cube before rotating it. `--sofia-dir` is your local SoFiA-2 install (containing the `sofia` executable); it and `--sofia-base-path`/`--template-fits` only matter when `--denoise` is set.
-
 ## Parameters
 
-Every key a `.param` file can set, grouped the same way as in `configs/param_template.param`:
+<details>
+<summary>Every key a <code>.param</code> file can set (click to expand)</summary>
+
+Grouped the same way as in `configs/param_template.param`:
 
 ### File Parameters
 
@@ -153,7 +142,7 @@ Every key a `.param` file can set, grouped the same way as in `configs/param_tem
 | `phiObs` | Offset the image by this angle, in radians |
 | `inclinations` | List of inclinations to image, in degrees |
 | `position_angles` | List of position angles to image, in degrees |
-| `speciesToRun` | Which line to model (`HI_21cm`, `h_alpha`, `NaI_D1`, or `NaI_D2`) |
+| `speciesToRun` | Which line to model; currently `HI_21cm` |
 | `res_km_s` | Spectral resolution, in km/s |
 | `Nchannels` | Number of spectral channels (bandwidth = `Nchannels * res_km_s`) |
 | `noiseAmplitude` | Noise amplitude added to the image |
@@ -166,10 +155,50 @@ Every key a `.param` file can set, grouped the same way as in `configs/param_tem
 | `runVOF` | `True` to generate the synthetic spectral datacubes |
 | `savePng` | `True` to also save PNG previews of the images/annotations |
 | `onlySaveFirstPng` | `True` to only save PNG previews for the first orientation of each snapshot |
-| `createMaskFromExistingStatsDir` | `True` to mask the previously-run galaxy, to find satellites/other galaxies in the snapshot |
+| `createMaskFromExistingStatsDir` | `True` to mask the previously run galaxy, to find satellites/other galaxies in the snapshot |
 | `num_cores` | Number of cores to use for parallel sightline generation; `None` to use all available |
 | `projectGasProperties` | `True` to project the true gas mass/radial/rotational velocity directly in the same imaging pass (used together with `runAsOpticallyThinProjection`) |
-| `runAsOpticallyThinProjection` | `True` for the fast optically-thin column-density projection (`deposit_particles`); `False` for full per-sightline spectral synthesis |
+| `runAsOpticallyThinProjection` | `True` for the fast optically thin column-density projection (`deposit_particles`); `False` for full per-sightline spectral synthesis |
+
+</details>
+
+## Repository layout
+
+```
+configs/
+  param_template.param        Starting point for a run's parameter file
+  examples/                   Parameter files from real runs
+examples/
+  demo.py                     Runs VOF on a synthetic galaxy and plots the result (no data needed)
+tests/                        pytest suite; synthetic_galaxy.py writes the test galaxy, data/ holds reference outputs
+vof/
+  very_observable_fire.py       `vof` entry point: loads the config, derives observation parameters, loops over snapshots
+  load_param_file.py            Parser for the plain-text .param format
+  make_dataset.py               Per-snapshot driver: loads gas, loops over viewing angles to make images/annotation data
+  orient_galaxy.py              Centering and rotating the galaxy into the observer's frame
+  generate_synthetic_image.py   Builds one mock observation and writes HDF5/PNG outputs
+  project_image.py              Image formation: optically thin particle deposition (sparse stamping + FFT convolution)
+                                or full per-sightline spectral synthesis (parallel via joblib), then beam smoothing + noise
+  calc_sightline_spectrum.py,
+  generate_spectra.py           Emission/absorption spectrum along a sightline
+  emission_species.py           Line parameters (HI 21cm, H-alpha, Na I D1/D2)
+  calc_rotation_curve.py        Rotation curve, for observers placed inside the galaxy
+  write_annotations.py          Writes Binfire annotation files and previews
+  convert_to_fits.py            `vof-to-fits`: HDF5 datacube -> FITS cube
+  data_augmentation.py          `vof-augment`: rotation/flip augmentation, optional SoFiA-2 denoising
+  run_sofia_for_vof.sh          Wrapper used by augmentation to run SoFiA-2
+  io/                           FIRE snapshot readers and loaders (load_data.py, readsnap_vof.py)
+  binfire/                      Binfire: centering (shrinking sphere), disk orientation, and binned
+                                ground-truth maps (mass, radial/azimuthal mass flux, rotation)
+  energy_levels/                NIST Na I energy levels
+```
+
+## How it works
+
+1. **`vof.very_observable_fire`** loads a parameter file (`vof.load_param_file.load_params`), computes derived observation quantities (beam size, line frequency, bandwidth), and calls `vof.make_dataset.make_dataset` for each snapshot in the requested range.
+2. **`vof.make_dataset.make_dataset`** loads the gas particles. If `runBinfire`/`projectGasProperties` is set, it runs Binfire, which also centers the galaxy and writes the stats file the first time a snapshot is processed. It then loops over every inclination x position angle pair, rotates the galaxy into the observer's frame (`vof.orient_galaxy`), and calls `vof.generate_synthetic_image.generate_synthetic_image`.
+3. **`vof.project_image.project_image`** forms the image cube, either with the fast optically thin projection (`deposit_particles`) or with full per-sightline spectral synthesis (`vof.calc_sightline_spectrum` -> `vof.generate_spectra`, using line parameters from `vof.emission_species`). The cube is then smoothed to the target beam size and has noise added.
+4. The output is written as HDF5 (`*_fullSpectra.hdf5`). It holds the `spectra` and `ideal_image` datasets, plus the projected `*_annotation` maps when `projectGasProperties` is set. The `fov_kpc`/`observer_distance_kpc`/`beam_arcsec`/`dnu_kmps` attributes record the observation setup used. Zeroth/first-moment PNG previews are optional.
 
 ## Development
 
@@ -181,8 +210,7 @@ pre-commit install
 ```
 
 From then on, every `git commit` runs the checks in `.pre-commit-config.yaml`:
-[ruff](https://docs.astral.sh/ruff/) linting (with the rules in `pyproject.toml`, including
-"no `print`" and "every public function has a docstring") and formatting, plus checks for
+[ruff](https://docs.astral.sh/ruff/) linting (with the rules in `pyproject.toml`) and formatting, plus checks for
 trailing whitespace, missing end-of-file newlines, merge-conflict markers, and accidentally
 committed large files (such as `.hdf5` outputs). Problems that can be fixed automatically
 are; the commit is then stopped so you can review the changes, `git add` them, and commit
@@ -191,3 +219,20 @@ again. To run every check over the whole repository:
 ```bash
 pre-commit run --all-files
 ```
+
+### Tests
+
+The test suite builds a small synthetic galaxy (a rotating disk in a FIRE-format snapshot), so
+it runs in seconds without any simulation data:
+
+```bash
+pip install -e ".[dev,fits]"
+pytest
+```
+
+`tests/test_end_to_end.py` compares full `vof` runs against reference outputs stored in
+`tests/data/`. If a change to the science output is intended, regenerate them with
+`pytest --update-golden` and commit the new files along with the change.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the pre-commit checks and the tests on
+Python 3.10–3.14 for every push and pull request.

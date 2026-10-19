@@ -15,3 +15,6 @@ venv/
 # Pipeline outputs
 *.hdf5
 *.fits
+
+# Demo outputs (examples/demo.py)
+examples/demo_output/

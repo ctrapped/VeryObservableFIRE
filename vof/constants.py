@@ -10,6 +10,7 @@ pi = np.pi
 
 # Simulation units (FIRE/GIZMO). Factors of h are accounted for in readsnap.
 unit_M = 10**10 * 1.98855 * 10**33  # 10^10 solar masses, in grams
+unit_M_Msun = 10**10  # simulation mass unit, in solar masses
 unit_L = 3.086 * 10**21  # 1 kpc, in cm
 unit_V = 1.0 * 10.0**5  # 1 km/s, in cm/s. Converted by a factor of sqrt(a) in readsnap
 unit_T = unit_L / unit_V

@@ -7,6 +7,7 @@ import math
 
 import numpy as np
 from scipy import interpolate
+from scipy.spatial.transform import Rotation
 
 eps = 0.00000000000000000000000000000000000000000000001
 
@@ -37,6 +38,25 @@ def center_on_observer(
     vel_observer[2] = vz
 
     return pos_observer, vel_observer
+
+
+def orientation_vectors(Lhat, r0, inclination, position_angle):
+    """Return (Lhat_rot, r0_rot), the frame's z and x axes for one viewing angle (degrees).
+
+    The observer looks along r0_rot; inclination 0 is face-on and 90 is edge-on.
+    """
+    # Rotate r0 first to set the position angle
+    rotation = Rotation.from_rotvec(
+        float(position_angle) * np.pi / 180.0 * np.asarray(Lhat)
+    )
+    r0_rot = rotation.apply(r0)
+
+    # Rotate the vectors Lhat and r0 that define the z and x unit vectors respectively. Effectively rotates the entire galaxy
+    rotation_axis = np.cross(Lhat, r0_rot)
+    rotation = Rotation.from_rotvec(
+        float(90 - inclination) * np.pi / 180.0 * rotation_axis
+    )
+    return rotation.apply(Lhat), rotation.apply(r0_rot)
 
 
 def orient_galaxy(pos, vel, Lhat, r0, returnRotationalVelocity=False):
