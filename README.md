@@ -7,21 +7,20 @@
 ![VOF Pipeline Example](docs/images/m12m_example.png)
 *Output of the VOF pipeline on a full-resolution FIRE-2 snapshot (m12m). Left: what a radio telescope would see (HI 21cm intensity and line-of-sight velocity), with realistic resolution and noise. Right: the true gas mass and radial velocity (blue = inflow, red = outflow) behind that image, which can be used as labels for training a neural network.*
 
-## Why
+## Details
 
-Understanding how galaxies get their gas is vital to understanding how they grow, evolve, and form stars. Figuring out how this gas reaches star-forming regions is difficult. Theory and simulations, such as [FIRE](https://fire.northwestern.edu/), predict that much of this gas at late times must transport through the gaseous disk, but observing this radial movement is not trivial. Telescopes see each galaxy from a single angle and a single point in time, blurred by finite resolution and buried in noise. The signals from this radial transport can be highly degenerate with other velocity components of the gas, making model fitting a long-standing challenge.
-
-**V**ery**O**bservable**F**IRE (VOF) bridges simulation and observation. It observes a simulated galaxy the way a real instrument would, from a variety of viewing angles, and records the ground truth for several physical properties at each pixel. The result is a labeled dataset for training neural networks (such as [CoNNGaFit](https://github.com/ctrapped/CoNNGaFit)) that infer gas flows from real telescope data.
+**V**ery**O**bservable**F**IRE (VOF) bridges simulation and observation. It observes a simulated galaxy the way a real instrument would, from a variety of viewing angles, and records the ground truth for several physical properties at each pixel. The result is a labeled dataset for training neural networks (such as [CoNNGaFit](https://github.com/ctrapped/CoNNGaFit)) or validating models that infer gas flows from real telescope data.
 
 ## Highlights
 
-- **Physics:** places the galaxy at a chosen distance, inclination, and position angle, then computes Doppler-shifted, thermally broadened emission and absorption along each sightline, convolves with the instrument beam, and adds noise. Produces spectral datacubes (two sky axes plus velocity).
-- **Performance:** a fast optically thin mode deposits particles onto the image grid, grouping them by kernel size and choosing per group between sparse-matrix stamping and FFT convolution. The full spectral-synthesis mode runs sightlines in parallel with joblib. Snapshots are read in two passes (positions first, then only the particles in the region of interest) to limit memory use.
-
-  For example, the optically thin projection mode (recommended) takes 30 seconds to generate and write a 512×512×128 HI 21cm datacube at a single viewing angle for a full-resolution FIRE-2 snapshot (~3,000,000 gas particles in the region of interest). The time to load, center, and process the snapshot is about 400 seconds, and is done once for multiple viewing angles. Therefore, for 56 viewing angles of a single galaxy, this takes ~35 minutes, or ~2,300 images per day on a laptop (Apple M4 Max - 128 GB RAM, 16 core, single threaded).
-
+- **Physics:** places the galaxy at a chosen distance, inclination, and position angle, then computes Doppler-shifted, thermally broadened emission and absorption along each sightline, convolves with the instrument beam, and adds noise.
 - **Training labels:** projects the true gas mass, radial velocity, and rotational velocity onto the same pixels as the mock observation, for use training neural networks or validating model fits.
+- **Performance:** a fast optically thin mode (recommended) deposits particles onto the image grid, grouping them by kernel size and choosing per group between sparse-matrix stamping and FFT convolution. This takes 30 seconds to generate and write a 512×512×128 HI 21cm datacube at a single viewing angle for a full-resolution FIRE-2 snapshot (~3,000,000 gas particles in the region of interest). The time to load, center, and process the snapshot is about 400 seconds, and is done once for multiple viewing angles. For 56 viewing angles of a single galaxy, this takes ~35 minutes, or ~2,300 images per day on a laptop (Apple M4 Max - 128 GB RAM, 16 core, single threaded).
 - **Development:** an installable Python package with command-line tools, plain-text config files with command-line overrides, and logging. 80+ automated tests run on a synthetic galaxy in the FIRE file format, including end-to-end checks against stored reference outputs. Continuous integration (GitHub Actions) runs linting ([ruff](https://docs.astral.sh/ruff/), via pre-commit) and the tests on Python 3.10–3.14.
+
+## Why
+
+Understanding how galaxies get their gas is vital to understanding how they grow, evolve, and form stars. Figuring out how this gas reaches star-forming regions is difficult. Theory and simulations, such as [FIRE](https://fire.northwestern.edu/), predict that much of this gas at late times must transport through the gaseous disk, but observing this radial movement is not trivial. Telescopes see each galaxy from a single angle and a single point in time, blurred by finite resolution and buried in noise. The signals from this radial transport can be highly degenerate with other velocity components of the gas, making model fitting a long-standing challenge.
 
 ## Quick start
 
@@ -39,16 +38,6 @@ python examples/demo.py      # writes examples/demo_output/demo.png
 
 The demo writes a small synthetic disk galaxy in the same file format as a FIRE snapshot, runs the `vof` command on it, and plots the figure above.
 
-## Details
-
-VOF generates synthetic spectral datacubes from FIRE simulation snapshots, mimicking what a real telescope would observe. Given a snapshot, an observer distance/inclination/position angle, and a target line, VOF orients and centers the galaxy, traces sightlines through the gas, computes the resulting emission/absorption spectrum per sightline, and convolves the result with an instrument beam and noise model to produce a mock datacube. VOF can also run a faster, optically thin projection or compute spectra along only a few chosen sightlines to save time.
-
-Images are oriented so that the galaxy's major axis lies along the image x axis; the position angle sets which side of the disk faces the observer.
-
-Currently supports the **HI 21cm** line. Line parameters for **H-alpha** and the **Sodium I doublet** (Na I D1/D2) are included, but the imaging pipeline doesn't support them yet.
-
-If `runBinfire` is enabled, VOF also uses the bundled `binfire` subpackage to bin the true simulation gas onto the same projected grid (mass, radial/azimuthal mass flux, rotation curve), producing annotation files that pair with the synthetic images for neural network training (e.g. with CoNNGaFit). Alternatively, if `projectGasProperties` and `runAsOpticallyThinProjection` are enabled, VOF can project these properties in the same imaging pass. Masses are written in Msun and velocities in km/s.
-
 ## Installation
 
 Requires Python 3.10+. From the repository root:
@@ -60,19 +49,6 @@ pip install -e ".[dev]"     # + development tools (ruff, pytest, pre-commit)
 ```
 
 This installs the `vof` package and three commands: `vof`, `vof-to-fits`, and `vof-augment`. The `-e` (editable) install links to this folder rather than copying it, so code changes and `git pull`s take effect without reinstalling.
-
-### Running without installing
-
-Install the dependencies listed in `pyproject.toml` and run the package as a module from the repository root:
-
-```bash
-cd /path/to/VeryObservableFIRE
-python -m vof param_myrun.param         # instead of: vof
-python -m vof.convert_to_fits ...       # instead of: vof-to-fits
-python -m vof.data_augmentation ...     # instead of: vof-augment
-```
-
-To run from a different directory, add the repository root to `PYTHONPATH` first (`export PYTHONPATH=/path/to/VeryObservableFIRE`). Running a file directly (e.g. `python vof/very_observable_fire.py`) won't work, because the modules import each other as `vof.<module>`.
 
 ## Usage
 
@@ -96,7 +72,7 @@ vof param_myrun.param          # or: python -m vof param_myrun.param
 
 ### Command-line overrides
 
-Optional flags override values from the parameter file, which is useful for scripting batch runs without editing the file each time:
+Optional flags override values from the parameter file:
 
 ```bash
 vof <param_file> [--galName NAME] [--minSnap N] [--maxSnap N] [--inclination DEG] [-v | -q]
@@ -107,8 +83,6 @@ vof <param_file> [--galName NAME] [--minSnap N] [--maxSnap N] [--inclination DEG
 - `--maxSnap` overrides the ending snapshot number. If omitted it defaults to `--minSnap`, i.e. a single snapshot.
 - `--inclination` restricts the run to this one inclination instead of the `inclinations` list in the file.
 - `-v`/`--verbose` shows debug messages (per-step details, timings, intermediate values); `-q`/`--quiet` shows only warnings and errors. By default, progress is logged at the INFO level with timestamps, about one line per image. `vof-to-fits` and `vof-augment` accept the same two flags.
-
-Any flag left off falls back to the value in the parameter file. These overrides are implemented in `vof.load_param_file.load_params(path, galName=..., minSnap=..., maxSnap=..., inclination=...)`, which other scripts can also call directly to read a `.param` file into a plain `dict`.
 
 ## Parameters
 
@@ -200,24 +174,12 @@ vof/
 3. **`vof.project_image.project_image`** forms the image cube, either with the fast optically thin projection (`deposit_particles`) or with full per-sightline spectral synthesis (`vof.calc_sightline_spectrum` -> `vof.generate_spectra`, using line parameters from `vof.emission_species`). The cube is then smoothed to the target beam size and has noise added.
 4. The output is written as HDF5 (`*_fullSpectra.hdf5`). It holds the `spectra` and `ideal_image` datasets, plus the projected `*_annotation` maps when `projectGasProperties` is set. The `fov_kpc`/`observer_distance_kpc`/`beam_arcsec`/`dnu_kmps` attributes record the observation setup used. Zeroth/first-moment PNG previews are optional.
 
-## Development
 
-Install the package with the development tools, then turn on the git hooks once per clone:
-
-```bash
-pip install -e ".[dev]"
-pre-commit install
-```
-
-From then on, every `git commit` runs the checks in `.pre-commit-config.yaml`:
-[ruff](https://docs.astral.sh/ruff/) linting (with the rules in `pyproject.toml`) and formatting, plus checks for
-trailing whitespace, missing end-of-file newlines, merge-conflict markers, and accidentally
-committed large files (such as `.hdf5` outputs). Problems that can be fixed automatically
-are; the commit is then stopped so you can review the changes, `git add` them, and commit
-again. To run every check over the whole repository:
+## Running without installing
 
 ```bash
-pre-commit run --all-files
+cd /path/to/VeryObservableFIRE
+python -m vof param_myrun.param 
 ```
 
 ### Tests
