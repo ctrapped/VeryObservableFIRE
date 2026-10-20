@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/ctrapped/VeryObservableFIRE/actions/workflows/ci.yml/badge.svg)](https://github.com/ctrapped/VeryObservableFIRE/actions/workflows/ci.yml)
 
-**Turn galaxy simulations into realistic telescope observations, paired with the true physical properties of every pixel.**
+**Turn galaxy simulations into realistic telescope observations, paired with true physical properties at every pixel.**
 
 ![VOF Pipeline Example](docs/images/m12m_example.png)
 *Output of the VOF pipeline on a full-resolution FIRE-2 snapshot (m12m). Left: what a radio telescope would see (HI 21cm intensity and line-of-sight velocity), with realistic resolution and noise. Right: the true gas mass and radial velocity (blue = inflow, red = outflow) behind that image, which can be used as labels for training a neural network.*
@@ -54,21 +54,19 @@ This installs the `vof` package and three commands: `vof`, `vof-to-fits`, and `v
 
 ### Parameter files
 
-The main way to run VOF is to write a parameter file and pass its path on the command line. Copy `configs/param_template.param` to a new file, e.g. `param_myrun.param`. It's a list of `key = value` lines, grouped under `# File Parameters` / `# Observer Parameters` / `# Run Parameters` comments (the grouping is purely cosmetic). See the file itself for the full list and what each key does.
+The main way to run VOF is to write a parameter file and pass its path on the command line. Copy `configs/param_template.param` to a new file. It's a list of `key = value` lines, grouped under `# File Parameters` / `# Observer Parameters` / `# Run Parameters` comments. See the file itself for the full list and what each key does.
 
 A value can reference an **earlier** key in the same file:
 - as a Python expression, e.g. `noiseAmplitude = 4e19/3.` (`pi`/`arcsec` are always available in expressions too)
 - as a `{key}` placeholder inside a path string, e.g. `fileDir = /path/to/sims/{galName}/snapdir_`
 
-Otherwise, values are parsed as Python literals where possible (numbers, `True`/`False`, `None`, `[1, 2, 3]` lists) and as plain strings when not. Quotes are optional for simple strings: both `galName = m12m` and `galName = 'm12m'` work.
+Otherwise, values are parsed as Python literals where possible (numbers, `True`/`False`, `None`, `[1, 2, 3]` lists) and as plain strings when not.
 
 Edit the values, then run:
 
 ```bash
 vof param_myrun.param          # or: python -m vof param_myrun.param
 ```
-
-(the `.param` extension is added automatically if you leave it off).
 
 ### Command-line overrides
 
@@ -179,22 +177,5 @@ vof/
 
 ```bash
 cd /path/to/VeryObservableFIRE
-python -m vof param_myrun.param 
+python -m vof param_myrun.param
 ```
-
-### Tests
-
-The test suite builds a small synthetic galaxy (a rotating disk in a FIRE-format snapshot), so
-it runs in seconds without any simulation data:
-
-```bash
-pip install -e ".[dev,fits]"
-pytest
-```
-
-`tests/test_end_to_end.py` compares full `vof` runs against reference outputs stored in
-`tests/data/`. If a change to the science output is intended, regenerate them with
-`pytest --update-golden` and commit the new files along with the change.
-
-GitHub Actions (`.github/workflows/ci.yml`) runs the pre-commit checks and the tests on
-Python 3.10–3.14 for every push and pull request.
