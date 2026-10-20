@@ -5,22 +5,22 @@
 **Turn galaxy simulations into realistic telescope observations, paired with true physical properties at every pixel.**
 
 ![VOF Pipeline Example](docs/images/m12m_example.png)
-*Output of the VOF pipeline on a full-resolution FIRE-2 snapshot (m12m). Left: what a radio telescope would see (HI 21cm intensity and line-of-sight velocity), with realistic resolution and noise. Right: the true gas mass and radial velocity (blue = inflow, red = outflow) behind that image, which can be used as labels for training a neural network.*
+*Output of the VOF pipeline on a full-resolution FIRE-2 snapshot. Left: what a radio telescope would see (HI 21cm intensity and line-of-sight velocity), with realistic resolution and noise. Right: the true gas mass and radial velocity (blue = inflow, red = outflow) behind that image, which can be used as labels for training a neural network.*
 
 ## Details
 
-**V**ery**O**bservable**F**IRE (VOF) bridges simulation and observation. It observes a simulated galaxy the way a real instrument would, from a variety of viewing angles, and records the ground truth for several physical properties at each pixel. The result is a labeled dataset for training neural networks (such as [CoNNGaFit](https://github.com/ctrapped/CoNNGaFit)) or validating models that infer gas flows from real telescope data.
+**V**ery**O**bservable**F**IRE (VOF) bridges galaxy simulations and observations. It observes a simulated galaxy the way a real instrument would, from a variety of viewing angles, and records the ground truth for several physical properties at each pixel. The result is a labeled dataset for training neural networks (such as [CoNNGaFit](https://github.com/ctrapped/CoNNGaFit)) or validating models that predict gas flows from real telescope data.
 
 ## Highlights
 
-- **Physics:** places the galaxy at a chosen distance, inclination, and position angle, then computes Doppler-shifted, thermally broadened emission and absorption along each sightline, convolves with the instrument beam, and adds noise.
+- **Physics:** places the galaxy at a chosen distance and viewing angle, then computes Doppler-shifted, thermally broadened spectra along each sightline, smooths the image to instrument resolution, and adds noise.
 - **Training labels:** projects the true gas mass, radial velocity, and rotational velocity onto the same pixels as the mock observation, for use training neural networks or validating model fits.
-- **Performance:** a fast optically thin mode (recommended) deposits particles onto the image grid, grouping them by kernel size and choosing per group between sparse-matrix stamping and FFT convolution. This takes 30 seconds to generate and write a 512×512×128 HI 21cm datacube at a single viewing angle for a full-resolution FIRE-2 snapshot (~3,000,000 gas particles in the region of interest). The time to load, center, and process the snapshot is about 400 seconds, and is done once for multiple viewing angles. For 56 viewing angles of a single galaxy, this takes ~35 minutes, or ~2,300 images per day on a laptop (Apple M4 Max - 128 GB RAM, 16 core, single threaded).
+- **Performance:** a fast projection mode (recommended) deposits particles onto the image grid, grouping them by kernel size and choosing per group between sparse-matrix stamping and FFT convolution. This takes 30 seconds to generate and write a 512×512×128 HI 21cm datacube at a single viewing angle for a full-resolution FIRE-2 snapshot (~3,000,000 gas particles in the region of interest). The time to load, center, and process the snapshot is about 400 seconds, and is done once for multiple viewing angles. For 56 viewing angles of a single galaxy, this takes ~35 minutes, or ~2,300 images per day on a laptop (Apple M4 Max - 128 GB RAM, 16 core, single threaded).
 - **Development:** an installable Python package with command-line tools, plain-text config files with command-line overrides, and logging. 80+ automated tests run on a synthetic galaxy in the FIRE file format, including end-to-end checks against stored reference outputs. Continuous integration (GitHub Actions) runs linting ([ruff](https://docs.astral.sh/ruff/), via pre-commit) and the tests on Python 3.10–3.14.
 
 ## Why
 
-Understanding how galaxies get their gas is vital to understanding how they grow, evolve, and form stars. Figuring out how this gas reaches star-forming regions is difficult. Theory and simulations, such as [FIRE](https://fire.northwestern.edu/), predict that much of this gas at late times must transport through the gaseous disk, but observing this radial movement is not trivial. Telescopes see each galaxy from a single angle and a single point in time, blurred by finite resolution and buried in noise. The signals from this radial transport can be highly degenerate with other velocity components of the gas, making model fitting a long-standing challenge.
+Understanding how galaxies get their gas is vital to understanding how they grow, evolve, and form stars. Figuring out how this gas reaches star-forming regions is difficult. Theory and simulations, such as [FIRE](https://fire.northwestern.edu/), predict that much of this gas at late times must transport through the gaseous disk, but observing this radial movement is not trivial. Telescopes see each galaxy from a single viewing angle and a single point in time, blurred by finite resolution and buried in noise. The signals from this radial transport can be highly degenerate with other velocity components of the gas, making model fitting a long-standing challenge.
 
 ## Quick start
 
