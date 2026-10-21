@@ -89,9 +89,14 @@ def test_star_ages(galaxy):
     )
 
 
-def test_missing_snapshot(tmp_path):
-    """A directory with no snapshot returns the {"k": -1} failure flag."""
-    assert readsnap_initial(str(tmp_path), "600", 0, **READ_OPTIONS) == {"k": -1}
+@pytest.mark.parametrize("reader", ["initial", "trunc"])
+def test_missing_snapshot_raises(tmp_path, reader):
+    """A directory with no snapshot raises FileNotFoundError naming the directory."""
+    with pytest.raises(FileNotFoundError, match="No snapshot 600 found"):
+        if reader == "initial":
+            readsnap_initial(str(tmp_path), "600", 0, **READ_OPTIONS)
+        else:
+            readsnap_trunc(str(tmp_path), "600", 0, np.ones(1, bool), **READ_OPTIONS)
 
 
 @pytest.mark.parametrize(

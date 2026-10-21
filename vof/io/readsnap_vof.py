@@ -45,7 +45,7 @@ def readsnap_initial(
     )
 
     if fname == "NULL":
-        return {"k": -1}
+        raise_snapshot_not_found(sdir, snum, snapshot_name)
     if loud == 1:
         logger.debug("Loading file: %s", fname)
 
@@ -210,7 +210,7 @@ def readsnap_trunc(
     )
 
     if fname == "NULL":
-        return {"k": -1}
+        raise_snapshot_not_found(sdir, snum, snapshot_name)
     if loud == 1:
         logger.debug("Loading file: %s", fname)
 
@@ -462,6 +462,15 @@ def readsnap_trunc(
     if ptype == 4:
         return {"k": 1, "v": vel, "m": mass, "age": stellage, "header": newheader}
     return {"k": 1, "m": mass, "v": vel, "header": newheader}
+
+
+def raise_snapshot_not_found(sdir, snum, snapshot_name):
+    """Raise FileNotFoundError for a snapshot check_if_filename_exists couldn't find."""
+    raise FileNotFoundError(
+        f"No snapshot {snum} found in {sdir!r}. Looked for {snapshot_name}_{snum}.hdf5, "
+        f"snap_{snum}.hdf5, and multi-part files (also inside snapdir_{snum}/). "
+        "Check fileDir in your parameter file: it should be the folder containing them."
+    )
 
 
 def check_if_filename_exists(
