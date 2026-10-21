@@ -72,7 +72,7 @@ def generate_synthetic_image(
 
     t1 = time.time()
     Nsnapstring = str(Nsnap)
-    snapDir = fileDir + Nsnapstring  # Directory containing the actual snapshots
+    snapDir = fileDir  # Holds the snapshot files or snapdir_XXX subdirectories
     statsDir = (
         statsDir + Nsnapstring.zfill(4) + ".hdf5"
     )  # Centering/orientation information.

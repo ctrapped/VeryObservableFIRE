@@ -44,7 +44,7 @@ galName = demo
 minSnap = {snapshot}
 maxSnap = {snapshot}
 snapStep = 1
-fileDir = {snapdir}_
+fileDir = {snapdir}/
 statsDir = {stats_dir}
 output = {output}/
 
@@ -83,7 +83,7 @@ def run_vof(output):
     param_file.write_text(
         PARAMS.format(
             snapshot=SNAPSHOT,
-            snapdir=galaxy.snapdir[: -len(f"_{SNAPSHOT}")],
+            snapdir=output / "snapshots",
             stats_dir=galaxy.stats_file[: -len(f"{SNAPSHOT:04d}.hdf5")],
             output=output / "vof_output",
             max_radius=MAX_RADIUS,

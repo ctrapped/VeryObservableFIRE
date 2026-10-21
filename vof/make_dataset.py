@@ -106,7 +106,7 @@ def make_dataset(
             logger.debug("Set mask center")
 
         particles = load_gas(  # Load gas particles
-            fileDir + str(Nsnap),
+            fileDir,
             statsDir + str(Nsnap).zfill(4) + ".hdf5",
             Nsnap,
             [maxRadius, maxRadius, maxHeight],
@@ -116,7 +116,7 @@ def make_dataset(
 
         if projectGasProperties:
             Gmom_r, Gmom_s, Gmom_phi = run_binfire(
-                fileDir + str(Nsnap),
+                fileDir,
                 statsDir + str(Nsnap).zfill(4) + ".hdf5",
                 particles_for_binfire(particles),
                 Nsnap,
@@ -142,7 +142,7 @@ def make_dataset(
                         binnedCylRadMassFlux,
                         binnedCylRadMassFluxCurve,
                     ) = run_binfire(
-                        fileDir + str(Nsnap),
+                        fileDir,
                         statsDir + str(Nsnap).zfill(4) + ".hdf5",
                         particles_for_binfire(particles),
                         Nsnap,
@@ -178,7 +178,7 @@ def make_dataset(
         pos_center, vel_center, Lhat, r0, _ = read_stats(
             statsDir + Nsnapstring.zfill(4) + ".hdf5"
         )
-        snapdir = fileDir + Nsnapstring  # Directory containing the actual snapshots
+        snapdir = fileDir  # Directory containing the actual snapshots
 
         logger.debug("Snapshot directory: %s", snapdir)
 

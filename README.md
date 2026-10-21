@@ -58,7 +58,7 @@ The main way to run VOF is to write a parameter file and pass its path on the co
 
 A value can reference an **earlier** key in the same file:
 - as a Python expression, e.g. `noiseAmplitude = 4e19/3.` (`pi`/`arcsec` are always available in expressions too)
-- as a `{key}` placeholder inside a path string, e.g. `fileDir = /path/to/sims/{galName}/snapdir_`
+- as a `{key}` placeholder inside a path string, e.g. `fileDir = /path/to/sims/{galName}/`
 
 Otherwise, values are parsed as Python literals where possible (numbers, `True`/`False`, `None`, `[1, 2, 3]` lists) and as plain strings when not.
 
@@ -97,7 +97,7 @@ Grouped the same way as in `configs/param_template.param`:
 | `minSnap` | Starting snapshot number |
 | `maxSnap` | Ending snapshot number |
 | `snapStep` | Step between snapshots to run |
-| `fileDir` | Path to the directory with snapshots (should end without the trailing snapshot number) |
+| `fileDir` | Directory containing the snapshots. VOF looks inside it for either single files (`snapshot_600.hdf5`) or multi-part snapshots in subdirectories (`snapdir_600/snapshot_600.0.hdf5`, ...). The `snap_600` naming also works. |
 | `statsDir` | Path to a directory to store centering/orientation stats; created automatically if it doesn't exist |
 | `output` | Directory to write outputs to |
 

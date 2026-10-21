@@ -42,12 +42,12 @@ def test_expressions_and_templates_use_earlier_keys(tmp_path):
         write(
             tmp_path,
             "res_km_s = 5.0\nbandwidth = 128*res_km_s\nbeam = 6*arcsec\n"
-            "galName = m12m\nfileDir = /sims/{galName}/snapdir_\n",
+            "galName = m12m\nfileDir = /sims/{galName}/\n",
         )
     )
     assert params["bandwidth"] == 640.0
     assert params["beam"] == pytest.approx(6 * arcsec)
-    assert params["fileDir"] == "/sims/m12m/snapdir_"
+    assert params["fileDir"] == "/sims/m12m/"
 
 
 def test_comments_and_blank_lines(tmp_path):
@@ -99,5 +99,5 @@ def test_template_parses():
     template = Path(__file__).parents[1] / "configs" / "param_template.param"
     params = load_params(str(template))
     assert params["Nchannels"] == 128
-    assert params["fileDir"].endswith("/m12m/snapdir_")
+    assert params["fileDir"].rstrip("/").endswith("/m12m")
     assert params["speciesToRun"] == "HI_21cm"

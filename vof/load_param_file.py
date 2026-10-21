@@ -3,7 +3,7 @@
 Values are parsed top-to-bottom and may reference earlier keys in the same file, e.g.::
 
     galName = m12m
-    fileDir = /path/to/sims/{galName}/snapdir_      #string templating
+    fileDir = /path/to/sims/{galName}/              #string templating
     bandwidth_km_s = 256*res_km_s                   #arithmetic expression (any earlier key may be used this way)
 
 `pi` and `arcsec` are always available in expressions without needing to be defined in

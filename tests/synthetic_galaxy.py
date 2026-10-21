@@ -133,8 +133,8 @@ def _dark_matter(rng):
     return {"p": pos, "v": vel, "m": np.full(2 * n, 5e-3)}
 
 
-def write_synthetic_snapshot(snapdir, seed=7, tilt_deg=30.0):
-    """Write snapshot_600.{0,1}.hdf5 into snapdir; return the GalaxyTruth."""
+def write_synthetic_snapshot(snapdir, seed=7, tilt_deg=30.0, single_file=False):
+    """Write snapshot_600.{0,1}.hdf5 (or snapshot_600.hdf5 if single_file) into snapdir; return the GalaxyTruth."""
     rng = np.random.default_rng(seed)
     Lhat, r0, y0 = disk_axes(tilt_deg)
 
@@ -158,11 +158,18 @@ def write_synthetic_snapshot(snapdir, seed=7, tilt_deg=30.0):
     for ptype, counts in N_PER_FILE.items():
         totals[ptype] = sum(counts)
 
-    starts = dict.fromkeys(N_PER_FILE, 0)
-    for ifile in range(2):
-        with h5py.File(snapdir / f"snapshot_{SNAPSHOT}.{ifile}.hdf5", "w") as f:
+    per_file = (
+        {ptype: [sum(counts)] for ptype, counts in N_PER_FILE.items()}
+        if single_file
+        else N_PER_FILE
+    )
+    n_files = 1 if single_file else 2
+    starts = dict.fromkeys(per_file, 0)
+    for ifile in range(n_files):
+        suffix = "" if single_file else f".{ifile}"
+        with h5py.File(snapdir / f"snapshot_{SNAPSHOT}{suffix}.hdf5", "w") as f:
             this_file = np.zeros(6, np.int64)
-            for ptype, counts in N_PER_FILE.items():
+            for ptype, counts in per_file.items():
                 this_file[ptype] = counts[ifile]
             header = {
                 "NumPart_ThisFile": this_file,
@@ -174,7 +181,7 @@ def write_synthetic_snapshot(snapdir, seed=7, tilt_deg=30.0):
                 "Omega0": 0.27,
                 "OmegaLambda": 0.73,
                 "HubbleParam": HUBBLE,
-                "NumFilesPerSnapshot": 2,
+                "NumFilesPerSnapshot": n_files,
                 "Flag_Sfr": 1,
                 "Flag_Feedback": 1,
                 "Flag_Cooling": 1,
@@ -183,7 +190,7 @@ def write_synthetic_snapshot(snapdir, seed=7, tilt_deg=30.0):
             }
             f.create_group("Header").attrs.update(header)
 
-            for ptype, counts in N_PER_FILE.items():
+            for ptype, counts in per_file.items():
                 sl = slice(starts[ptype], starts[ptype] + counts[ifile])
                 starts[ptype] += counts[ifile]
                 _write_particles(

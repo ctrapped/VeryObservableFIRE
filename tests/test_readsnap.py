@@ -1,10 +1,14 @@
-"""Snapshot readers: values match what was written, in physical units, across a 2-file snapshot."""
+"""Snapshot readers: files are found in each supported layout, and values match what was written, in physical units."""
 
 import numpy as np
 import pytest
 
-from tests.synthetic_galaxy import N_METAL_FIELDS, SNAPSHOT
-from vof.io.readsnap_vof import readsnap_initial, readsnap_trunc
+from tests.synthetic_galaxy import N_METAL_FIELDS, SNAPSHOT, write_synthetic_snapshot
+from vof.io.readsnap_vof import (
+    check_if_filename_exists,
+    readsnap_initial,
+    readsnap_trunc,
+)
 
 READ_OPTIONS = {
     "snapshot_name": "snapshot",
@@ -88,3 +92,31 @@ def test_star_ages(galaxy):
 def test_missing_snapshot(tmp_path):
     """A directory with no snapshot returns the {"k": -1} failure flag."""
     assert readsnap_initial(str(tmp_path), "600", 0, **READ_OPTIONS) == {"k": -1}
+
+
+@pytest.mark.parametrize(
+    "layout",
+    [
+        "snapshot_600.hdf5",
+        "snap_600.hdf5",
+        "snapshot_600.0.hdf5",
+        "snapdir_600/snapshot_600.0.hdf5",
+        "snapdir_600/snap_600.0.hdf5",
+    ],
+)
+def test_finds_snapshot_layouts(tmp_path, layout):
+    """fileDir is the folder holding the snapshots; single files and snapdir_XXX/ subfolders are both found."""
+    path = tmp_path / layout
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch()
+    fname, _, extension = check_if_filename_exists(str(tmp_path), "600")
+    assert fname == f"{tmp_path}/{layout}"
+    assert extension == ".hdf5"
+
+
+def test_reads_single_file_snapshot(tmp_path):
+    """A one-file snapshot (fileDir/snapshot_600.hdf5) reads the same particles as the 2-file one."""
+    galaxy = write_synthetic_snapshot(tmp_path, single_file=True)
+    np.testing.assert_allclose(
+        read_initial(galaxy, 0)["p"], galaxy.particles[0]["p"], rtol=1e-12
+    )

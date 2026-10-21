@@ -1,6 +1,7 @@
 """Shared pytest fixtures: the synthetic galaxy and parameter files for running VOF on it."""
 
 import os
+from pathlib import Path
 
 os.environ.setdefault("MPLBACKEND", "Agg")  # tests never open plot windows
 
@@ -74,8 +75,8 @@ def write_param_file(tmp_path):
 
     def _write(galaxy, **overrides):
         params = dict(BASE_PARAMS)
-        # VOF appends the snapshot number to fileDir and "<snapshot>.hdf5" to statsDir
-        params["fileDir"] = galaxy.snapdir[: -len(str(SNAPSHOT))]
+        # fileDir is the folder holding snapdir_600/; VOF appends "<snapshot>.hdf5" to statsDir
+        params["fileDir"] = str(Path(galaxy.snapdir).parent) + "/"
         params["statsDir"] = galaxy.stats_file[: -len(f"{SNAPSHOT:04d}.hdf5")]
         params["output"] = str(tmp_path / "output") + "/"
         params.update(overrides)
