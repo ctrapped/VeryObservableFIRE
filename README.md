@@ -179,3 +179,7 @@ vof/
 cd /path/to/VeryObservableFIRE
 python -m vof param_myrun.param
 ```
+
+## License
+
+VOF is released under the [MIT License](LICENSE).
