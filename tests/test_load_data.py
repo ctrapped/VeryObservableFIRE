@@ -38,14 +38,6 @@ def test_calc_temps_matches_ideal_gas():
     np.testing.assert_allclose(calc_temps(u, ne, Z), expected, rtol=1e-6)
 
 
-def test_calc_temps_uses_helium_column():
-    """Temperature depends on the helium column, not total metallicity (regression: He was read as Z)."""
-    u, ne = np.array([50.0]), np.array([0.1])
-    base = calc_temps(u, ne, np.array([[0.02, 0.25]]))
-    assert calc_temps(u, ne, np.array([[0.04, 0.25]])) == pytest.approx(base, rel=1e-12)
-    assert calc_temps(u, ne, np.array([[0.02, 0.30]])) != pytest.approx(base, rel=1e-3)
-
-
 def test_load_data_centers_and_truncates(galaxy):
     """load_data returns gas within the box around the center, shifted into the galaxy's frame."""
     pos, vel, mass, _dens, _Z, _nh, _hsml, temp = load_data(

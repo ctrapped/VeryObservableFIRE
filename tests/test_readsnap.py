@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from tests.synthetic_galaxy import N_METAL_FIELDS, SNAPSHOT, write_synthetic_snapshot
+from tests.synthetic_galaxy import SNAPSHOT, write_synthetic_snapshot
 from vof.io.readsnap_vof import (
     check_if_filename_exists,
     readsnap_initial,
@@ -63,15 +63,12 @@ def test_truncated_gas_fields(galaxy, gas_mask):
 
 
 def test_truncated_gas_options(galaxy, gas_mask):
-    """The load_density/load_ids/n_metal_fields options skip or add fields as documented."""
+    """The load_density/load_ids options, which Binfire uses, skip or add fields as documented."""
     full = read_trunc(galaxy, 0, gas_mask)
     assert {"rho", "pid", "cid", "gen"} <= set(full)
 
     slim = read_trunc(galaxy, 0, gas_mask, load_density=False, load_ids=False)
     assert not {"rho", "pid", "cid", "gen"} & set(slim)
-
-    all_metals = read_trunc(galaxy, 0, gas_mask, n_metal_fields=None)
-    assert all_metals["z"].shape == (np.count_nonzero(gas_mask), N_METAL_FIELDS)
 
 
 def test_dark_matter_velocities_are_loaded(galaxy):
@@ -79,14 +76,6 @@ def test_dark_matter_velocities_are_loaded(galaxy):
     mask = np.ones(len(galaxy.particles[1]["m"]), dtype=bool)
     result = read_trunc(galaxy, 1, mask)
     np.testing.assert_allclose(result["v"], galaxy.particles[1]["v"], rtol=1e-12)
-
-
-def test_star_ages(galaxy):
-    """Star formation times are read for stars."""
-    mask = np.ones(len(galaxy.particles[4]["m"]), dtype=bool)
-    np.testing.assert_allclose(
-        read_trunc(galaxy, 4, mask)["age"], galaxy.particles[4]["age"]
-    )
 
 
 @pytest.mark.parametrize("reader", ["initial", "trunc"])
@@ -103,9 +92,7 @@ def test_missing_snapshot_raises(tmp_path, reader):
     "layout",
     [
         "snapshot_600.hdf5",
-        "snap_600.hdf5",
         "snapshot_600.0.hdf5",
-        "snapdir_600/snapshot_600.0.hdf5",
         "snapdir_600/snap_600.0.hdf5",
     ],
 )

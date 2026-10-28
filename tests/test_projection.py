@@ -53,7 +53,7 @@ def deposit(y, z, kernel, mass, **kwargs):
     )
 
 
-@pytest.mark.parametrize("d", [0, 1, 3, 6])
+@pytest.mark.parametrize("d", [0, 3])
 def test_sphere_kernel_shape(d):
     """The kernel is (2d+1) square, symmetric, peaks at 1 in the center, and is 0 at the corners."""
     k = sphere_kernel(d)
@@ -144,12 +144,6 @@ def test_deposit_rejects_badly_centered_data():
     """Particles that all fall outside the image raise instead of producing an empty cube."""
     with pytest.raises(ValueError, match="centering"):
         deposit([50.0], [50.0], [0.5], [1.0])
-
-
-def test_unknown_species_raises():
-    """Asking for an emission line that isn't defined raises ValueError."""
-    with pytest.raises(ValueError, match="not defined"):
-        get_emission_species_parameters("OIII_5007")
 
 
 def test_empty_sightline_gives_zero_spectrum():

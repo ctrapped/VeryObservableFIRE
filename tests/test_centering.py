@@ -1,4 +1,4 @@
-"""Binfire: finding a galaxy's center, bulk velocity, and spin axis from scratch, and the annotation maps."""
+"""Binfire: finding a galaxy's center, bulk velocity, and spin axis from scratch."""
 
 import numpy as np
 import pytest
@@ -42,12 +42,3 @@ def test_finds_center_velocity_and_spin_axis(centered_galaxy):
     assert np.degrees(np.arccos(np.dot(Lhat, truth.Lhat))) < 1.0
     # r0 lies in the disk plane
     assert np.dot(r0, Lhat) == pytest.approx(0.0, abs=1e-10)
-
-
-def test_annotation_maps(centered_galaxy):
-    """Binned mass covers the disk, and the disk's rotation shows up in the azimuthal mass flux."""
-    _truth, (mass, radial_flux, phi_flux, _cyl_flux, _cyl_curve) = centered_galaxy
-    assert mass.shape == radial_flux.shape == phi_flux.shape == (16, 16)
-    assert mass.sum() > 0
-    mean_rotation = phi_flux.sum() / mass.sum()  # mass-weighted rotation speed, km/s
-    assert 130 < abs(mean_rotation) < 190

@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from tests.conftest import BASE_PARAMS
 from vof.constants import arcsec
 from vof.load_param_file import load_param_file, load_params
 
@@ -95,9 +96,8 @@ def test_load_params(tmp_path):
 
 
 def test_template_parses():
-    """The shipped template parameter file parses, with the values the pipeline expects."""
+    """The shipped template parameter file parses and sets every parameter a run needs."""
     template = Path(__file__).parents[1] / "configs" / "param_template.param"
     params = load_params(str(template))
-    assert params["Nchannels"] == 128
-    assert params["fileDir"].rstrip("/").endswith("/m12m")
-    assert params["speciesToRun"] == "HI_21cm"
+    missing = {*BASE_PARAMS, "fileDir", "statsDir", "output"} - set(params)
+    assert not missing, f"param_template.param is missing {sorted(missing)}"

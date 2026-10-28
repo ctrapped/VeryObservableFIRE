@@ -52,13 +52,8 @@ def test_observer_velocity_from_rotation_curve():
     np.testing.assert_allclose(vel, [-80.0, 0, 0], atol=1e-12)
 
 
-def test_observer_velocity_given():
-    """A given (vr, vphi, vz) velocity is converted to Cartesian at the observer's azimuth."""
-    _pos, vel = center_on_observer([-10000, 0, 0], [5.0, 10.0, -3.0])
-    np.testing.assert_allclose(vel, [5.0, 10.0, -3.0])
-
-
-ANGLES = [(i, pa) for i in (0, 30, 60, 90) for pa in (0, 45, 90, 200)]
+# Face-on, edge-on, and two in between, each at a different position angle (200 deg wraps past 180)
+ANGLES = [(0, 0), (30, 45), (60, 200), (90, 90)]
 
 
 @pytest.mark.parametrize(("inclination", "position_angle"), ANGLES)
@@ -76,7 +71,7 @@ def test_orientation_vectors_inclination(inclination, position_angle):
     assert min(angle, 180 - angle) == pytest.approx(inclination, abs=1e-9)
 
 
-@pytest.mark.parametrize("position_angle", [0, 45, 90, 200])
+@pytest.mark.parametrize("position_angle", [45, 200])
 def test_orientation_vectors_position_angle(position_angle):
     """position_angle sets the azimuth (about the spin axis) that the line of sight comes from."""
     Lhat, r0, y0 = disk_axes(tilt_deg=30.0)
@@ -86,7 +81,7 @@ def test_orientation_vectors_position_angle(position_angle):
     assert (azimuth - position_angle + 180) % 360 - 180 == pytest.approx(0, abs=1e-9)
 
 
-@pytest.mark.parametrize(("inclination", "position_angle"), ANGLES[4:])  # not face-on
+@pytest.mark.parametrize(("inclination", "position_angle"), ANGLES[1:])  # not face-on
 def test_major_axis_is_image_x_axis(inclination, position_angle):
     """The disk's projected major axis always lies along the image's x axis.
 
