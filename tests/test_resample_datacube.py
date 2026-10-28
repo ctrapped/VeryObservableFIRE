@@ -109,10 +109,10 @@ def test_resample_noise_has_target_amplitude(tmp_path):
 
 
 def test_cli_resamples_a_directory(tmp_path, monkeypatch):
-    """vof-resample DIR OUT resamples every .hdf5 cube in DIR into OUT, keeping their names."""
+    """vof-resample DIR OUT resamples every .hdf5 cube in DIR into OUT, keeping their names, plus PNGs."""
     images = tmp_path / "images"
     images.mkdir()
-    for name in ("a.hdf5", "b.hdf5"):
+    for name in ("a_fullSpectra.hdf5", "b_fullSpectra.hdf5"):
         write_cube(images / name)
     (images / "notes.txt").write_text("not a cube")
     output = tmp_path / "resampled"
@@ -124,16 +124,21 @@ def test_cli_resamples_a_directory(tmp_path, monkeypatch):
             "vof-resample",
             str(images),
             str(output),
-            "--spatial_resampling_factor",
+            "--spatial-resampling-factor",
             str(FACTOR),
-            "--target_res",
+            "--target-res",
             str(3 * PIXEL_ARCSEC),
-            "--target_sensitivity",
+            "--target-sensitivity",
             str(NOISE),
+            "--save-png",
         ],
     )
     main()
 
-    assert sorted(p.name for p in output.iterdir()) == ["a.hdf5", "b.hdf5"]
-    with h5py.File(output / "a.hdf5") as hf:
+    cubes = sorted(p.name for p in output.glob("*.hdf5"))
+    assert cubes == ["a_fullSpectra.hdf5", "b_fullSpectra.hdf5"]
+    # --save-png writes the pipeline's diagnostic PNGs, named like the pipeline's
+    assert (output / "a_ZerothMomentMap.png").exists()
+    assert (output / "a_RotationalVelocity.png").exists()
+    with h5py.File(output / "a_fullSpectra.hdf5") as hf:
         assert hf["spectra"].shape == (N // FACTOR, N // FACTOR, NSPEC)

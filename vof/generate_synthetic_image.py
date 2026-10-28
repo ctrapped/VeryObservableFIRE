@@ -43,6 +43,76 @@ def annotation_maps(mass_map, rMom_map, sMom_map, rotMom_map):
     return np.where(filled, mass_map, 0.0), *velocities
 
 
+def save_diagnostic_pngs(output, noisy_image, bandwidth_km_s, annotations=None):
+    """Save zeroth/first-moment PNGs of noisy_image as output + "_<map>.png", plus annotation PNGs.
+
+    annotations: optional (mass [Msun], radial velocity, radial momentum [Msun km/s], cylindrical
+        radial velocity, rotational velocity [km/s]) maps. The first-moment map needs bandwidth_km_s.
+    """
+    plt.figure()
+    m0 = np.sum(noisy_image, 2)
+    vmax = np.max(m0)
+    vmin = vmax * 1e-8
+    plt.imshow(np.abs(m0), norm=LogNorm(vmin=vmin, vmax=vmax), cmap="inferno")
+    plt.colorbar(label="Column Density [cm$^{-2}$]")
+    plt.savefig(output + "_ZerothMomentMap.png")
+    plt.close()
+
+    if bandwidth_km_s is not None:
+        Nspec = np.shape(noisy_image)[2]
+        plt.figure()
+        spec = np.linspace(-bandwidth_km_s / 2, bandwidth_km_s / 2, Nspec)
+        m1 = np.divide(
+            np.sum(np.multiply(noisy_image, spec[None, None, :]), axis=2), m0
+        )
+        plt.imshow(
+            m1, vmin=-bandwidth_km_s / 2, vmax=bandwidth_km_s / 2, cmap="seismic"
+        )
+        plt.colorbar(label="First Moment [km/s]")
+        plt.savefig(output + "_FirstMomentMap.png")
+        plt.close()
+
+    if annotations is not None:
+        mass_map, rVel_map, rMom_map, sVel_map, rotVel_map = annotations
+        plt.figure()
+        plt.imshow(mass_map, norm=LogNorm(), cmap="inferno")
+        plt.colorbar(label="Projected Mass (Msun)")
+        plt.savefig(output + "_ProjectedMass.png")
+        plt.close()
+
+        plt.figure()
+        vmax = 150
+        vmin = -vmax
+        plt.imshow(rVel_map, vmin=vmin, vmax=vmax, cmap="seismic")
+        plt.colorbar(label="Radial Velocity (km/s)")
+        plt.savefig(output + "_RadialVelocity.png")
+        plt.close()
+
+        plt.figure()
+        vmax = np.max(np.abs(rMom_map)) / 2.0
+        vmin = -vmax
+        plt.imshow(rMom_map, vmin=vmin, vmax=vmax, cmap="seismic")
+        plt.colorbar(label="Radial Momentum (Msun km/s)")
+        plt.savefig(output + "_RadialMomentum.png")
+        plt.close()
+
+        plt.figure()
+        vmax = 150
+        vmin = -vmax
+        plt.imshow(sVel_map, vmin=vmin, vmax=vmax, cmap="seismic")
+        plt.colorbar(label="Cylindrical Radial Velocity (km/s)")
+        plt.savefig(output + "_CylRadialVelocity.png")
+        plt.close()
+
+        plt.figure()
+        vmax = 400
+        vmin = 0
+        plt.imshow(rotVel_map, vmin=vmin, vmax=vmax, cmap="inferno")
+        plt.colorbar(label="Rotational Velocity (km/s)")
+        plt.savefig(output + "_RotationalVelocity.png")
+        plt.close()
+
+
 def generate_synthetic_image(
     config,
     fileDir,
@@ -157,64 +227,11 @@ def generate_synthetic_image(
     if (
         savePNG
     ):  # Option to create a column density map to visualize results immediately
-        plt.figure()
-        m0 = np.sum(noisy_image, 2)
-        vmax = np.max(m0)
-        vmin = vmax * 1e-8
-        plt.imshow(np.abs(m0), norm=LogNorm(vmin=vmin, vmax=vmax), cmap="inferno")
-        plt.colorbar(label="Column Density [cm$^{-2}$]")
-        plt.savefig(output + "_ZerothMomentMap.png")
-        plt.close()
-
-        plt.figure()
-        spec = np.linspace(-bandwidth_km_s / 2, bandwidth_km_s / 2, Nspec)
-        m1 = np.divide(
-            np.sum(np.multiply(noisy_image, spec[None, None, :]), axis=2), m0
+        annotations = (
+            (mass_map, rVel_map, rMom_map, sVel_map, rotVel_map)
+            if projectGasProperties
+            else None
         )
-        plt.imshow(
-            m1, vmin=-bandwidth_km_s / 2, vmax=bandwidth_km_s / 2, cmap="seismic"
-        )
-        plt.colorbar(label="First Moment [km/s]")
-        plt.savefig(output + "_FirstMomentMap.png")
-        plt.close()
-
-        if projectGasProperties:
-            plt.figure()
-            plt.imshow(mass_map, norm=LogNorm(), cmap="inferno")
-            plt.colorbar(label="Projected Mass (Msun)")
-            plt.savefig(output + "_ProjectedMass.png")
-            plt.close()
-
-            plt.figure()
-            vmax = 150
-            vmin = -vmax
-            plt.imshow(rVel_map, vmin=vmin, vmax=vmax, cmap="seismic")
-            plt.colorbar(label="Radial Velocity (km/s)")
-            plt.savefig(output + "_RadialVelocity.png")
-            plt.close()
-
-            plt.figure()
-            vmax = np.max(np.abs(rMom_map)) / 2.0
-            vmin = -vmax
-            plt.imshow(rMom_map, vmin=vmin, vmax=vmax, cmap="seismic")
-            plt.colorbar(label="Radial Momentum (Msun km/s)")
-            plt.savefig(output + "_RadialMomentum.png")
-            plt.close()
-
-            plt.figure()
-            vmax = 150
-            vmin = -vmax
-            plt.imshow(sVel_map, vmin=vmin, vmax=vmax, cmap="seismic")
-            plt.colorbar(label="Cylindrical Radial Velocity (km/s)")
-            plt.savefig(output + "_CylRadialVelocity.png")
-            plt.close()
-
-            plt.figure()
-            vmax = 400
-            vmin = 0
-            plt.imshow(rotVel_map, vmin=vmin, vmax=vmax, cmap="inferno")
-            plt.colorbar(label="Rotational Velocity (km/s)")
-            plt.savefig(output + "_RotationalVelocity.png")
-            plt.close()
+        save_diagnostic_pngs(output, noisy_image, bandwidth_km_s, annotations)
 
     logger.info("Finished %s in %.1f s", os.path.basename(output), time.time() - t1)

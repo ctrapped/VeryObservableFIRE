@@ -15,6 +15,7 @@ import scipy
 from vof.constants import (
     arcsec,
 )
+from vof.generate_synthetic_image import save_diagnostic_pngs
 from vof.logging_setup import add_logging_arguments, configure_logging
 
 logger = logging.getLogger(__name__)
@@ -29,13 +30,13 @@ def parse_args():
     parser.add_argument("image_dir", help="Path to the image file/directory")
     parser.add_argument("output_dir", help="Path to the output directory")
     parser.add_argument(
-        "--spatial_resampling_factor",
+        "--spatial-resampling-factor",
         type=int,
         default=1,
         help="By what factor to reduce the number of pixels.",
     )
     parser.add_argument(
-        "--target_res",
+        "--target-res",
         type=float,
         default=None,
         help="What new resolution in arcseconds?",
@@ -43,11 +44,16 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--target_sensitivity",
+        "--target-sensitivity",
         type=float,
         default=None,
         help="What new sensitivity in cm^-2?",
         required=True,
+    )
+    parser.add_argument(
+        "--save-png",
+        action="store_true",
+        help="Also save the moment-map and annotation PNGs the vof pipeline makes with savePng.",
     )
     add_logging_arguments(parser)
     return parser.parse_args()
@@ -87,12 +93,14 @@ def resample_datacube(
     new_noise_level,
     new_resolution_arcsec,
     force_overwrite=False,
+    save_png=False,
 ):
     """
     Function that takes an image and downsamples it
     spatially by spatial_resampling_factor. This uses the ideal images, so noise and smoothing is
     recomputed and set by new_noise_level and new_resolution_arcsec. This is used to create images
-    for new survey parameters without rerunning the whole vof pipeline.
+    for new survey parameters without rerunning the whole vof pipeline. save_png also saves the
+    pipeline's diagnostic PNGs next to the output file.
     """
 
     if Path(output_dir).resolve() == Path(image_dir).resolve() and not force_overwrite:
@@ -150,13 +158,13 @@ def resample_datacube(
     if annotation_data_exists:
         resampled_mass = downsample(mass_annotation, spatial_resampling_factor, "sum")
 
-        resampled_radial_velocity = downsample(
+        resampled_radial_momentum = downsample(
             np.multiply(mass_annotation, radial_velocity_annotation),
             spatial_resampling_factor,
             "sum",
         )
         resampled_radial_velocity = np.divide(
-            resampled_radial_velocity,
+            resampled_radial_momentum,
             resampled_mass,
             out=np.zeros_like(resampled_mass),
             where=resampled_mass > 0,
@@ -209,6 +217,23 @@ def resample_datacube(
             hfo.attrs["annotation_mass_units"] = mass_units
             hfo.attrs["annotation_velocity_units"] = velocity_units
 
+    if save_png:
+        # Named like the pipeline's PNGs: <name>_ZerothMomentMap.png for <name>_fullSpectra.hdf5
+        png_prefix = str(Path(output_dir).with_suffix("")).removesuffix("_fullSpectra")
+        bandwidth_km_s = None if dnu_kmps is None else dnu_kmps * noisy_image.shape[2]
+        annotations = (
+            (
+                resampled_mass,
+                resampled_radial_velocity,
+                resampled_radial_momentum,
+                resampled_cyl_radial_velocity,
+                resampled_rotational_velocity,
+            )
+            if annotation_data_exists
+            else None
+        )
+        save_diagnostic_pngs(png_prefix, noisy_image, bandwidth_km_s, annotations)
+
 
 def main():
     """Run the pipeline for every image in the directory."""
@@ -227,6 +252,7 @@ def main():
                     args.spatial_resampling_factor,
                     args.target_sensitivity,
                     args.target_res,
+                    save_png=args.save_png,
                 )
             except (OSError, KeyError, ValueError) as err:
                 logger.warning("Could not process: %s: %s", path, err)
@@ -237,6 +263,7 @@ def main():
             args.spatial_resampling_factor,
             args.target_sensitivity,
             args.target_res,
+            save_png=args.save_png,
         )
 
     logger.info("Finished all images in %.1f s", time.time() - startTime)
