@@ -48,7 +48,7 @@ pip install -e ".[fits]"    # + FITS export and data augmentation (astropy, unyt
 pip install -e ".[dev]"     # + development tools (ruff, pytest, pre-commit)
 ```
 
-This installs the `vof` package and three commands: `vof`, `vof-to-fits`, and `vof-augment`. The `-e` (editable) install links to this folder rather than copying it, so code changes and `git pull`s take effect without reinstalling.
+This installs the `vof` package and four commands: `vof`, `vof-to-fits`, `vof-augment`, and `vof-resample`. The `-e` (editable) install links to this folder rather than copying it, so code changes and `git pull`s take effect without reinstalling.
 
 ## Usage
 
@@ -80,7 +80,7 @@ vof <param_file> [--galName NAME] [--minSnap N] [--maxSnap N] [--inclination DEG
 - `--minSnap` overrides the starting snapshot number.
 - `--maxSnap` overrides the ending snapshot number. If omitted it defaults to `--minSnap`, i.e. a single snapshot.
 - `--inclination` restricts the run to this one inclination instead of the `inclinations` list in the file.
-- `-v`/`--verbose` shows debug messages (per-step details, timings, intermediate values); `-q`/`--quiet` shows only warnings and errors. By default, progress is logged at the INFO level with timestamps, about one line per image. `vof-to-fits` and `vof-augment` accept the same two flags.
+- `-v`/`--verbose` shows debug messages (per-step details, timings, intermediate values); `-q`/`--quiet` shows only warnings and errors. By default, progress is logged at the INFO level with timestamps, about one line per image. `vof-to-fits`, `vof-augment`, and `vof-resample` accept the same two flags.
 
 ## Parameters
 
@@ -158,6 +158,7 @@ vof/
   write_annotations.py          Writes Binfire annotation files and previews
   convert_to_fits.py            `vof-to-fits`: HDF5 datacube -> FITS cube
   data_augmentation.py          `vof-augment`: rotation/flip augmentation, optional SoFiA-2 denoising
+  resample_datacube.py          `vof-resample`: re-observe existing cubes at a new pixel size, beam, and noise level
   run_sofia_for_vof.sh          Wrapper used by augmentation to run SoFiA-2
   io/                           FIRE snapshot readers and loaders (load_data.py, readsnap_vof.py)
   binfire/                      Binfire: centering (shrinking sphere), disk orientation, and binned

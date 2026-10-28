@@ -28,6 +28,7 @@ dev = ["ruff", "pytest", "pre-commit"]
 vof = "vof.very_observable_fire:main"
 vof-to-fits = "vof.convert_to_fits:main"
 vof-augment = "vof.data_augmentation:main"
+vof-resample = "vof.resample_datacube:main"
 
 [tool.setuptools.packages.find]
 include = ["vof*"]
