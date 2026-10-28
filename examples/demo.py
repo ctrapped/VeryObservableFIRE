@@ -1,12 +1,13 @@
-"""Demo: build a small synthetic galaxy, "observe" it with VOF, and plot the results.
+"""Demo: build a small synthetic galaxy, make a synthetic image with VOF, and plot the results.
 
 Needs no simulation data and runs in a few seconds. From the repository root:
 
     python examples/demo.py                 # writes examples/demo_output/demo.png
+    or
     python examples/demo.py --output DIR
 
-The galaxy is the rotating disk the test suite uses (tests/synthetic_galaxy.py), written in
-the same file format as a real FIRE snapshot, so VOF runs on it exactly as it would on
+The galaxy is a rotating disk the test suite uses (tests/synthetic_galaxy.py), written in
+the same file format as a FIRE snapshot, so VOF runs on it exactly as it would on
 simulation data.
 """
 
@@ -118,7 +119,7 @@ def plot(cube_file, figure_file):
     disk = mass > 1e-3 * mass.max()
 
     extent = [-MAX_RADIUS, MAX_RADIUS, -MAX_RADIUS, MAX_RADIUS]
-    # Each panel's colorbar label doubles as its title: what it shows (line 1), and the quantity and units (line 2)
+    # Each panel's colorbar label doubles as its title
     panels = [
         (
             "Mock observation\nHI column density [cm$^{-2}$]",
@@ -151,17 +152,15 @@ def plot(cube_file, figure_file):
     cbar_label_line_spacing = 20  # points between the baselines of the two label lines
     tickmarks = [-15, -10, -5, 0, 5, 10, 15]
     ticklabels = ["-15", "-10", "-5", "0", "5", "10", "15"]
-    # Taller than a single row of square panels, to make room for the colorbars above them
+
     fig, axes = plt.subplots(1, 4, figsize=(17, 5.2), constrained_layout=True)
     for ax, (label, image, style) in zip(axes, panels):
         im = ax.imshow(image, origin="lower", extent=extent, **style)
         ax.set_xlabel("x [kpc]", fontsize=labelsize)
-        # location="top" puts the colorbar, its ticks, and its label above the image
+
         cbar = fig.colorbar(im, ax=ax, location="top", shrink=0.9, pad=0.02)
         cbar.ax.tick_params(labelsize=cbar_ticksize)
-        # Each label line at a fixed height above its colorbar, so the labels line up across panels
-        # (cbar.set_label would sit above the tick labels, which are taller on log scales, and
-        # a superscript/subscript would change the spacing between the two lines)
+
         for i, line in enumerate(reversed(label.split("\n"))):
             offset = cbar_label_offset + i * cbar_label_line_spacing
             above_ticks = offset_copy(
@@ -179,7 +178,7 @@ def plot(cube_file, figure_file):
         ax.set_xticks(tickmarks, ticklabels, fontsize=ticksize)
         ax.set_yticks(tickmarks, ticklabels, fontsize=ticksize)
     axes[0].set_ylabel("y [kpc]", fontsize=labelsize)
-    # "tight" trims the figure to its contents, so the x-axis labels aren't clipped
+
     fig.savefig(figure_file, dpi=110, bbox_inches="tight")
     plt.close(fig)
 
