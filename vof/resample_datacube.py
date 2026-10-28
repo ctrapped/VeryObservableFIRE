@@ -20,6 +20,10 @@ from vof.logging_setup import add_logging_arguments, configure_logging
 
 logger = logging.getLogger(__name__)
 
+CYL_VELOCITY = "cylindrical_radial_velocity_annotation"
+# Older VOF versions wrote CYL_VELOCITY under this misspelled name
+MISSPELLED_CYL_VELOCITY = "cylindrial_radial_velocity_annotation"
+
 
 def parse_args():
     """Parse the command-line arguments."""
@@ -86,6 +90,20 @@ def downsample(img, factor, method="mean"):
         return reshaped.sum(axis=(1, 3)).astype(img.dtype)
 
 
+def fix_misspelled_dataset(path):
+    """Rename path's MISSPELLED_CYL_VELOCITY dataset to CYL_VELOCITY in place; the data is not copied."""
+    try:
+        with h5py.File(path, "r+") as hf:
+            hf.move(MISSPELLED_CYL_VELOCITY, CYL_VELOCITY)
+    except OSError as err:
+        # e.g. no write permission; the resampled output is still correct
+        logger.warning(
+            "Could not rename %s in %s: %s", MISSPELLED_CYL_VELOCITY, path, err
+        )
+        return
+    logger.info("Renamed %s to %s in %s", MISSPELLED_CYL_VELOCITY, CYL_VELOCITY, path)
+
+
 def resample_datacube(
     image_dir,
     output_dir,
@@ -115,12 +133,13 @@ def resample_datacube(
         dnu_kmps = hfi.attrs.get("dnu_kmps")
 
         annotation_data_exists = "mass_annotation" in hfi
+        misspelled = MISSPELLED_CYL_VELOCITY in hfi and CYL_VELOCITY not in hfi
 
         if annotation_data_exists:
             mass_annotation = hfi["mass_annotation"][...]
             radial_velocity_annotation = hfi["radial_velocity_annotation"][...]
             cylindrical_radial_velocity_annotation = hfi[
-                "cylindrical_radial_velocity_annotation"
+                MISSPELLED_CYL_VELOCITY if misspelled else CYL_VELOCITY
             ][...]
             rotational_velocity_annotation = hfi["rotational_velocity_annotation"][...]
             mass_units = hfi.attrs.get("annotation_mass_units")
@@ -130,6 +149,9 @@ def resample_datacube(
                 "No annotation datasets in: %s",
                 image_dir,
             )
+
+    if misspelled:
+        fix_misspelled_dataset(image_dir)
 
     # Smooth the image with new beam
     sigma = new_resolution_arcsec / pixel_size_arcsec / (2 * np.sqrt(2 * np.log(2)))
@@ -208,7 +230,7 @@ def resample_datacube(
                 "radial_velocity_annotation", data=resampled_radial_velocity
             )
             hfo.create_dataset(
-                "cylindrical_radial_velocity_annotation",
+                CYL_VELOCITY,
                 data=resampled_cyl_radial_velocity,
             )
             hfo.create_dataset(
