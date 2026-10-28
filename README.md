@@ -15,8 +15,14 @@
 
 - **Physics:** places the galaxy at a chosen distance and viewing angle, then computes Doppler-shifted, thermally broadened spectra along each sightline, smooths the image to instrument resolution, and adds noise.
 - **Training labels:** projects the true gas mass, radial velocity, and rotational velocity onto the same pixels as the mock observation, for use training neural networks or validating model fits.
-- **Performance:** a fast projection mode (recommended) deposits particles onto the image grid, grouping them by kernel size and choosing per group between sparse-matrix stamping and FFT convolution. This takes 30 seconds to generate and write a 512×512×128 HI 21cm datacube at a single viewing angle for a full-resolution FIRE-2 snapshot (~3,000,000 gas particles in the region of interest). The time to load, center, and process the snapshot is about 400 seconds, and is done once for multiple viewing angles. For 56 viewing angles of a single galaxy, this takes ~35 minutes, or ~2,300 images per day on a laptop (Apple M4 Max - 128 GB RAM, 16 core, single threaded).
-- **Development:** an installable Python package with command-line tools, plain-text config files with command-line overrides, and logging. 80+ automated tests run on a synthetic galaxy in the FIRE file format, including end-to-end checks against stored reference outputs. Continuous integration (GitHub Actions) runs linting ([ruff](https://docs.astral.sh/ruff/), via pre-commit) and the tests on Python 3.10–3.14.
+- **Performance:** a fast projection mode (recommended) deposits particles onto the image grid, grouping them by kernel size and choosing per group between sparse-matrix stamping and FFT convolution.
+  -Takes 30 seconds to generate and write a 512×512×128 HI 21cm datacube at a single viewing angle for a full-resolution FIRE-2 snapshot (~3,000,000 gas particles in the region of interest).
+  -Loading, centering, and processing the snapshot takes ~400 seconds (done once for multiple viewing angles). 
+  -Total time for 56 viewing angles of a single galaxy is ~35 mintues, or ~2,300 images per day on a laptop (Apple M4 Max - 128 GB RAM, 16 core, single threaded).
+- **Development:** 
+  -An installable Python package with command-line tools, plain-text config files with command-line overrides, and logging.
+  -80+ automated tests run on a toy galaxy in the FIRE file format, including end-to-end checks against stored reference outputs.
+  -Continuous integration (GitHub Actions) runs linting ([ruff](https://docs.astral.sh/ruff/), via pre-commit) and the tests on Python 3.10–3.14.
 
 ## Why
 
